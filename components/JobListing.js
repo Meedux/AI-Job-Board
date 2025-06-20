@@ -1,7 +1,17 @@
-import JobCard from './JobCard';
+'use client';
 
-const JobListing = ({ jobs = [] }) => {
-  // Mock job data if none provided
+import { useState, useEffect } from 'react';
+import JobCard from './JobCard';
+import { jobsApi } from '../utils/jobsApi';
+import { colors, typography } from '../utils/designSystem';
+
+const JobListing = ({ searchFilters = {} }) => {
+  const [jobs, setJobs] = useState([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState(null);
+  const [total, setTotal] = useState(0);
+
+  // Mock job data as fallback
   const mockJobs = [
     {
       id: 1,
