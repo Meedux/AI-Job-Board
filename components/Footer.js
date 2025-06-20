@@ -47,6 +47,17 @@ const Footer = () => {
               </a>
             ))}
           </div>
+
+          {/* Navigation Links */}
+          <div className={`flex flex-wrap justify-center ${spacing.gapMedium} mb-6`}>
+            <Link href="/about" className={`${components.nav.link} ${typography.bodyBase}`}>
+              About
+            </Link>
+            <Link href="/terms" className={`${components.nav.link} ${typography.bodyBase}`}>
+              Terms of Service
+            </Link>
+          </div>
+
           {/* Copyright */}
           <div className={`${typography.bodySmall} ${colors.neutral.textMuted}`}>
             © 2025 GetGetHired - All Rights Reserved

@@ -13,7 +13,6 @@ const Header = () => {
     { label: 'Payment Method', href: '/payment-method' },
     { label: 'ResumeSync', href: '/resume-analyzer' },
     { label: 'Pricing', href: '/pricing' },
-    { label: 'About Us', href: '/about' },
     { label: 'Feedback', href: '/feedback' },
   ];
 
