@@ -119,51 +119,51 @@ const Header = () => {
             <div className="p-6">
               <p className={`${colors.neutral.textTertiary} ${typography.bodyBase} mb-6`}>
                 Hire the best. Share your job post with thousands of job seekers.
-              </p>
-              <form className="space-y-4">
+              </p>              <form className="space-y-6">
                 <div>
-                  <label className={`block ${typography.bodySmall} font-medium ${colors.neutral.textSecondary} mb-2`}>Company Name</label>
+                  <label className={`block ${typography.bodyBase} font-medium ${colors.neutral.textPrimary} mb-2`}>Company Name</label>
                   <input
                     type="text"
                     placeholder="Amazon"
-                    className={components.input.base}
+                    className={`w-full rounded-lg ${colors.neutral.border} ${colors.neutral.surface} px-4 py-3 ${typography.bodyBase} placeholder:${colors.neutral.textMuted} hover:${colors.neutral.borderHover} focus:border-blue-500 focus:outline-none focus:ring-2 focus:ring-blue-500/20 transition-all duration-200`}
                     required
                   />
                 </div>
                 <div>
-                  <label className={`block ${typography.bodySmall} font-medium ${colors.neutral.textSecondary} mb-2`}>Website</label>
+                  <label className={`block ${typography.bodyBase} font-medium ${colors.neutral.textPrimary} mb-2`}>Website</label>
                   <input
                     type="url"
                     placeholder="https://amazon.com"
-                    className={components.input.base}
+                    className={`w-full rounded-lg ${colors.neutral.border} ${colors.neutral.surface} px-4 py-3 ${typography.bodyBase} placeholder:${colors.neutral.textMuted} hover:${colors.neutral.borderHover} focus:border-blue-500 focus:outline-none focus:ring-2 focus:ring-blue-500/20 transition-all duration-200`}
                     required
                   />
                 </div>
                 <div>
-                  <label className={`block ${typography.bodySmall} font-medium ${colors.neutral.textSecondary} mb-2`}>Job Title</label>
+                  <label className={`block ${typography.bodyBase} font-medium ${colors.neutral.textPrimary} mb-2`}>Job Title</label>
                   <input
                     type="text"
                     placeholder="Software Engineer"
-                    className={components.input.base}
+                    className={`w-full rounded-lg ${colors.neutral.border} ${colors.neutral.surface} px-4 py-3 ${typography.bodyBase} placeholder:${colors.neutral.textMuted} hover:${colors.neutral.borderHover} focus:border-blue-500 focus:outline-none focus:ring-2 focus:ring-blue-500/20 transition-all duration-200`}
                     required
                   />
                 </div>
                 <div>
-                  <label className={`block ${typography.bodySmall} font-medium ${colors.neutral.textSecondary} mb-2`}>Job Description</label>
+                  <label className={`block ${typography.bodyBase} font-medium ${colors.neutral.textPrimary} mb-2`}>Job Description</label>
                   <textarea
                     rows="4"
-                    className={components.input.base}
+                    placeholder="Describe the role, requirements, and responsibilities..."
+                    className={`w-full rounded-lg ${colors.neutral.border} ${colors.neutral.surface} px-4 py-3 ${typography.bodyBase} placeholder:${colors.neutral.textMuted} hover:${colors.neutral.borderHover} focus:border-blue-500 focus:outline-none focus:ring-2 focus:ring-blue-500/20 transition-all duration-200 resize-vertical`}
                     required
                   ></textarea>
                 </div>
                 <div>
-                  <label className={`block ${typography.bodySmall} font-medium ${colors.neutral.textSecondary} mb-2`}>
-                    Email <span className={`${colors.neutral.textMuted} ${typography.bodyXSmall}`}>(We will contact you via this email)</span>
+                  <label className={`block ${typography.bodyBase} font-medium ${colors.neutral.textPrimary} mb-2`}>
+                    Email <span className={`${colors.neutral.textMuted} ${typography.bodySmall} font-normal`}>(We will contact you via this email)</span>
                   </label>
                   <input
                     type="email"
                     placeholder="jobs@amazon.com"
-                    className={components.input.base}
+                    className={`w-full rounded-lg ${colors.neutral.border} ${colors.neutral.surface} px-4 py-3 ${typography.bodyBase} placeholder:${colors.neutral.textMuted} hover:${colors.neutral.borderHover} focus:border-blue-500 focus:outline-none focus:ring-2 focus:ring-blue-500/20 transition-all duration-200`}
                     required
                   />
                 </div>
