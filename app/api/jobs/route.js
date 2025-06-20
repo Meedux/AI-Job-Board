@@ -1,8 +1,9 @@
 // API route to fetch jobs from Google Sheets
 import { 
   fetchSheetData, 
-  convertSheetRowsToJobs, 
-  processJobsWithDocContent 
+  convertContentSheetToJobs, 
+  processJobsWithDocContent,
+  filterJobs
 } from '../../../utils/googleApi';
 
 export async function GET(request) {
@@ -12,10 +13,14 @@ export async function GET(request) {
     const search = searchParams.get('search') || '';
     const location = searchParams.get('location') || '';
     const type = searchParams.get('type') || '';
+    const level = searchParams.get('level') || '';
+    const category = searchParams.get('category') || '';
+    const remote = searchParams.get('remote') === 'true';
+    const includeExpired = searchParams.get('includeExpired') === 'true';
 
-    // Configuration - these should be environment variables
+    // Configuration - using "Content" sheet as specified
     const SPREADSHEET_ID = process.env.GOOGLE_SPREADSHEET_ID;
-    const SHEET_RANGE = process.env.GOOGLE_SHEET_RANGE || 'Jobs!A:Z'; // Adjust range as needed
+    const SHEET_RANGE = process.env.GOOGLE_SHEET_RANGE || 'Content!A:P'; // Covers columns A-P for all expected data
 
     if (!SPREADSHEET_ID) {
       return Response.json(
@@ -31,45 +36,35 @@ export async function GET(request) {
       return Response.json({ jobs: [], total: 0 });
     }
 
-    // Convert sheet rows to job objects
-    let jobs = convertSheetRowsToJobs(sheetData);
+    // Convert sheet rows to job objects using new structure
+    let jobs = convertContentSheetToJobs(sheetData);
 
-    // Filter jobs based on search parameters
-    if (search) {
-      const searchLower = search.toLowerCase();
-      jobs = jobs.filter(job => 
-        (job.title?.toLowerCase().includes(searchLower)) ||
-        (job.company?.toLowerCase().includes(searchLower)) ||
-        (job.description?.toLowerCase().includes(searchLower)) ||
-        (job.skills?.toLowerCase().includes(searchLower))
-      );
-    }
+    // Apply filters using the new filtering function
+    const filters = {
+      search,
+      location,
+      type,
+      level,
+      category,
+      remote,
+      includeExpired
+    };
+    
+    jobs = filterJobs(jobs, filters);
 
-    if (location) {
-      const locationLower = location.toLowerCase();
-      jobs = jobs.filter(job => 
-        job.location?.toLowerCase().includes(locationLower)
-      );
-    }
-
-    if (type) {
-      jobs = jobs.filter(job => 
-        job.type?.toLowerCase() === type.toLowerCase()
-      );
-    }
-
-    // Limit results
+    // Apply limit and pagination
     const totalJobs = jobs.length;
-    jobs = jobs.slice(0, limit);
+    const paginatedJobs = jobs.slice(0, limit);
 
     // Process jobs with Google Docs content (if any)
-    const processedJobs = await processJobsWithDocContent(jobs);
+    const processedJobs = await processJobsWithDocContent(paginatedJobs);
 
     return Response.json({
       jobs: processedJobs,
       total: totalJobs,
       limit,
-      hasMore: totalJobs > limit
+      hasMore: totalJobs > limit,
+      filters: filters // Return applied filters for debugging
     });
 
   } catch (error) {

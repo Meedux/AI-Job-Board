@@ -1,24 +1,24 @@
 // API route to fetch individual job details
 import { 
   fetchSheetData, 
-  convertSheetRowsToJobs, 
+  convertContentSheetToJobs, 
   processJobsWithDocContent 
 } from '../../../../utils/googleApi';
 
 export async function GET(request, { params }) {
   try {
-    const jobId = params.id;
+    const jobSlug = params.id; // This will be the slug since we're using slug as ID
 
-    if (!jobId) {
+    if (!jobSlug) {
       return Response.json(
-        { error: 'Job ID is required' },
+        { error: 'Job slug is required' },
         { status: 400 }
       );
     }
 
-    // Configuration
+    // Configuration - using "Content" sheet as specified
     const SPREADSHEET_ID = process.env.GOOGLE_SPREADSHEET_ID;
-    const SHEET_RANGE = process.env.GOOGLE_SHEET_RANGE || 'Jobs!A:Z';
+    const SHEET_RANGE = process.env.GOOGLE_SHEET_RANGE || 'Content!A:P'; // Covers columns A-P for all expected data
 
     if (!SPREADSHEET_ID) {
       return Response.json(
@@ -37,11 +37,11 @@ export async function GET(request, { params }) {
       );
     }
 
-    // Convert sheet rows to job objects
-    const jobs = convertSheetRowsToJobs(sheetData);
+    // Convert sheet rows to job objects using new structure
+    const jobs = convertContentSheetToJobs(sheetData);
 
-    // Find the specific job
-    const job = jobs.find(j => j.id === jobId || j.slug === jobId);
+    // Find the specific job by slug (which is used as ID)
+    const job = jobs.find(j => j.slug === jobSlug || j.id === jobSlug);
 
     if (!job) {
       return Response.json(
