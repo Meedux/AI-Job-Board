@@ -15,10 +15,9 @@ const Header = () => {
     { label: 'Pricing', href: '/pricing' },
     { label: 'Feedback', href: '/feedback' },
   ];
-
   return (
     <>
-      <header className={`${colors.neutral.backgroundSecondary} ${colors.neutral.borderLight} border-b`}>
+      <header className={`fixed top-0 left-0 right-0 z-40 lg:static ${colors.neutral.backgroundSecondary} ${colors.neutral.borderLight} border-b backdrop-blur-sm bg-opacity-95`}>
         <div className={layout.container}>
           <div className="flex justify-between items-center py-4">
             {/* Logo */}
@@ -71,7 +70,7 @@ const Header = () => {
           </div>
         </div>        {/* Mobile Navigation */}
         {isMenuOpen && (
-          <div className={`lg:hidden ${colors.neutral.surface} ${colors.neutral.borderLight} border-t`}>
+          <div className={`lg:hidden ${colors.neutral.surface} ${colors.neutral.borderLight} border-t backdrop-blur-sm bg-opacity-95`}>
             <div className="px-4 py-4 space-y-3">
               {navItems.map((item) => (
                 <Link
