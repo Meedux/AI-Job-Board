@@ -3,13 +3,13 @@ import {
   fetchSheetData, 
   convertContentSheetToJobs, 
   processJobsWithDocContent,
-  filterJobs
+  filterJobs,
+  sortJobs
 } from '../../../utils/googleApi';
 
 export async function GET(request) {
   try {
-    const { searchParams } = new URL(request.url);
-    const limit = parseInt(searchParams.get('limit')) || 10;
+    const { searchParams } = new URL(request.url);    const limit = parseInt(searchParams.get('limit')) || 10;
     const search = searchParams.get('search') || '';
     const location = searchParams.get('location') || '';
     const type = searchParams.get('type') || '';
@@ -17,6 +17,7 @@ export async function GET(request) {
     const category = searchParams.get('category') || '';
     const remote = searchParams.get('remote') === 'true';
     const includeExpired = searchParams.get('includeExpired') === 'true';
+    const sortBy = searchParams.get('sortBy') || '';
 
     // Configuration - using "Content" sheet as specified
     const SPREADSHEET_ID = process.env.GOOGLE_SPREADSHEET_ID;
@@ -37,9 +38,7 @@ export async function GET(request) {
     }
 
     // Convert sheet rows to job objects using new structure
-    let jobs = convertContentSheetToJobs(sheetData);
-
-    // Apply filters using the new filtering function
+    let jobs = convertContentSheetToJobs(sheetData);    // Apply filters using the new filtering function
     const filters = {
       search,
       location,
@@ -51,6 +50,9 @@ export async function GET(request) {
     };
     
     jobs = filterJobs(jobs, filters);
+
+    // Apply sorting
+    jobs = sortJobs(jobs, sortBy);
 
     // Apply limit and pagination
     const totalJobs = jobs.length;

@@ -248,7 +248,6 @@ export const filterJobs = (jobs, filters = {}) => {
       )
     );
   }
-
   // Remote filter
   if (filters.remote) {
     filteredJobs = filteredJobs.filter(job => 
@@ -257,4 +256,90 @@ export const filterJobs = (jobs, filters = {}) => {
   }
 
   return filteredJobs;
+};
+
+// Sort jobs based on the provided sort option
+export const sortJobs = (jobs, sortBy) => {
+  if (!sortBy) return jobs;
+
+  const sortedJobs = [...jobs];
+
+  switch (sortBy) {
+    case 'to_salary':
+      // Sort by salary ascending (lowest first)
+      return sortedJobs.sort((a, b) => {
+        const salaryA = parseSalary(a.salary) || 0;
+        const salaryB = parseSalary(b.salary) || 0;
+        return salaryA - salaryB;
+      });
+    
+    case '-to_salary':
+      // Sort by salary descending (highest first)
+      return sortedJobs.sort((a, b) => {
+        const salaryA = parseSalary(a.salary) || 0;
+        const salaryB = parseSalary(b.salary) || 0;
+        return salaryB - salaryA;
+      });
+    
+    case 'job_title':
+      // Sort by job title ascending (A-Z)
+      return sortedJobs.sort((a, b) => 
+        (a.title || '').localeCompare(b.title || '')
+      );
+    
+    case '-job_title':
+      // Sort by job title descending (Z-A)
+      return sortedJobs.sort((a, b) => 
+        (b.title || '').localeCompare(a.title || '')
+      );
+    
+    case 'job_location':
+      // Sort by location ascending (A-Z)
+      return sortedJobs.sort((a, b) => 
+        (a.location || '').localeCompare(b.location || '')
+      );
+    
+    case '-job_location':
+      // Sort by location descending (Z-A)
+      return sortedJobs.sort((a, b) => 
+        (b.location || '').localeCompare(a.location || '')
+      );
+    
+    case 'remote':
+      // Sort by remote status (remote jobs first)
+      return sortedJobs.sort((a, b) => {
+        const remoteA = a.remote?.toLowerCase() === 'yes' ? 1 : 0;
+        const remoteB = b.remote?.toLowerCase() === 'yes' ? 1 : 0;
+        return remoteB - remoteA;
+      });
+    
+    case '-remote':
+      // Sort by remote status (on-site jobs first)
+      return sortedJobs.sort((a, b) => {
+        const remoteA = a.remote?.toLowerCase() === 'yes' ? 1 : 0;
+        const remoteB = b.remote?.toLowerCase() === 'yes' ? 1 : 0;
+        return remoteA - remoteB;
+      });
+    
+    default:
+      return jobs;
+  }
+};
+
+// Helper function to parse salary strings for sorting
+const parseSalary = (salaryStr) => {
+  if (!salaryStr) return 0;
+  
+  // Remove currency symbols and extract numbers
+  const cleanSalary = salaryStr.toString().replace(/[^\d.-]/g, '');
+  const salary = parseFloat(cleanSalary);
+  
+  // Handle common salary formats (K = thousand, M = million)
+  if (salaryStr.toLowerCase().includes('k')) {
+    return salary * 1000;
+  } else if (salaryStr.toLowerCase().includes('m')) {
+    return salary * 1000000;
+  }
+  
+  return isNaN(salary) ? 0 : salary;
 };

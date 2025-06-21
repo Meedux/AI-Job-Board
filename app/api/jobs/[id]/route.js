@@ -7,7 +7,7 @@ import {
 
 export async function GET(request, { params }) {
   try {
-    const jobSlug = params.id; // This will be the slug since we're using slug as ID
+    const jobSlug = await params.id; // This will be the slug since we're using slug as ID
 
     if (!jobSlug) {
       return Response.json(

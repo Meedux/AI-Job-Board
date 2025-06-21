@@ -11,92 +11,129 @@ const SearchFilters = ({ onSearch, onFilter }) => {
   const [sortBy, setSortBy] = useState('');
 
   const locations = [
-    'All locations',
-    'San Francisco',
-    'London',
-    'New York',
-    'Paris',
-    'Amsterdam',
-    'Mountain View',
-    'Tokyo',
-    'Toronto',
-    'Manila'
+    { value: '', label: 'All locations' },
+    { value: 'San Francisco', label: 'San Francisco' },
+    { value: 'London', label: 'London' },
+    { value: 'New York', label: 'New York' },
+    { value: 'Paris', label: 'Paris' },
+    { value: 'Amsterdam', label: 'Amsterdam' },
+    { value: 'Mountain View', label: 'Mountain View' },
+    { value: 'Tokyo', label: 'Tokyo' },
+    { value: 'Toronto', label: 'Toronto' },
+    { value: 'Manila', label: 'Manila' }
   ];
 
   const categories = [
-    'All categories',
-    'Design',
-    'Engineer',
-    'Human Resources',
-    'Marketing'
+    { value: '', label: 'All categories' },
+    { value: 'Design', label: 'Design' },
+    { value: 'Engineer', label: 'Engineer' },
+    { value: 'Human Resources', label: 'Human Resources' },
+    { value: 'Marketing', label: 'Marketing' }
   ];
 
   const levels = [
-    'All levels',
-    'Fresher',
-    'Junior',
-    'Middle',
-    'Senior',
-    'Entry'
+    { value: '', label: 'All levels' },
+    { value: 'Fresher', label: 'Fresher' },
+    { value: 'Junior', label: 'Junior' },
+    { value: 'Middle', label: 'Middle' },
+    { value: 'Senior', label: 'Senior' },
+    { value: 'Entry', label: 'Entry' }
   ];
 
   const sortOptions = [
-    'Default order',
-    '⬆️ Salary',
-    '⬇️ Salary',
-    '⬆️ Job Title',
-    '⬇️ Job Title',
-    '⬆️ Location',
-    '⬇️ Location',
-    '⬆️ Remote',
-    '⬇️ Remote'
+    { value: '', label: 'Default order' },
+    { value: '-to_salary', label: '⬆️ Salary' },
+    { value: 'to_salary', label: '⬇️ Salary' },
+    { value: 'job_title', label: '️️⬆️ Job Title' },
+    { value: '-job_title', label: '⬇️ Job Title' },
+    { value: 'job_location', label: '️️⬆️ Location' },
+    { value: '-job_location', label: '⬇️ Location' },
+    { value: 'remote', label: '️️⬆️ Remote' },
+    { value: '-remote', label: '⬇️ Remote' }
   ];
+  const handleFilterChange = (filterType, value) => {
+    // Update local state first
+    let updatedSearchTerm = searchTerm;
+    let updatedLocation = location;
+    let updatedCategory = category;
+    let updatedLevel = level;
+    let updatedSortBy = sortBy;
 
-  const handleSearch = (e) => {
-    e.preventDefault();
-    onSearch && onSearch({
-      searchTerm,
-      location,
-      category,
-      level,
-      sortBy
-    });
+    switch (filterType) {
+      case 'search':
+        updatedSearchTerm = value;
+        setSearchTerm(value);
+        break;
+      case 'location':
+        updatedLocation = value;
+        setLocation(value);
+        break;
+      case 'category':
+        updatedCategory = value;
+        setCategory(value);
+        break;
+      case 'level':
+        updatedLevel = value;
+        setLevel(value);
+        break;
+      case 'sortBy':
+        updatedSortBy = value;
+        setSortBy(value);
+        break;
+    }
+
+    // Create search parameters for backend compatibility
+    const searchParams = {
+      search: updatedSearchTerm.trim(),
+      location: updatedLocation,
+      category: updatedCategory,
+      level: updatedLevel,
+      type: '', // Keep for backend compatibility
+      remote: false, // Keep for backend compatibility
+      sortBy: updatedSortBy
+    };
+
+    // Call backend with updated filters
+    onSearch && onSearch(searchParams);
   };
 
+  const handleSubmit = (e) => {
+    e.preventDefault();
+    handleFilterChange('search', searchTerm);
+  };
   return (
     <div className={`${components.card.base} ${components.card.padding} ${layout.maxWidth} mt-10`}>
-      <form onSubmit={handleSearch}>
+      <form onSubmit={handleSubmit}>
         <div className="grid grid-cols-12 gap-4">
           {/* Search Input */}
           <div className="col-span-12 lg:col-span-3">
             <div className="relative">
               <input
-                type="text"
+                className={`${components.input.base} pl-10`}
                 placeholder="Search jobs..."
+                type="text"
                 value={searchTerm}
                 onChange={(e) => setSearchTerm(e.target.value)}
-                className={`${components.input.base} pl-10`}
               />
               <div className="absolute left-3 top-1/2 transform -translate-y-1/2">
-                <svg className={`w-5 h-5 ${colors.neutral.textMuted}`} fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
+                <svg xmlns="http://www.w3.org/2000/svg" className={`h-5 w-5 ${colors.neutral.textMuted}`} fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="m21 21-5.197-5.197m0 0A7.5 7.5 0 1 0 5.196 5.196a7.5 7.5 0 0 0 10.607 10.607Z"></path>
                 </svg>
               </div>
             </div>
           </div>
 
-          {/* Filter Options */}
           <div className="col-span-12 lg:col-span-9 grid grid-cols-1 lg:grid-cols-4 gap-4">
             {/* Location Filter */}
             <div>
-              <select
-                value={location}
-                onChange={(e) => setLocation(e.target.value)}
+              <select 
                 className={components.input.base}
+                value={location}
+                onChange={(e) => handleFilterChange('location', e.target.value)}
               >
                 {locations.map((loc) => (
-                  <option key={loc} value={loc === 'All locations' ? '' : loc}>
-                    {loc}
+                  <option key={loc.value} value={loc.value}>
+                    {loc.label}
                   </option>
                 ))}
               </select>
@@ -104,14 +141,14 @@ const SearchFilters = ({ onSearch, onFilter }) => {
 
             {/* Category Filter */}
             <div>
-              <select
-                value={category}
-                onChange={(e) => setCategory(e.target.value)}
+              <select 
                 className={components.input.base}
+                value={category}
+                onChange={(e) => handleFilterChange('category', e.target.value)}
               >
                 {categories.map((cat) => (
-                  <option key={cat} value={cat === 'All categories' ? '' : cat}>
-                    {cat}
+                  <option key={cat.value} value={cat.value}>
+                    {cat.label}
                   </option>
                 ))}
               </select>
@@ -119,44 +156,34 @@ const SearchFilters = ({ onSearch, onFilter }) => {
 
             {/* Level Filter */}
             <div>
-              <select
-                value={level}
-                onChange={(e) => setLevel(e.target.value)}
+              <select 
                 className={components.input.base}
+                value={level}
+                onChange={(e) => handleFilterChange('level', e.target.value)}
               >
                 {levels.map((lvl) => (
-                  <option key={lvl} value={lvl === 'All levels' ? '' : lvl}>
-                    {lvl}
+                  <option key={lvl.value} value={lvl.value}>
+                    {lvl.label}
                   </option>
                 ))}
               </select>
             </div>
 
-            {/* Sort Options */}
+            {/* Sort Filter */}
             <div>
-              <select
-                value={sortBy}
-                onChange={(e) => setSortBy(e.target.value)}
+              <select 
                 className={components.input.base}
+                value={sortBy}
+                onChange={(e) => handleFilterChange('sortBy', e.target.value)}
               >
                 {sortOptions.map((option) => (
-                  <option key={option} value={option === 'Default order' ? '' : option}>
-                    {option}
+                  <option key={option.value} value={option.value}>
+                    {option.label}
                   </option>
                 ))}
               </select>
             </div>
           </div>
-        </div>
-
-        {/* Search Button for Mobile */}
-        <div className="mt-4 lg:hidden">
-          <button
-            type="submit"
-            className={`w-full ${components.button.base} ${components.button.primary} ${components.button.sizes.medium}`}
-          >
-            Search Jobs
-          </button>
         </div>
       </form>
     </div>

@@ -1,127 +1,71 @@
 'use client';
 
-import { useState, useEffect } from 'react';
 import JobCard from './JobCard';
-import { jobsApi } from '../utils/jobsApi';
 import { colors, typography } from '../utils/designSystem';
 
-const JobListing = ({ searchFilters = {} }) => {
-  const [jobs, setJobs] = useState([]);
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState(null);
-  const [total, setTotal] = useState(0);
+const JobListing = ({ jobs = [], loading = false, error = null }) => {
+  if (loading) {
+    return (
+      <div className="space-y-4">
+        {/* Loading skeleton */}
+        {[...Array(5)].map((_, index) => (
+          <div key={index} className="animate-pulse">
+            <div className="bg-white border rounded-lg p-6">
+              <div className="flex items-start space-x-4">
+                <div className="w-16 h-16 bg-gray-200 rounded-lg"></div>
+                <div className="flex-1">
+                  <div className="h-4 bg-gray-200 rounded w-3/4 mb-2"></div>
+                  <div className="h-3 bg-gray-200 rounded w-1/2 mb-2"></div>
+                  <div className="h-3 bg-gray-200 rounded w-2/3"></div>
+                </div>
+              </div>
+            </div>
+          </div>
+        ))}
+      </div>
+    );
+  }
 
-  // Mock job data as fallback
-  const mockJobs = [
-    {
-      id: 1,
-      title: 'Full-Stack Developer',
-      company: 'Google',
-      companyLogo: 'https://i.imgur.com/xILxSdu.png',
-      location: 'San Francisco',
-      type: 'Full-time',
-      salary: { min: '$80,000', max: '$200,000' },
-      postedAt: '10 months ago',
-      href: '/job/full-stack-developer'
-    },
-    {
-      id: 2,
-      title: 'Senior Marketing Lead',
-      company: 'Amazon',
-      companyLogo: 'https://i.imgur.com/ljCgpyj.png',
-      location: 'London',
-      type: 'Internship',
-      salary: { min: '$90,000', max: '$120,000' },
-      postedAt: '10 months ago',
-      href: '/job/senior-marketing-lead'
-    },
-    {
-      id: 3,
-      title: 'Product Manager',
-      company: 'Netflix',
-      companyLogo: 'https://i.imgur.com/RXEGeP0.png',
-      location: 'New York',
-      type: 'Full-time',
-      salary: { min: '$90,000', max: '$130,000' },
-      postedAt: '10 months ago',
-      href: '/job/product-manager'
-    },
-    {
-      id: 4,
-      title: 'IT Support Specialist',
-      company: 'Twitter',
-      companyLogo: 'https://i.imgur.com/VYwMZcb.png',
-      location: 'Paris',
-      type: 'Part-time',
-      salary: { min: '$90,000', max: '$120,000' },
-      postedAt: '10 months ago',
-      href: '/job/it-support-specialist'
-    },
-    {
-      id: 5,
-      title: 'Data Engineer',
-      company: 'Spotify',
-      companyLogo: 'https://i.imgur.com/RUr4vn6.png',
-      location: 'San Francisco',
-      type: 'Full-time',
-      salary: { min: '$90,000', max: '$120,000' },
-      postedAt: '10 months ago',
-      href: '/job/data-engineer'
-    },
-    {
-      id: 6,
-      title: 'Full-Stack Developer',
-      company: 'Uber',
-      companyLogo: 'https://i.imgur.com/IkzCvb8.png',
-      location: 'Amsterdam',
-      type: 'Full-time',
-      salary: { min: '$110,000', max: '$120,000' },
-      postedAt: '9 months ago',
-      href: '/job/full-stack-developer-uber'
-    },
-    {
-      id: 7,
-      title: 'Senior Data Engineer',
-      company: 'Airbnb',
-      companyLogo: 'https://i.imgur.com/9uVVdvR.png',
-      location: 'Mountain View',
-      type: 'Full-time',
-      salary: { min: '$70,000', max: '$120,000' },
-      postedAt: '9 months ago',
-      href: '/job/senior-data-engineer'
-    },
-    {
-      id: 8,
-      title: 'Staff Software Engineer',
-      company: 'Facebook',
-      companyLogo: 'https://i.imgur.com/yzuUjxq.png',
-      location: 'London',
-      type: 'Full-time',
-      salary: { min: '$90,000', max: '$1,220,000' },
-      postedAt: '9 months ago',
-      href: '/job/staff-software-engineer'
-    }
-  ];
+  if (error) {
+    return (
+      <div className="text-center py-12">
+        <div className="text-red-500 mb-4">
+          <svg className="w-16 h-16 mx-auto mb-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+          </svg>
+          <h3 className={`${typography.h4} ${colors.neutral.textPrimary} mb-2`}>
+            Error loading jobs
+          </h3>
+          <p className={`${typography.bodySmall} ${colors.neutral.textSecondary}`}>
+            {error}
+          </p>
+        </div>
+      </div>
+    );
+  }
 
-  const displayJobs = jobs.length > 0 ? jobs : mockJobs;
-
+  if (!jobs || jobs.length === 0) {
+    return (
+      <div className="text-center py-12">
+        <div className="text-slate-400 mb-4">
+          <svg className="w-16 h-16 mx-auto mb-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
+          </svg>
+          <h3 className={`${typography.h4} ${colors.neutral.textPrimary} mb-2`}>
+            No jobs found
+          </h3>
+          <p className={`${typography.bodySmall} ${colors.neutral.textSecondary}`}>
+            Try adjusting your search criteria or check back later for new opportunities.
+          </p>
+        </div>
+      </div>
+    );
+  }
   return (
     <div className="grid grid-cols-1 gap-4">
-      {displayJobs.map((job) => (
-        <JobCard key={job.id} job={job} />
+      {jobs.map((job, index) => (
+        <JobCard key={`job-${index}`} job={job} />
       ))}
-      
-      {displayJobs.length === 0 && (
-        <div className="text-center py-12">
-          <div className="text-gray-400 mb-4">
-            <svg className="w-16 h-16 mx-auto" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
-            </svg>
-          </div>
-          <h3 className="text-lg font-medium text-gray-900 dark:text-white mb-2">No jobs found</h3>
-          <p className="text-gray-600 dark:text-gray-400">Try adjusting your search criteria or check back later for new opportunities.</p>
-        </div>
-      )}
     </div>
   );
 };
