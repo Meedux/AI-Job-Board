@@ -115,15 +115,14 @@ export default function RegisterPage() {
               <div>
                 <label htmlFor="fullName" className={`block ${typography.bodyBase} font-medium ${colors.neutral.textPrimary} mb-2`}>
                   Full Name <span className="text-red-500">*</span>
-                </label>
-                <input
+                </label>                <input
                   id="fullName"
                   name="fullName"
                   type="text"
                   required
                   value={formData.fullName}
                   onChange={handleChange}
-                  className={components.input.base}
+                  className={`${components.input.base} ${error ? components.input.error : ''}`}
                   placeholder="Enter your full name"
                 />
               </div>

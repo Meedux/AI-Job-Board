@@ -126,11 +126,47 @@ export const components = {
     hover: 'hover:shadow-lg hover:border-blue-300 dark:hover:border-blue-700',
     padding: spacing.paddingMedium
   },
-  
   // Form Elements
   input: {
-    base: `w-full px-4 py-2 ${colors.neutral.border} rounded-lg ${colors.neutral.surface} focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-colors`,
-    error: 'border-red-300 dark:border-red-600 focus:ring-red-500'
+    base: `w-full px-4 py-3 border-2 ${colors.neutral.border} rounded-lg ${colors.neutral.surface} 
+           placeholder:${colors.neutral.textMuted} 
+           focus:ring-2 focus:ring-blue-500 focus:border-blue-500 
+           hover:border-blue-300 dark:hover:border-blue-600
+           transition-all duration-200 
+           text-gray-900 dark:text-white`,
+    error: 'border-red-400 dark:border-red-500 focus:ring-red-500 focus:border-red-500',
+    success: 'border-green-400 dark:border-green-500 focus:ring-green-500 focus:border-green-500',
+    disabled: 'bg-gray-100 dark:bg-gray-800 cursor-not-allowed opacity-60',
+    sizes: {
+      small: 'px-3 py-2 text-sm',
+      medium: 'px-4 py-3 text-base',
+      large: 'px-5 py-4 text-lg'
+    }
+  },
+  
+  // Form Labels
+  label: {
+    base: `block text-sm font-semibold ${colors.neutral.textPrimary} mb-2`,
+    required: 'after:content-["*"] after:text-red-500 after:ml-1',
+    optional: 'after:content-["(optional)"] after:text-gray-400 after:ml-1 after:text-xs after:font-normal'
+  },
+  
+  // Form Groups
+  formGroup: {
+    base: 'space-y-2',
+    grid: 'grid grid-cols-1 md:grid-cols-2 gap-6',
+    inline: 'flex items-center space-x-4'
+  },
+  
+  // Textarea
+  textarea: {
+    base: `w-full px-4 py-3 border-2 ${colors.neutral.border} rounded-lg ${colors.neutral.surface} 
+           placeholder:${colors.neutral.textMuted} 
+           focus:ring-2 focus:ring-blue-500 focus:border-blue-500 
+           hover:border-blue-300 dark:hover:border-blue-600
+           transition-all duration-200 resize-vertical
+           text-gray-900 dark:text-white`,
+    error: 'border-red-400 dark:border-red-500 focus:ring-red-500 focus:border-red-500'
   },
   
   // Navigation
