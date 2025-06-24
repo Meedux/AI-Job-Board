@@ -48,7 +48,7 @@ export const fetchSheetData = async (spreadsheetId, range) => {
   }
 };
 
-// Fetch content from Google Docs
+// Fetch content from Google Docs with preserved formatting
 export const fetchDocContent = async (documentId) => {
   try {
     const docs = getGoogleDocsInstance();
@@ -56,25 +56,251 @@ export const fetchDocContent = async (documentId) => {
       documentId,
     });
 
-    // Extract text content from the document
+    // Extract and convert content to HTML with styling
     const content = response.data.body.content || [];
-    let text = '';
-
-    content.forEach((element) => {
-      if (element.paragraph) {
-        element.paragraph.elements?.forEach((paragraphElement) => {
-          if (paragraphElement.textRun) {
-            text += paragraphElement.textRun.content;
-          }
-        });
-      }
-    });
-
-    return text;
+    return convertGoogleDocsToHTML(content);
   } catch (error) {
     console.error('Error fetching doc content:', error);
     throw new Error('Failed to fetch document content');
   }
+};
+
+// Convert Google Docs content to properly styled HTML
+const convertGoogleDocsToHTML = (content) => {
+  let html = '';
+  let currentList = null;
+  let listItems = [];
+
+  content.forEach((element, index) => {
+    if (element.paragraph) {
+      const paragraph = element.paragraph;
+      const bullet = paragraph.bullet;
+      
+      if (bullet) {
+        // This is a list item
+        const listItem = convertParagraphToHTML(paragraph);
+        listItems.push(listItem);
+        
+        // Check if next element is also a list item or if this is the last element
+        const nextElement = content[index + 1];
+        const isLastElement = index === content.length - 1;
+        const nextIsListItem = nextElement && nextElement.paragraph && nextElement.paragraph.bullet;
+        
+        if (!nextIsListItem || isLastElement) {
+          // End of list, wrap all items
+          html += '<ul class="list-disc list-inside mb-4 ml-4 space-y-1">';
+          html += listItems.join('');
+          html += '</ul>';
+          listItems = [];
+        }
+      } else {
+        // Regular paragraph
+        html += convertParagraphToHTML(paragraph);
+      }
+    } else if (element.table) {
+      html += convertTableToHTML(element.table);
+    } else if (element.sectionBreak) {
+      html += '<br class="section-break">';
+    }
+  });
+
+  return html;
+};
+
+// Convert paragraph to HTML with styling
+const convertParagraphToHTML = (paragraph) => {
+  if (!paragraph.elements || paragraph.elements.length === 0) {
+    return '<p class="mb-4">&nbsp;</p>';
+  }
+
+  let paragraphHTML = '';
+  
+  // Get paragraph-level styling
+  const paragraphStyle = paragraph.paragraphStyle || {};
+  const alignment = paragraphStyle.alignment || 'START';
+  const spaceAbove = paragraphStyle.spaceAbove?.magnitude || 0;
+  const spaceBelow = paragraphStyle.spaceBelow?.magnitude || 0;
+  const lineSpacing = paragraphStyle.lineSpacing || 1.15;
+  
+  // Convert paragraph style to CSS classes
+  let paragraphClass = 'mb-4 leading-relaxed';
+  
+  if (alignment === 'CENTER') paragraphClass += ' text-center';
+  else if (alignment === 'END') paragraphClass += ' text-right';
+  else if (alignment === 'JUSTIFIED') paragraphClass += ' text-justify';
+  
+  if (spaceAbove > 6) paragraphClass += ' mt-6';
+  else if (spaceAbove > 0) paragraphClass += ' mt-2';
+  
+  if (spaceBelow > 6) paragraphClass += ' mb-6';
+  
+  // Check if this is a heading based on named style
+  const namedStyleType = paragraphStyle.namedStyleType;
+  let tagName = 'p';
+  let headingClass = '';
+  
+  switch (namedStyleType) {
+    case 'HEADING_1':
+      tagName = 'h1';
+      headingClass = ' text-3xl font-bold text-gray-200 mt-8 mb-4';
+      break;
+    case 'HEADING_2':
+      tagName = 'h2';
+      headingClass = ' text-2xl font-bold text-gray-200 mt-6 mb-3';
+      break;
+    case 'HEADING_3':
+      tagName = 'h3';
+      headingClass = ' text-xl font-bold text-gray-200 mt-5 mb-3';
+      break;
+    case 'HEADING_4':
+      tagName = 'h4';
+      headingClass = ' text-lg font-bold text-gray-200 mt-4 mb-2';
+      break;
+    case 'HEADING_5':
+      tagName = 'h5';
+      headingClass = ' text-base font-bold text-gray-200 mt-4 mb-2';
+      break;
+    case 'HEADING_6':
+      tagName = 'h6';
+      headingClass = ' text-sm font-bold text-gray-200 mt-3 mb-2';
+      break;
+  }
+
+  // Check for bullet lists
+  const bullet = paragraph.bullet;
+  if (bullet) {
+    const listId = bullet.listId;
+    const nestingLevel = bullet.nestingLevel || 0;
+    
+    // For now, treat all bullets as unordered lists
+    // In a more complete implementation, you'd track list types
+    const listItemContent = processTextElements(paragraph.elements);
+    const indentClass = nestingLevel > 0 ? ` ml-${nestingLevel * 4}` : '';
+    return `<li class="text-gray-200 leading-relaxed${indentClass}">${listItemContent}</li>`;
+  }
+
+  // Process each text run in the paragraph
+  paragraphHTML = processTextElements(paragraph.elements);
+
+  // Wrap in appropriate tag with styling
+  const finalClass = (paragraphClass + headingClass).trim();
+  const classAttr = finalClass ? ` class="${finalClass}"` : '';
+  
+  return `<${tagName}${classAttr}>${paragraphHTML}</${tagName}>`;
+};
+
+// Process text elements within a paragraph
+const processTextElements = (elements) => {
+  let html = '';
+  
+  elements.forEach((element) => {
+    if (element.textRun) {
+      const textRun = element.textRun;
+      const content = textRun.content;
+      const textStyle = textRun.textStyle || {};
+
+      // Build inline styles for this text run
+      let spanStyle = '';
+      let spanClass = '';
+      let textHTML = content;
+
+      // Font weight
+      if (textStyle.bold) {
+        spanClass += ' font-bold';
+      }
+
+      // Font style
+      if (textStyle.italic) {
+        spanClass += ' italic';
+      }
+
+      // Text decoration
+      if (textStyle.underline) {
+        spanClass += ' underline';
+      }
+      if (textStyle.strikethrough) {
+        spanClass += ' line-through';
+      }
+
+      // Font size
+      if (textStyle.fontSize && textStyle.fontSize.magnitude) {
+        const fontSize = textStyle.fontSize.magnitude;
+        if (fontSize >= 18) spanClass += ' text-lg';
+        else if (fontSize >= 16) spanClass += ' text-base';
+        else if (fontSize >= 14) spanClass += ' text-sm';
+        else if (fontSize <= 10) spanClass += ' text-xs';
+      }
+
+      // Text color
+      if (textStyle.foregroundColor && textStyle.foregroundColor.color) {
+        const color = textStyle.foregroundColor.color;
+        if (color.rgbColor) {
+          const { red = 0, green = 0, blue = 0 } = color.rgbColor;
+          const r = Math.round(red * 255);
+          const g = Math.round(green * 255);
+          const b = Math.round(blue * 255);
+          spanStyle += `color: rgb(${r}, ${g}, ${b});`;
+        }
+      }
+
+      // Background color
+      if (textStyle.backgroundColor && textStyle.backgroundColor.color) {
+        const color = textStyle.backgroundColor.color;
+        if (color.rgbColor) {
+          const { red = 0, green = 0, blue = 0 } = color.rgbColor;
+          const r = Math.round(red * 255);
+          const g = Math.round(green * 255);
+          const b = Math.round(blue * 255);
+          spanStyle += `background-color: rgb(${r}, ${g}, ${b}); padding: 2px 4px; border-radius: 2px;`;
+        }
+      }
+
+      // Links
+      if (textStyle.link) {
+        const url = textStyle.link.url || textStyle.link.headingId || '#';
+        textHTML = `<a href="${url}" class="text-blue-600 hover:text-blue-800 underline" target="_blank" rel="noopener noreferrer">${content}</a>`;
+      } else if (spanClass || spanStyle) {
+        const styleAttr = spanStyle ? ` style="${spanStyle}"` : '';
+        textHTML = `<span class="${spanClass.trim()}"${styleAttr}>${content}</span>`;
+      }
+
+      html += textHTML;
+    } else if (element.inlineObjectElement) {
+      // Handle inline images or other objects
+      html += `<span class="inline-object text-gray-500">[Image/Object]</span>`;
+    }
+  });
+  
+  return html;
+};
+
+// Convert table to HTML (basic implementation)
+const convertTableToHTML = (table) => {
+  let tableHTML = '<div class="overflow-x-auto my-6"><table class="min-w-full border-collapse border border-gray-300">';
+  
+  table.tableRows?.forEach((row, rowIndex) => {
+    tableHTML += '<tr>';
+    row.tableCells?.forEach((cell, cellIndex) => {
+      const isHeader = rowIndex === 0;
+      const tag = isHeader ? 'th' : 'td';
+      const cellClass = isHeader 
+        ? 'border border-gray-300 px-4 py-2 bg-gray-50 font-semibold text-left'
+        : 'border border-gray-300 px-4 py-2';
+      
+      tableHTML += `<${tag} class="${cellClass}">`;
+      
+      // Convert cell content
+      if (cell.content) {
+        tableHTML += convertGoogleDocsToHTML(cell.content);
+      }
+      
+      tableHTML += `</${tag}>`;
+    });
+    tableHTML += '</tr>';
+  });
+  
+  tableHTML += '</table></div>';
+  return tableHTML;
 };
 
 // Convert sheet rows to job objects with new structure

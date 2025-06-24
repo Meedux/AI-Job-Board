@@ -154,22 +154,16 @@ export default function JobDetailsPage() {
           {/* Main Content Grid */}
           <div className={layout.grid.sidebar}>
             {/* Job Description - Left Column */}
-            <div className="col-span-12 lg:col-span-8">
-              <div className={`${components.card.base} ${components.card.padding}`}>
+            <div className="col-span-12 lg:col-span-8">              <div className={`${components.card.base} ${components.card.padding}`}>
                 <h2 className={`${typography.h3} ${colors.neutral.textPrimary} mb-6`}>
                   Job Description
                 </h2>
-                <div className="prose prose-slate max-w-none">
+                <div className="prose prose-slate prose-lg max-w-none">
                   {job.full_description ? (
                     <div 
-                      className={`${colors.neutral.textSecondary} leading-relaxed`}
+                      className="google-docs-content"
                       dangerouslySetInnerHTML={{ 
                         __html: job.full_description
-                          .replace(/\n\n/g, '</p><p>')
-                          .replace(/\n/g, '<br>')
-                          .replace(/^/, '<p>')
-                          .replace(/$/, '</p>')
-                          .replace(/(<p><\/p>)/g, '')
                       }} 
                     />
                   ) : (
@@ -243,10 +237,10 @@ export default function JobDetailsPage() {
                   {/* Salary */}
                   <div className="text-center mb-6">
                     <div className={`flex justify-center items-center space-x-1 ${typography.bodyLarge} font-bold mb-2`}>
-                      <svg className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                      <svg className="h-5 w-5 text-gray-200" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                         <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M2.25 18.75a60.07 60.07 0 0 1 15.797 2.101c.727.198 1.453-.342 1.453-1.096V18.75M3.75 4.5v.75A.75.75 0 0 1 3 6h-.75m0 0v-.375c0-.621.504-1.125 1.125-1.125H20.25M2.25 6v9m18-10.5v.75c0 .414.336.75.75.75h.75m-1.5-1.5h.375c.621 0 1.125.504 1.125 1.125v9.75c0 .621-.504 1.125-1.125 1.125h-.375m1.5-1.5H21a.75.75 0 0 0-.75.75v.75m0 0H3.75m0 0h-.375a1.125 1.125 0 0 1-1.125-1.125V15m1.5 1.5v-.75A.75.75 0 0 0 3 15h-.75M15 10.5a3 3 0 1 1-6 0 3 3 0 0 1 6 0Zm3 0h.008v.008H18V10.5Zm-12 0h.008v.008H6V10.5Z" />
                       </svg>
-                      <span>Salary</span>
+                      <span className='text-gray-200'>Salary</span>
                     </div>
                     <div className={`${typography.bodyLarge} font-semibold ${colors.neutral.textPrimary}`}>
                       {formatSalary(job.salary)}
@@ -258,10 +252,10 @@ export default function JobDetailsPage() {
                   {/* Job Overview */}
                   <div className="mb-4">
                     <h4 className={`${typography.bodyLarge} font-bold flex items-center space-x-1 mb-4`}>
-                      <svg className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                      <svg className="h-5 w-5 text-gray-200" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                         <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="m11.25 11.25.041-.02a.75.75 0 0 1 1.063.852l-.708 2.836a.75.75 0 0 0 1.063.853l.041-.021M21 12a9 9 0 1 1-18 0 9 9 0 0 1 18 0Zm-9-3.75h.008v.008H12V8.25Z" />
                       </svg>
-                      <span>Job Overview</span>
+                      <span className='text-gray-200'>Job Overview</span>
                     </h4>                    
                     <div className="space-y-4">
                       {/* Location */}
