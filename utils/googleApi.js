@@ -70,6 +70,8 @@ const convertGoogleDocsToHTML = (content) => {
   let html = '';
   let currentList = null;
   let listItems = [];
+  let listStack = []; // Track nested lists
+  let footnotes = [];
 
   content.forEach((element, index) => {
     if (element.paragraph) {
@@ -77,40 +79,86 @@ const convertGoogleDocsToHTML = (content) => {
       const bullet = paragraph.bullet;
       
       if (bullet) {
-        // This is a list item
-        const listItem = convertParagraphToHTML(paragraph);
-        listItems.push(listItem);
+        // Handle nested lists
+        const nestingLevel = bullet.nestingLevel || 0;
+        const listId = bullet.listId;
         
-        // Check if next element is also a list item or if this is the last element
+        // Determine list type (ordered vs unordered)
+        const isOrdered = bullet.textStyle?.fontFamily === 'Arial' || bullet.glyph?.includes('.');
+        const listType = isOrdered ? 'ol' : 'ul';
+        const listClass = isOrdered ? 'list-decimal' : 'list-disc';
+        
+        const listItem = convertParagraphToHTML(paragraph, true);
+        
+        // Handle list nesting
+        while (listStack.length > nestingLevel + 1) {
+          const closingList = listStack.pop();
+          html += `</${closingList.type}>`;
+        }
+        
+        if (listStack.length === nestingLevel) {
+          // Start new list at this level
+          const marginClass = nestingLevel > 0 ? ` ml-${nestingLevel * 6}` : ' ml-4';
+          html += `<${listType} class="${listClass} list-inside mb-4 space-y-2${marginClass}">`;
+          listStack.push({ type: listType, level: nestingLevel });
+        }
+        
+        html += listItem;
+        
+        // Check if next element ends this list
         const nextElement = content[index + 1];
         const isLastElement = index === content.length - 1;
         const nextIsListItem = nextElement && nextElement.paragraph && nextElement.paragraph.bullet;
+        const nextNestingLevel = nextIsListItem ? (nextElement.paragraph.bullet.nestingLevel || 0) : -1;
         
-        if (!nextIsListItem || isLastElement) {
-          // End of list, wrap all items
-          html += '<ul class="list-disc list-inside mb-4 ml-4 space-y-1">';
-          html += listItems.join('');
-          html += '</ul>';
-          listItems = [];
+        if (!nextIsListItem || isLastElement || nextNestingLevel < nestingLevel) {
+          // Close current level and any deeper levels
+          while (listStack.length > nextNestingLevel + 1) {
+            const closingList = listStack.pop();
+            html += `</${closingList.type}>`;
+          }
         }
       } else {
+        // Close any open lists
+        while (listStack.length > 0) {
+          const closingList = listStack.pop();
+          html += `</${closingList.type}>`;
+        }
+        
         // Regular paragraph
         html += convertParagraphToHTML(paragraph);
       }
     } else if (element.table) {
       html += convertTableToHTML(element.table);
     } else if (element.sectionBreak) {
-      html += '<br class="section-break">';
+      const breakType = element.sectionBreak.sectionStyle?.sectionType || 'CONTINUOUS';
+      if (breakType === 'NEXT_PAGE') {
+        html += '<div class="page-break my-8 border-t-2 border-gray-300"></div>';
+      } else {
+        html += '<div class="section-break my-6"></div>';
+      }
+    } else if (element.pageBreak) {
+      html += '<div class="page-break my-8 border-t-2 border-gray-300"></div>';
+    } else if (element.horizontalRule) {
+      html += '<hr class="my-6 border-gray-300">';
+    } else if (element.tableOfContents) {
+      html += '<div class="toc mb-6 p-4 bg-gray-50 rounded-lg border"><h4 class="font-bold mb-2">Table of Contents</h4><div class="text-sm text-gray-600">[Table of Contents]</div></div>';
     }
   });
+
+  // Close any remaining open lists
+  while (listStack.length > 0) {
+    const closingList = listStack.pop();
+    html += `</${closingList.type}>`;
+  }
 
   return html;
 };
 
 // Convert paragraph to HTML with styling
-const convertParagraphToHTML = (paragraph) => {
+const convertParagraphToHTML = (paragraph, isListItem = false) => {
   if (!paragraph.elements || paragraph.elements.length === 0) {
-    return '<p class="mb-4">&nbsp;</p>';
+    return isListItem ? '<li class="mb-2">&nbsp;</li>' : '<p class="mb-4">&nbsp;</p>';
   }
 
   let paragraphHTML = '';
@@ -121,72 +169,124 @@ const convertParagraphToHTML = (paragraph) => {
   const spaceAbove = paragraphStyle.spaceAbove?.magnitude || 0;
   const spaceBelow = paragraphStyle.spaceBelow?.magnitude || 0;
   const lineSpacing = paragraphStyle.lineSpacing || 1.15;
+  const indentFirstLine = paragraphStyle.indentFirstLine?.magnitude || 0;
+  const indentStart = paragraphStyle.indentStart?.magnitude || 0;
+  const indentEnd = paragraphStyle.indentEnd?.magnitude || 0;
+  const keepWithNext = paragraphStyle.keepWithNext;
+  const keepTogether = paragraphStyle.keepTogether;
+  const direction = paragraphStyle.direction || 'LEFT_TO_RIGHT';
   
   // Convert paragraph style to CSS classes
-  let paragraphClass = 'mb-4 leading-relaxed';
+  let paragraphClass = 'mb-4 leading-relaxed text-gray-300';
+  let paragraphStyle_inline = '';
   
+  // Text alignment
   if (alignment === 'CENTER') paragraphClass += ' text-center';
   else if (alignment === 'END') paragraphClass += ' text-right';
   else if (alignment === 'JUSTIFIED') paragraphClass += ' text-justify';
+  else paragraphClass += ' text-left';
   
-  if (spaceAbove > 6) paragraphClass += ' mt-6';
+  // Direction (RTL support)
+  if (direction === 'RIGHT_TO_LEFT') {
+    paragraphClass += ' rtl';
+    paragraphStyle_inline += ' direction: rtl;';
+  }
+  
+  // Spacing
+  if (spaceAbove > 12) paragraphClass += ' mt-8';
+  else if (spaceAbove > 6) paragraphClass += ' mt-6';
+  else if (spaceAbove > 3) paragraphClass += ' mt-4';
   else if (spaceAbove > 0) paragraphClass += ' mt-2';
   
-  if (spaceBelow > 6) paragraphClass += ' mb-6';
+  if (spaceBelow > 12) paragraphClass += ' mb-8';
+  else if (spaceBelow > 6) paragraphClass += ' mb-6';
+  else if (spaceBelow > 3) paragraphClass += ' mb-4';
+  
+  // Line spacing
+  if (lineSpacing >= 2.0) paragraphClass += ' leading-loose';
+  else if (lineSpacing >= 1.5) paragraphClass += ' leading-relaxed';
+  else if (lineSpacing >= 1.15) paragraphClass += ' leading-normal';
+  else paragraphClass += ' leading-tight';
+  
+  // Indentation
+  if (indentFirstLine > 0) {
+    paragraphStyle_inline += ` text-indent: ${indentFirstLine}pt;`;
+  }
+  if (indentStart > 0) {
+    paragraphClass += ` ml-${Math.min(Math.floor(indentStart / 18), 12)}`;
+  }
+  if (indentEnd > 0) {
+    paragraphClass += ` mr-${Math.min(Math.floor(indentEnd / 18), 12)}`;
+  }
   
   // Check if this is a heading based on named style
   const namedStyleType = paragraphStyle.namedStyleType;
-  let tagName = 'p';
+  let tagName = isListItem ? 'li' : 'p';
   let headingClass = '';
   
-  switch (namedStyleType) {
-    case 'HEADING_1':
-      tagName = 'h1';
-      headingClass = ' text-3xl font-bold text-gray-200 mt-8 mb-4';
-      break;
-    case 'HEADING_2':
-      tagName = 'h2';
-      headingClass = ' text-2xl font-bold text-gray-200 mt-6 mb-3';
-      break;
-    case 'HEADING_3':
-      tagName = 'h3';
-      headingClass = ' text-xl font-bold text-gray-200 mt-5 mb-3';
-      break;
-    case 'HEADING_4':
-      tagName = 'h4';
-      headingClass = ' text-lg font-bold text-gray-200 mt-4 mb-2';
-      break;
-    case 'HEADING_5':
-      tagName = 'h5';
-      headingClass = ' text-base font-bold text-gray-200 mt-4 mb-2';
-      break;
-    case 'HEADING_6':
-      tagName = 'h6';
-      headingClass = ' text-sm font-bold text-gray-200 mt-3 mb-2';
-      break;
+  if (!isListItem) {
+    switch (namedStyleType) {
+      case 'HEADING_1':
+        tagName = 'h1';
+        headingClass = ' text-4xl font-bold text-gray-100 mt-8 mb-6 leading-tight';
+        break;
+      case 'HEADING_2':
+        tagName = 'h2';
+        headingClass = ' text-3xl font-bold text-gray-100 mt-7 mb-5 leading-tight';
+        break;
+      case 'HEADING_3':
+        tagName = 'h3';
+        headingClass = ' text-2xl font-bold text-gray-100 mt-6 mb-4 leading-tight';
+        break;
+      case 'HEADING_4':
+        tagName = 'h4';
+        headingClass = ' text-xl font-bold text-gray-100 mt-5 mb-3 leading-tight';
+        break;
+      case 'HEADING_5':
+        tagName = 'h5';
+        headingClass = ' text-lg font-bold text-gray-100 mt-4 mb-3 leading-tight';
+        break;
+      case 'HEADING_6':
+        tagName = 'h6';
+        headingClass = ' text-base font-bold text-gray-100 mt-4 mb-2 leading-tight';
+        break;
+      case 'SUBTITLE':
+        headingClass = ' text-xl font-medium text-gray-200 mt-2 mb-4 italic';
+        break;
+      case 'TITLE':
+        tagName = 'h1';
+        headingClass = ' text-5xl font-bold text-gray-100 mt-8 mb-6 text-center leading-tight';
+        break;
+    }
   }
 
   // Check for bullet lists
   const bullet = paragraph.bullet;
-  if (bullet) {
+  if (bullet && !isListItem) {
     const listId = bullet.listId;
     const nestingLevel = bullet.nestingLevel || 0;
     
     // For now, treat all bullets as unordered lists
-    // In a more complete implementation, you'd track list types
     const listItemContent = processTextElements(paragraph.elements);
-    const indentClass = nestingLevel > 0 ? ` ml-${nestingLevel * 4}` : '';
-    return `<li class="text-gray-200 leading-relaxed${indentClass}">${listItemContent}</li>`;
+    const indentClass = nestingLevel > 0 ? ` ml-${nestingLevel * 6}` : '';
+    return `<li class="text-gray-300 leading-relaxed mb-2${indentClass}">${listItemContent}</li>`;
   }
 
   // Process each text run in the paragraph
   paragraphHTML = processTextElements(paragraph.elements);
 
+  // Handle special paragraph types
+  if (namedStyleType === 'NORMAL_TEXT' && paragraphHTML.trim() === '') {
+    // Empty paragraph for spacing
+    paragraphHTML = '&nbsp;';
+  }
+
   // Wrap in appropriate tag with styling
   const finalClass = (paragraphClass + headingClass).trim();
   const classAttr = finalClass ? ` class="${finalClass}"` : '';
+  const styleAttr = paragraphStyle_inline ? ` style="${paragraphStyle_inline}"` : '';
   
-  return `<${tagName}${classAttr}>${paragraphHTML}</${tagName}>`;
+  return `<${tagName}${classAttr}${styleAttr}>${paragraphHTML}</${tagName}>`;
 };
 
 // Process text elements within a paragraph
@@ -201,12 +301,33 @@ const processTextElements = (elements) => {
 
       // Build inline styles for this text run
       let spanStyle = '';
-      let spanClass = '';
+      let spanClass = 'text-gray-300';
       let textHTML = content;
+
+      // Handle special characters and whitespace preservation
+      textHTML = textHTML
+        .replace(/\n/g, '<br>')
+        .replace(/\t/g, '&nbsp;&nbsp;&nbsp;&nbsp;')
+        .replace(/  /g, '&nbsp;&nbsp;'); // Preserve multiple spaces
+
+      // Font family
+      if (textStyle.fontFamily) {
+        const fontFamily = textStyle.fontFamily.toLowerCase();
+        if (fontFamily.includes('courier') || fontFamily.includes('mono')) {
+          spanClass += ' font-mono';
+        } else if (fontFamily.includes('serif') || fontFamily.includes('times')) {
+          spanClass += ' font-serif';
+        } else {
+          spanClass += ' font-sans';
+        }
+      }
 
       // Font weight
       if (textStyle.bold) {
         spanClass += ' font-bold';
+      }
+      if (textStyle.weightedFontFamily && textStyle.weightedFontFamily.weight >= 600) {
+        spanClass += ' font-semibold';
       }
 
       // Font style
@@ -222,16 +343,21 @@ const processTextElements = (elements) => {
         spanClass += ' line-through';
       }
 
-      // Font size
+      // Font size with more granular control
       if (textStyle.fontSize && textStyle.fontSize.magnitude) {
         const fontSize = textStyle.fontSize.magnitude;
-        if (fontSize >= 18) spanClass += ' text-lg';
-        else if (fontSize >= 16) spanClass += ' text-base';
-        else if (fontSize >= 14) spanClass += ' text-sm';
-        else if (fontSize <= 10) spanClass += ' text-xs';
+        if (fontSize >= 28) spanClass += ' text-4xl';
+        else if (fontSize >= 24) spanClass += ' text-3xl';
+        else if (fontSize >= 20) spanClass += ' text-2xl';
+        else if (fontSize >= 18) spanClass += ' text-xl';
+        else if (fontSize >= 16) spanClass += ' text-lg';
+        else if (fontSize >= 14) spanClass += ' text-base';
+        else if (fontSize >= 12) spanClass += ' text-sm';
+        else if (fontSize >= 10) spanClass += ' text-xs';
+        else spanClass += ' text-xs';
       }
 
-      // Text color
+      // Text color with dark mode support
       if (textStyle.foregroundColor && textStyle.foregroundColor.color) {
         const color = textStyle.foregroundColor.color;
         if (color.rgbColor) {
@@ -239,11 +365,23 @@ const processTextElements = (elements) => {
           const r = Math.round(red * 255);
           const g = Math.round(green * 255);
           const b = Math.round(blue * 255);
-          spanStyle += `color: rgb(${r}, ${g}, ${b});`;
+          
+          // Check if it's a dark color that needs to be lightened for dark mode
+          const luminance = (0.299 * r + 0.587 * g + 0.114 * b) / 255;
+          if (luminance < 0.5) {
+            // Dark color - lighten it for dark mode
+            const lightenFactor = 0.7;
+            const lightR = Math.min(255, Math.round(r + (255 - r) * lightenFactor));
+            const lightG = Math.min(255, Math.round(g + (255 - g) * lightenFactor));
+            const lightB = Math.min(255, Math.round(b + (255 - b) * lightenFactor));
+            spanStyle += `color: rgb(${lightR}, ${lightG}, ${lightB});`;
+          } else {
+            spanStyle += `color: rgb(${r}, ${g}, ${b});`;
+          }
         }
       }
 
-      // Background color
+      // Background color with transparency support
       if (textStyle.backgroundColor && textStyle.backgroundColor.color) {
         const color = textStyle.backgroundColor.color;
         if (color.rgbColor) {
@@ -251,47 +389,186 @@ const processTextElements = (elements) => {
           const r = Math.round(red * 255);
           const g = Math.round(green * 255);
           const b = Math.round(blue * 255);
-          spanStyle += `background-color: rgb(${r}, ${g}, ${b}); padding: 2px 4px; border-radius: 2px;`;
+          spanStyle += `background-color: rgba(${r}, ${g}, ${b}, 0.8); padding: 2px 4px; border-radius: 3px; margin: 0 1px;`;
         }
       }
 
-      // Links
+      // Baseline offset (superscript/subscript)
+      if (textStyle.baselineOffset) {
+        const offset = textStyle.baselineOffset;
+        if (offset === 'SUPERSCRIPT') {
+          spanClass += ' align-super text-xs';
+        } else if (offset === 'SUBSCRIPT') {
+          spanClass += ' align-sub text-xs';
+        }
+      }
+
+      // Small caps
+      if (textStyle.smallCaps) {
+        spanStyle += 'font-variant: small-caps;';
+      }
+
+      // Letter spacing
+      if (textStyle.letterSpacing && textStyle.letterSpacing.magnitude) {
+        const spacing = textStyle.letterSpacing.magnitude;
+        if (spacing > 2) spanClass += ' tracking-widest';
+        else if (spacing > 1) spanClass += ' tracking-wider';
+        else if (spacing > 0.5) spanClass += ' tracking-wide';
+        else if (spacing < -1) spanClass += ' tracking-tighter';
+        else if (spacing < -0.5) spanClass += ' tracking-tight';
+      }
+
+      // Text transform
+      if (textStyle.textTransform) {
+        const transform = textStyle.textTransform;
+        if (transform === 'UPPERCASE') spanClass += ' uppercase';
+        else if (transform === 'LOWERCASE') spanClass += ' lowercase';
+        else if (transform === 'CAPITALIZE') spanClass += ' capitalize';
+      }
+
+      // Links with enhanced styling
       if (textStyle.link) {
         const url = textStyle.link.url || textStyle.link.headingId || '#';
-        textHTML = `<a href="${url}" class="text-blue-600 hover:text-blue-800 underline" target="_blank" rel="noopener noreferrer">${content}</a>`;
-      } else if (spanClass || spanStyle) {
+        const isExternal = url.startsWith('http') && !url.includes(window?.location?.hostname);
+        const target = isExternal ? ' target="_blank" rel="noopener noreferrer"' : '';
+        const linkClass = 'text-blue-400 hover:text-blue-300 underline decoration-2 underline-offset-2 transition-colors duration-200';
+        textHTML = `<a href="${url}" class="${linkClass}"${target}>${content}</a>`;
+      }
+      // Code formatting
+      else if (textStyle.fontFamily && textStyle.fontFamily.toLowerCase().includes('mono')) {
+        spanClass += ' bg-gray-800 px-2 py-1 rounded text-sm border border-gray-600';
+        textHTML = `<code class="${spanClass.trim()}"${spanStyle ? ` style="${spanStyle}"` : ''}>${content}</code>`;
+      }
+      // Regular text with styling
+      else if (spanClass !== 'text-gray-300' || spanStyle) {
         const styleAttr = spanStyle ? ` style="${spanStyle}"` : '';
-        textHTML = `<span class="${spanClass.trim()}"${styleAttr}>${content}</span>`;
+        textHTML = `<span class="${spanClass.trim()}"${styleAttr}>${textHTML}</span>`;
       }
 
       html += textHTML;
-    } else if (element.inlineObjectElement) {
-      // Handle inline images or other objects
-      html += `<span class="inline-object text-gray-500">[Image/Object]</span>`;
+    } 
+    else if (element.inlineObjectElement) {
+      // Handle inline images, equations, drawings, etc.
+      const inlineObject = element.inlineObjectElement;
+      const objectId = inlineObject.inlineObjectId;
+      
+      // You could fetch the actual object details here if needed
+      // For now, provide a placeholder
+      html += `<span class="inline-object bg-gray-700 text-gray-300 px-3 py-1 rounded border border-gray-600 text-sm mx-1">[📎 Embedded Object]</span>`;
+    }
+    else if (element.autoText) {
+      // Handle auto text like page numbers, dates, etc.
+      const autoText = element.autoText;
+      const textStyle = autoText.textStyle || {};
+      
+      let autoContent = '';
+      switch (autoText.type) {
+        case 'PAGE_NUMBER':
+          autoContent = '[Page Number]';
+          break;
+        case 'PAGE_COUNT':
+          autoContent = '[Page Count]';
+          break;
+        default:
+          autoContent = '[Auto Text]';
+      }
+      
+      html += `<span class="auto-text text-gray-400 text-sm italic">${autoContent}</span>`;
+    }
+    else if (element.columnBreak) {
+      html += '<div class="column-break my-4 border-l-2 border-gray-400 pl-4"></div>';
+    }
+    else if (element.footnoteReference) {
+      // Handle footnotes
+      const footnoteId = element.footnoteReference.footnoteId;
+      html += `<sup class="footnote-ref text-blue-400 hover:text-blue-300 cursor-pointer text-xs">[${footnoteId}]</sup>`;
+    }
+    else if (element.equation) {
+      // Handle mathematical equations
+      html += `<span class="equation bg-gray-800 px-2 py-1 rounded border border-gray-600 text-sm font-mono text-gray-300">[📐 Math Equation]</span>`;
     }
   });
   
   return html;
 };
 
-// Convert table to HTML (basic implementation)
+// Convert table to HTML with comprehensive styling
 const convertTableToHTML = (table) => {
-  let tableHTML = '<div class="overflow-x-auto my-6"><table class="min-w-full border-collapse border border-gray-300">';
+  if (!table.tableRows || table.tableRows.length === 0) {
+    return '<div class="empty-table text-gray-500 text-center py-4">[Empty Table]</div>';
+  }
+
+  let tableHTML = '<div class="table-container overflow-x-auto my-6 rounded-lg border border-gray-600">';
+  tableHTML += '<table class="min-w-full bg-gray-800 divide-y divide-gray-600">';
   
-  table.tableRows?.forEach((row, rowIndex) => {
-    tableHTML += '<tr>';
+  // Get table style
+  const tableStyle = table.tableStyle || {};
+  const borderWidth = tableStyle.borderWidth || 1;
+  const borderColor = 'border-gray-600';
+  
+  table.tableRows.forEach((row, rowIndex) => {
+    const isHeaderRow = rowIndex === 0;
+    const rowStyle = row.tableRowStyle || {};
+    const minRowHeight = rowStyle.minRowHeight?.magnitude || 'auto';
+    
+    tableHTML += '<tr class="divide-x divide-gray-600">';
+    
     row.tableCells?.forEach((cell, cellIndex) => {
-      const isHeader = rowIndex === 0;
-      const tag = isHeader ? 'th' : 'td';
-      const cellClass = isHeader 
-        ? 'border border-gray-300 px-4 py-2 bg-gray-50 font-semibold text-left'
-        : 'border border-gray-300 px-4 py-2';
+      const cellStyle = cell.tableCellStyle || {};
+      const backgroundColor = cellStyle.backgroundColor?.color?.rgbColor;
+      const borderStyle = cellStyle.borderStyle || {};
+      const paddingTop = cellStyle.paddingTop?.magnitude || 8;
+      const paddingBottom = cellStyle.paddingBottom?.magnitude || 8;
+      const paddingLeft = cellStyle.paddingLeft?.magnitude || 12;
+      const paddingRight = cellStyle.paddingRight?.magnitude || 12;
+      const columnSpan = cell.columnSpan || 1;
+      const rowSpan = cell.rowSpan || 1;
       
-      tableHTML += `<${tag} class="${cellClass}">`;
+      const tag = isHeaderRow ? 'th' : 'td';
+      let cellClass = `px-4 py-3 text-left`;
+      let cellStyleAttr = '';
+      
+      if (isHeaderRow) {
+        cellClass += ' bg-gray-700 font-semibold text-gray-100 text-sm uppercase tracking-wider';
+      } else {
+        cellClass += ' bg-gray-800 text-gray-300';
+      }
+      
+      // Handle background color
+      if (backgroundColor) {
+        const { red = 0, green = 0, blue = 0 } = backgroundColor;
+        const r = Math.round(red * 255);
+        const g = Math.round(green * 255);
+        const b = Math.round(blue * 255);
+        cellStyleAttr += `background-color: rgba(${r}, ${g}, ${b}, 0.3);`;
+      }
+      
+      // Handle padding
+      if (paddingTop !== 8 || paddingBottom !== 8 || paddingLeft !== 12 || paddingRight !== 12) {
+        cellStyleAttr += `padding: ${paddingTop}pt ${paddingRight}pt ${paddingBottom}pt ${paddingLeft}pt;`;
+      }
+      
+      // Handle alignment
+      if (cellStyle.contentAlignment) {
+        const alignment = cellStyle.contentAlignment;
+        if (alignment === 'CONTENT_ALIGNMENT_CENTER') {
+          cellClass += ' text-center';
+        } else if (alignment === 'CONTENT_ALIGNMENT_RIGHT') {
+          cellClass += ' text-right';
+        }
+      }
+      
+      const colSpanAttr = columnSpan > 1 ? ` colspan="${columnSpan}"` : '';
+      const rowSpanAttr = rowSpan > 1 ? ` rowspan="${rowSpan}"` : '';
+      const styleAttr = cellStyleAttr ? ` style="${cellStyleAttr}"` : '';
+      
+      tableHTML += `<${tag} class="${cellClass}"${colSpanAttr}${rowSpanAttr}${styleAttr}>`;
       
       // Convert cell content
-      if (cell.content) {
+      if (cell.content && cell.content.length > 0) {
         tableHTML += convertGoogleDocsToHTML(cell.content);
+      } else {
+        tableHTML += '&nbsp;';
       }
       
       tableHTML += `</${tag}>`;
