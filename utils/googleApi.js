@@ -9,7 +9,7 @@ export const getGoogleSheetsInstance = () => {
       private_key: process.env.GOOGLE_PRIVATE_KEY?.replace(/\\n/g, '\n'),
     },
     scopes: [
-      'https://www.googleapis.com/auth/spreadsheets.readonly',
+      'https://www.googleapis.com/auth/spreadsheets',
       'https://www.googleapis.com/auth/documents.readonly',
     ],
   });
@@ -23,9 +23,8 @@ export const getGoogleDocsInstance = () => {
     credentials: {
       client_email: process.env.GOOGLE_CLIENT_EMAIL,
       private_key: process.env.GOOGLE_PRIVATE_KEY?.replace(/\\n/g, '\n'),
-    },
-    scopes: [
-      'https://www.googleapis.com/auth/spreadsheets.readonly',
+    },    scopes: [
+      'https://www.googleapis.com/auth/spreadsheets',
       'https://www.googleapis.com/auth/documents.readonly',
     ],
   });
@@ -342,4 +341,140 @@ const parseSalary = (salaryStr) => {
   }
   
   return isNaN(salary) ? 0 : salary;
+};
+
+// User Sheet Functions
+// Expected headers: UID, Full Name, Nickname, Email, Age, Date of Birth, Full Address
+
+// Add a new user to the User sheet
+export const addUserToSheet = async (spreadsheetId, userData) => {
+  console.log('📊 Adding user to Google Sheets...');
+  console.log('📋 Spreadsheet ID:', spreadsheetId);
+  console.log('👤 User data:', { ...userData, hashedPassword: '[HIDDEN]' });
+  
+  try {
+    const sheets = getGoogleSheetsInstance();
+    
+    // Values to append: [UID, Full Name, Nickname, Email, Age, Date of Birth, Full Address]
+    const values = [
+      userData.uid,
+      userData.fullName,
+      userData.nickname,
+      userData.email,
+      userData.age,
+      userData.dateOfBirth,
+      userData.fullAddress,
+      userData.password
+    ];
+
+    console.log('📝 Values to append:', values);
+
+    const response = await sheets.spreadsheets.values.append({
+      spreadsheetId,
+      range: 'User!A:H', // Assuming User sheet exists with columns A-G
+      valueInputOption: 'RAW',
+      requestBody: {
+        values: [values],
+      },
+    });
+
+    console.log('✅ Google Sheets response:', response.data);
+    return response.data;
+  } catch (error) {
+    console.error('❌ Error adding user to sheet:', error);
+    console.error('❌ Error details:', {
+      message: error.message,
+      stack: error.stack,
+      code: error.code
+    });
+    throw new Error('Failed to add user to sheet');
+  }
+};
+
+// Get user by email from User sheet
+export const getUserByEmail = async (spreadsheetId, email) => {
+  console.log('🔍 Getting user by email:', email);
+  console.log('📋 Spreadsheet ID:', spreadsheetId);
+  
+  try {
+    const rows = await fetchSheetData(spreadsheetId, 'User!A:H');
+    console.log('📊 Fetched rows:', rows?.length || 0);
+    
+    if (!rows || rows.length === 0) {
+      console.log('📄 No data found in User sheet');
+      return null;
+    }
+    
+    // Expected headers: UID, Full Name, Nickname, Email, Age, Date of Birth, Full Address
+    const headers = rows[0];
+    console.log('📑 Headers:', headers);
+    const emailIndex = headers.indexOf('Email');
+    console.log('📧 Email column index:', emailIndex);
+    
+    if (emailIndex === -1) {
+      console.log('❌ Email column not found in headers');
+      return null;
+    }
+
+    // Find user by email
+    for (let i = 1; i < rows.length; i++) {
+      const row = rows[i];
+      if (row[emailIndex] && row[emailIndex].toLowerCase() === email.toLowerCase()) {
+        const user = {
+          uid: row[0] || '',
+          fullName: row[1] || '',
+          nickname: row[2] || '',
+          email: row[3] || '',
+          age: row[4] || '',
+          dateOfBirth: row[5] || '',
+          fullAddress: row[6] || '',
+          password: row[7] || '' 
+        };
+        console.log('✅ User found:', user);
+        return user;
+      }
+    }
+    
+    console.log('👤 User not found');
+    return null;
+  } catch (error) {
+    console.error('❌ Error getting user by email:', error);
+    console.error('❌ Error details:', {
+      message: error.message,
+      stack: error.stack,
+      code: error.code
+    });
+    throw new Error('Failed to get user');
+  }
+};
+
+// Get user by UID from User sheet
+export const getUserByUID = async (spreadsheetId, uid) => {
+  try {
+    const rows = await fetchSheetData(spreadsheetId, 'User!A:G');
+    
+    if (!rows || rows.length === 0) return null;
+    
+    // Find user by UID (first column)
+    for (let i = 1; i < rows.length; i++) {
+      const row = rows[i];
+      if (row[0] === uid) {
+        return {
+          uid: row[0] || '',
+          fullName: row[1] || '',
+          nickname: row[2] || '',
+          email: row[3] || '',
+          age: row[4] || '',
+          dateOfBirth: row[5] || '',
+          fullAddress: row[6] || '',
+          password: row[7] || '' 
+        };
+      }
+    }
+    
+    return null;
+  } catch (error) {
+    console.error('Error getting user by UID:', error);
+    throw new Error('Failed to get user');
+  }
 };

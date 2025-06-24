@@ -4,6 +4,7 @@ import { useState } from 'react';
 import Link from 'next/link';
 import Header from '../../components/Header';
 import Footer from '../../components/Footer';
+import ProtectedRoute from '../../components/ProtectedRoute';
 import { colors, typography, components, layout } from '../../utils/designSystem';
 
 export default function ResumeAnalyzer() {
@@ -12,12 +13,12 @@ export default function ResumeAnalyzer() {
   const handleIframeLoad = () => {
     setIsLoading(false);
   };
-
   return (
-    <div className={`min-h-screen ${colors.neutral.background} font-sans`}>
-      <Header />
-      
-      <main className={layout.container}>
+    <ProtectedRoute>
+      <div className={`min-h-screen ${colors.neutral.background} font-sans`}>
+        <Header />
+        
+        <main className={layout.container}>
         {/* Simple Page Header */}
         <div className="py-8 text-center">
           <h1 className={`${typography.h1} ${colors.neutral.textPrimary} mb-4`}>
@@ -88,11 +89,11 @@ export default function ResumeAnalyzer() {
             className={`${components.button.base} ${components.button.primary} ${components.button.sizes.large}`}
           >
             Back to Job Search
-          </Link>
-        </div>
+          </Link>        </div>
       </main>
       
       <Footer />
     </div>
+    </ProtectedRoute>
   );
 }
