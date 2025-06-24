@@ -704,3 +704,30 @@ export const getUserByUID = async (spreadsheetId, uid) => {
     throw new Error('Failed to get user');
   }
 };
+
+// Add job to Google Sheets (Content A:P)
+export const addJobToSheet = async (jobData) => {
+  try {
+    const sheets = getGoogleSheetsInstance();
+    const spreadsheetId = process.env.GOOGLE_SPREADSHEET_ID;
+    
+    if (!spreadsheetId) {
+      throw new Error('Google Sheet ID not configured');
+    }
+
+    // Append job data to the "Content" sheet
+    const response = await sheets.spreadsheets.values.append({
+      spreadsheetId,
+      range: 'Content!A:P', // Columns A through P
+      valueInputOption: 'USER_ENTERED',
+      resource: {
+        values: [jobData], // jobData should be an array with 16 elements (A-P)
+      },
+    });
+
+    return response.data;
+  } catch (error) {
+    console.error('Error adding job to sheet:', error);
+    throw new Error('Failed to add job to sheet');
+  }
+};

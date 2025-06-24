@@ -4,7 +4,8 @@ import {
   convertContentSheetToJobs, 
   processJobsWithDocContent,
   filterJobs,
-  sortJobs
+  sortJobs,
+  addJobToSheet
 } from '../../../utils/googleApi';
 
 export async function GET(request) {
@@ -73,6 +74,45 @@ export async function GET(request) {
     console.error('Error in /api/jobs:', error);
     return Response.json(
       { error: 'Failed to fetch jobs data' },
+      { status: 500 }
+    );
+  }
+}
+
+export async function POST(request) {
+  try {
+    const { jobData } = await request.json();
+
+    if (!jobData || !Array.isArray(jobData) || jobData.length !== 16) {
+      return Response.json(
+        { error: 'Invalid job data. Expected array with 16 elements (A-P columns).' },
+        { status: 400 }
+      );
+    }
+
+    // Validate required fields (Job Title, Company Name, Company Website, Application Link, Categories)
+    const [jobTitle, , , , , , , , , , , linkToApply, companyName, , companyWebsite, categories] = jobData;
+    
+    if (!jobTitle || !companyName || !companyWebsite || !linkToApply || !categories) {
+      return Response.json(
+        { error: 'Missing required fields: Job Title, Company Name, Company Website, Application Link, and Categories are required.' },
+        { status: 400 }
+      );
+    }
+
+    // Add job to Google Sheets
+    const result = await addJobToSheet(jobData);
+
+    return Response.json({
+      success: true,
+      message: 'Job posted successfully',
+      result
+    });
+
+  } catch (error) {
+    console.error('Error posting job:', error);
+    return Response.json(
+      { error: 'Failed to post job' },
       { status: 500 }
     );
   }

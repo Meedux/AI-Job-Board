@@ -5,6 +5,7 @@ import Image from 'next/image';
 import Link from 'next/link';
 import { useAuth } from '../contexts/AuthContext';
 import { colors, typography, components, layout, animations } from '../utils/designSystem';
+import JobPostModal from './JobPostModal';
 
 const Header = () => {
   const [isMenuOpen, setIsMenuOpen] = useState(false);
@@ -320,88 +321,11 @@ const Header = () => {
             </div>
           </div>
         )}
-      </header>
-
-      {/* Post Job Modal */}
-      {isPostJobModalOpen && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black bg-opacity-50">
-          <div className={`${colors.neutral.surface} rounded-lg max-w-xl w-full max-h-[90vh] overflow-y-auto shadow-2xl`}>
-            <div className={`flex justify-between items-center ${colors.neutral.borderLight} border-b p-6`}>
-              <h2 className={`${typography.h3} ${colors.neutral.textPrimary}`}>Post a job</h2>
-              <button
-                onClick={() => setIsPostJobModalOpen(false)}
-                className={`${components.button.base} ${components.button.ghost} ${components.button.sizes.small} rounded-full`}
-              >
-                <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
-                </svg>
-              </button>
-            </div>
-            <div className="p-6">
-              <p className={`${colors.neutral.textTertiary} ${typography.bodyBase} mb-6`}>
-                Hire the best. Share your job post with thousands of job seekers.
-              </p>              <form className="space-y-6">
-                <div>
-                  <label className={`block ${typography.bodyBase} font-medium ${colors.neutral.textPrimary} mb-2`}>Company Name</label>
-                  <input
-                    type="text"
-                    placeholder="Amazon"
-                    className={`w-full rounded-lg ${colors.neutral.border} ${colors.neutral.surface} px-4 py-3 ${typography.bodyBase} placeholder:${colors.neutral.textMuted} hover:${colors.neutral.borderHover} focus:border-blue-500 focus:outline-none focus:ring-2 focus:ring-blue-500/20 transition-all duration-200`}
-                    required
-                  />
-                </div>
-                <div>
-                  <label className={`block ${typography.bodyBase} font-medium ${colors.neutral.textPrimary} mb-2`}>Website</label>
-                  <input
-                    type="url"
-                    placeholder="https://amazon.com"
-                    className={`w-full rounded-lg ${colors.neutral.border} ${colors.neutral.surface} px-4 py-3 ${typography.bodyBase} placeholder:${colors.neutral.textMuted} hover:${colors.neutral.borderHover} focus:border-blue-500 focus:outline-none focus:ring-2 focus:ring-blue-500/20 transition-all duration-200`}
-                    required
-                  />
-                </div>
-                <div>
-                  <label className={`block ${typography.bodyBase} font-medium ${colors.neutral.textPrimary} mb-2`}>Job Title</label>
-                  <input
-                    type="text"
-                    placeholder="Software Engineer"
-                    className={`w-full rounded-lg ${colors.neutral.border} ${colors.neutral.surface} px-4 py-3 ${typography.bodyBase} placeholder:${colors.neutral.textMuted} hover:${colors.neutral.borderHover} focus:border-blue-500 focus:outline-none focus:ring-2 focus:ring-blue-500/20 transition-all duration-200`}
-                    required
-                  />
-                </div>
-                <div>
-                  <label className={`block ${typography.bodyBase} font-medium ${colors.neutral.textPrimary} mb-2`}>Job Description</label>
-                  <textarea
-                    rows="4"
-                    placeholder="Describe the role, requirements, and responsibilities..."
-                    className={`w-full rounded-lg ${colors.neutral.border} ${colors.neutral.surface} px-4 py-3 ${typography.bodyBase} placeholder:${colors.neutral.textMuted} hover:${colors.neutral.borderHover} focus:border-blue-500 focus:outline-none focus:ring-2 focus:ring-blue-500/20 transition-all duration-200 resize-vertical`}
-                    required
-                  ></textarea>
-                </div>
-                <div>
-                  <label className={`block ${typography.bodyBase} font-medium ${colors.neutral.textPrimary} mb-2`}>
-                    Email <span className={`${colors.neutral.textMuted} ${typography.bodySmall} font-normal`}>(We will contact you via this email)</span>
-                  </label>
-                  <input
-                    type="email"
-                    placeholder="jobs@amazon.com"
-                    className={`w-full rounded-lg ${colors.neutral.border} ${colors.neutral.surface} px-4 py-3 ${typography.bodyBase} placeholder:${colors.neutral.textMuted} hover:${colors.neutral.borderHover} focus:border-blue-500 focus:outline-none focus:ring-2 focus:ring-blue-500/20 transition-all duration-200`}
-                    required
-                  />
-                </div>
-                <button
-                  type="submit"
-                  className={`w-full ${components.button.base} ${components.button.primary} ${components.button.sizes.medium} flex items-center justify-center space-x-2`}
-                >
-                  <span>Submit</span>
-                  <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 7l5 5m0 0l-5 5m5-5H6" />
-                  </svg>
-                </button>
-              </form>
-            </div>
-          </div>
-        </div>
-      )}
+      </header>      {/* Job Post Modal */}
+      <JobPostModal 
+        isOpen={isPostJobModalOpen} 
+        onClose={() => setIsPostJobModalOpen(false)} 
+      />
     </>
   );
 };
