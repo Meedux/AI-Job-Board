@@ -22,7 +22,6 @@ const Header = () => {
     { label: 'Pricing', href: '/pricing' },
     { label: 'Feedback', href: '/feedback' },
   ];
-
   const userNavItems = user ? [
     { label: 'Dashboard', href: '/dashboard' },
     { label: 'ResumeSync', href: '/resume-analyzer' },
