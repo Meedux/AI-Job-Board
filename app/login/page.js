@@ -1,12 +1,12 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, Suspense } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
 import Link from 'next/link';
 import { useAuth } from '../../contexts/AuthContext';
 import { colors, typography, components, layout } from '../../utils/designSystem';
 
-export default function LoginPage() {
+function LoginForm() {
   const [formData, setFormData] = useState({
     email: '',
     password: '',
@@ -131,5 +131,38 @@ export default function LoginPage() {
         </div>
       </div>
     </div>
+  );
+}
+
+// Loading component for Suspense fallback
+function LoginPageLoading() {
+  return (
+    <div className={`min-h-screen ${colors.neutral.backgroundSecondary} flex items-center justify-center py-12 px-4`}>
+      <div className={`max-w-md w-full space-y-8`}>
+        <div className="animate-pulse">
+          <div className="h-8 bg-gray-300 rounded w-3/4 mx-auto mb-4"></div>
+          <div className="h-4 bg-gray-300 rounded w-1/2 mx-auto mb-8"></div>
+          <div className={`${components.card.base} ${components.card.padding} max-w-md mx-auto`}>
+            <div className="space-y-6">
+              <div className="h-4 bg-gray-300 rounded w-1/4 mb-2"></div>
+              <div className="h-10 bg-gray-300 rounded"></div>
+              <div className="h-4 bg-gray-300 rounded w-1/4 mb-2"></div>
+              <div className="h-10 bg-gray-300 rounded"></div>
+              <div className="h-10 bg-gray-300 rounded"></div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+export default function LoginPage() {
+  return (
+    <>
+      <Suspense fallback={<LoginPageLoading />}>
+        <LoginForm />
+      </Suspense>
+    </>
   );
 }
