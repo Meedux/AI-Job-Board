@@ -142,7 +142,7 @@ const convertGoogleDocsToHTML = (content) => {
     } else if (element.horizontalRule) {
       html += '<hr class="my-6 border-gray-300">';
     } else if (element.tableOfContents) {
-      html += '<div class="toc mb-6 p-4 bg-gray-50 rounded-lg border"><h4 class="font-bold mb-2">Table of Contents</h4><div class="text-sm text-gray-600">[Table of Contents]</div></div>';
+      html += '<div class="toc mb-6 p-4 bg-gray-800 rounded-lg border"><h4 class="font-bold mb-2">Table of Contents</h4><div class="text-sm text-gray-600">[Table of Contents]</div></div>';
     }
   });
 

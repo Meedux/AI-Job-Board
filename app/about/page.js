@@ -79,7 +79,7 @@ export default function AboutPage() {
       </div>
 
       {/* Stats Section */}
-      <div className="px-4 py-16 bg-gray-50 dark:bg-gray-800">
+      <div className="px-4 py-16 bg-gray-800 dark:bg-gray-800">
         <div className="max-w-6xl mx-auto">
           <div className="grid grid-cols-2 md:grid-cols-4 gap-8">
             {stats.map((stat, index) => (
@@ -130,7 +130,7 @@ export default function AboutPage() {
       </div>
 
       {/* Values Section */}
-      <div className="px-4 py-20 bg-gray-50 dark:bg-gray-800">
+      <div className="px-4 py-20 bg-gray-800 dark:bg-gray-800">
         <div className="max-w-6xl mx-auto">
           <div className="text-center mb-16">
             <h2 className={`${typography.h2} ${colors.neutral.textPrimary} mb-4`}>

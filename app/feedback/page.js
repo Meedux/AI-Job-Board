@@ -140,7 +140,7 @@ export default function FeedbackPage() {
       {showModal && (
         <div className="fixed inset-0 z-50 flex items-center justify-center px-4">
           <div className="fixed inset-0 bg-black bg-opacity-50" onClick={closeModal}></div>
-          <div className="relative max-w-md w-full bg-white rounded-lg p-6 text-center">
+          <div className="relative max-w-md w-full bg-gray-800 rounded-lg p-6 text-center">
             <div className="text-4xl mb-4">🎉</div>
             <h3 className={`${typography.h4} ${colors.neutral.textPrimary} mb-4`}>
               Thanks for feedback!

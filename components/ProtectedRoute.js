@@ -16,7 +16,7 @@ const ProtectedRoute = ({ children, fallback = null }) => {
   // Show loading state while checking authentication
   if (loading) {
     return (
-      <div className="min-h-screen flex items-center justify-center bg-gray-50">
+      <div className="min-h-screen flex items-center justify-center bg-gray-800">
         <div className="text-center">
           <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600 mx-auto mb-4"></div>
           <p className={`${typography.bodyBase} ${colors.neutral.textSecondary}`}>
@@ -40,7 +40,7 @@ const ProtectedRoute = ({ children, fallback = null }) => {
 
   // Default: Show access denied message
   return (
-    <div className="min-h-screen flex items-center justify-center bg-gray-50">
+    <div className="min-h-screen flex items-center justify-center bg-gray-800">
       <div className="max-w-md w-full text-center p-8">
         <div className="mb-6">
           <div className="mx-auto h-16 w-16 rounded-full bg-red-100 flex items-center justify-center mb-4">
@@ -65,7 +65,7 @@ const ProtectedRoute = ({ children, fallback = null }) => {
           </a>
           <a
             href="/register"
-            className="w-full inline-flex items-center justify-center px-4 py-2 border border-gray-300 text-sm font-medium rounded-md text-gray-700 bg-white hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 transition-colors"
+            className="w-full inline-flex items-center justify-center px-4 py-2 border border-gray-600 text-sm font-medium rounded-md text-gray-300 bg-gray-800 hover:bg-gray-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 transition-colors"
           >
             Create Account
           </a>

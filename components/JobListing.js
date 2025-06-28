@@ -10,7 +10,7 @@ const JobListing = ({ jobs = [], loading = false, error = null }) => {
         {/* Loading skeleton */}
         {[...Array(5)].map((_, index) => (
           <div key={index} className="animate-pulse">
-            <div className="bg-white border rounded-lg p-6">
+            <div className="bg-gray-800 border border-gray-700 rounded-lg p-6">
               <div className="flex items-start space-x-4">
                 <div className="w-16 h-16 bg-gray-200 rounded-lg"></div>
                 <div className="flex-1">
@@ -64,7 +64,7 @@ const JobListing = ({ jobs = [], loading = false, error = null }) => {
     <div className="grid grid-cols-1 gap-4">
       {jobs.map((job, index) => (
         <JobCard 
-          key={job.slug || job.id || `job-${index}`} 
+          key={`job-${index}`} 
           job={job} 
         />
       ))}

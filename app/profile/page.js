@@ -94,7 +94,7 @@ export default function ProfilePage() {
                       value={formData.fullName}
                       onChange={handleChange}
                       disabled={!isEditing}
-                      className={`${components.input.base} ${!isEditing ? 'bg-gray-50' : ''}`}
+                      className={`${components.input.base} ${!isEditing ? 'bg-gray-800' : ''}`}
                     />
                   </div>
 
@@ -108,7 +108,7 @@ export default function ProfilePage() {
                       value={formData.nickname}
                       onChange={handleChange}
                       disabled={!isEditing}
-                      className={`${components.input.base} ${!isEditing ? 'bg-gray-50' : ''}`}
+                      className={`${components.input.base} ${!isEditing ? 'bg-gray-800' : ''}`}
                     />
                   </div>
 
@@ -122,7 +122,7 @@ export default function ProfilePage() {
                       value={formData.email}
                       onChange={handleChange}
                       disabled={!isEditing}
-                      className={`${components.input.base} ${!isEditing ? 'bg-gray-50' : ''}`}
+                      className={`${components.input.base} ${!isEditing ? 'bg-gray-800' : ''}`}
                     />
                   </div>
 
@@ -136,7 +136,7 @@ export default function ProfilePage() {
                       value={formData.dateOfBirth}
                       onChange={handleChange}
                       disabled={!isEditing}
-                      className={`${components.input.base} ${!isEditing ? 'bg-gray-50' : ''}`}
+                      className={`${components.input.base} ${!isEditing ? 'bg-gray-800' : ''}`}
                     />
                   </div>
                 </div>
@@ -151,7 +151,7 @@ export default function ProfilePage() {
                     value={formData.fullAddress}
                     onChange={handleChange}
                     disabled={!isEditing}
-                    className={`${components.input.base} ${!isEditing ? 'bg-gray-50' : ''}`}
+                    className={`${components.input.base} ${!isEditing ? 'bg-gray-800' : ''}`}
                   />
                 </div>
 

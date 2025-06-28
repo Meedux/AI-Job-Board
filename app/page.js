@@ -104,7 +104,7 @@ export default function Home() {
                 <EmailSubscription />
                 
                 {/* Job Search Tips */}
-                <div className={`${gradients.primaryLight} rounded-lg ${components.card.padding}`}>
+                <div className={`${gradients.primary} rounded-lg ${components.card.padding}`}>
                   <h3 className={`${typography.h5} ${colors.neutral.textPrimary} mb-3`}>
                     💡 Job Search Tips
                   </h3>
@@ -140,7 +140,7 @@ export default function Home() {
                         className={`px-3 py-1 rounded-full text-sm border transition-colors ${
                           filters.remote 
                             ? 'bg-blue-100 text-blue-700 border-blue-300' 
-                            : 'bg-white text-slate-600 border-slate-300 hover:bg-slate-50'
+                            : 'bg-gray-800 text-gray-300 border-gray-600 hover:bg-gray-700'
                         }`}
                       >
                         Remote Only
@@ -150,7 +150,7 @@ export default function Home() {
                         className={`px-3 py-1 rounded-full text-sm border transition-colors ${
                           filters.type === 'full-time'
                             ? 'bg-blue-100 text-blue-700 border-blue-300' 
-                            : 'bg-white text-slate-600 border-slate-300 hover:bg-slate-50'
+                            : 'bg-gray-800 text-gray-300 border-gray-600 hover:bg-gray-700'
                         }`}
                       >
                         Full-time
@@ -160,7 +160,7 @@ export default function Home() {
                         className={`px-3 py-1 rounded-full text-sm border transition-colors ${
                           filters.level === 'senior'
                             ? 'bg-blue-100 text-blue-700 border-blue-300' 
-                            : 'bg-white text-slate-600 border-slate-300 hover:bg-slate-50'
+                            : 'bg-gray-800 text-gray-300 border-gray-600 hover:bg-gray-700'
                         }`}
                       >
                         Senior Level

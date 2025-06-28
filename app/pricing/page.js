@@ -148,7 +148,7 @@ export default function PricingPage() {
               }`}
             >
               <span
-                className={`inline-block h-4 w-4 transform rounded-full bg-white transition-transform ${
+                className={`inline-block h-4 w-4 transform rounded-full  transition-transform ${
                   isAnnual ? 'translate-x-6' : 'translate-x-1'
                 }`}
               />
@@ -274,7 +274,7 @@ export default function PricingPage() {
       </div>
 
       {/* Features Comparison */}
-      <div className="px-4 py-20 bg-gray-50 dark:bg-gray-800">
+      <div className="px-4 py-20 bg-gray-800 dark:bg-gray-800">
         <div className="max-w-6xl mx-auto">
           <div className="text-center mb-16">
             <h2 className={`${typography.h2} ${colors.neutral.textPrimary} mb-4`}>
@@ -390,13 +390,13 @@ export default function PricingPage() {
           <div className="flex flex-col sm:flex-row gap-4 justify-center">
             <Link
               href="/payment-method"
-              className="px-8 py-3 bg-white text-blue-600 rounded-lg font-medium hover:bg-gray-50 transition-colors"
+              className="px-8 py-3 bg-blue-600 text-white rounded-lg font-medium hover:bg-blue-700 transition-colors"
             >
               Start Free Trial
             </Link>
             <Link
               href="/feedback"
-              className="px-8 py-3 border-2 border-white text-white rounded-lg font-medium hover:bg-white hover:text-blue-600 transition-colors"
+              className="px-8 py-3 border-2 border-gray-400 text-gray-300 rounded-lg font-medium hover:bg-gray-700 hover:text-white transition-colors"
             >
               Contact Sales
             </Link>

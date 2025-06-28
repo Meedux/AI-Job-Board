@@ -33,7 +33,7 @@ export default function ResumeAnalyzer() {
         <div className="max-w-5xl mx-auto mb-8 relative">
           {/* Loading State */}
           {isLoading && (
-            <div className="absolute inset-0 flex items-center justify-center bg-white bg-opacity-90 z-10 rounded-lg">
+            <div className="absolute inset-0 flex items-center justify-center bg-gray-900 bg-opacity-90 z-10 rounded-lg">
               <div className="text-center">
                 <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600 mx-auto mb-3"></div>
                 <p className={`${typography.bodyBase} ${colors.neutral.textTertiary}`}>
@@ -44,7 +44,7 @@ export default function ResumeAnalyzer() {
           )}
 
           {/* Clean Iframe Container */}
-          <div className="bg-white rounded-lg shadow-sm border border-gray-200 overflow-hidden">
+          <div className="bg-gray-800 rounded-lg shadow-sm border border-gray-700 overflow-hidden">
             <iframe
               src="https://meesamraza-resume-analyzer1.hf.space"
               width="100%"
