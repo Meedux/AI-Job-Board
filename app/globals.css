@@ -28,6 +28,20 @@ body {
   color: #d1d5db; /* Light gray text in dark mode */
 }
 
+/* Enhanced Google Docs Content Styling for Dark Mode */
+.google-docs-content {
+  color: #d1d5db;
+  line-height: 1.7;
+  font-size: 1rem;
+}
+
+/* Force dark styling regardless of system preference */
+.google-docs-content,
+:root.dark .google-docs-content,
+.dark .google-docs-content {
+  color: #d1d5db; /* Light gray text */
+}
+
 .google-docs-content h1 {
   font-size: 1.875rem;
   font-weight: 700;
@@ -40,6 +54,19 @@ body {
 :root.dark .google-docs-content h1,
 .dark .google-docs-content h1 {
   color: #f9fafb; /* Very light text for headings in dark mode */
+}
+
+.google-docs-content h1,
+:root.dark .google-docs-content h1,
+.dark .google-docs-content h1 {
+  font-size: 2rem;
+  font-weight: 700;
+  color: #f3f4f6 !important;
+  margin-top: 2.5rem;
+  margin-bottom: 1.25rem;
+  padding-bottom: 0.75rem;
+  border-bottom: 2px solid #374151;
+  line-height: 1.25;
 }
 
 .google-docs-content h2 {
@@ -56,6 +83,17 @@ body {
   color: #f9fafb;
 }
 
+.google-docs-content h2,
+:root.dark .google-docs-content h2,
+.dark .google-docs-content h2 {
+  font-size: 1.5rem;
+  font-weight: 600;
+  color: #e5e7eb !important;
+  margin-top: 2rem;
+  margin-bottom: 1rem;
+  line-height: 1.3;
+}
+
 .google-docs-content h3 {
   font-size: 1.25rem;
   font-weight: 700;
@@ -68,6 +106,17 @@ body {
 :root.dark .google-docs-content h3,
 .dark .google-docs-content h3 {
   color: #f9fafb;
+}
+
+.google-docs-content h3,
+:root.dark .google-docs-content h3,
+.dark .google-docs-content h3 {
+  font-size: 1.25rem;
+  font-weight: 600;
+  color: #e5e7eb !important;
+  margin-top: 1.75rem;
+  margin-bottom: 0.75rem;
+  line-height: 1.35;
 }
 
 .google-docs-content h4 {
@@ -84,34 +133,17 @@ body {
   color: #f9fafb;
 }
 
-.google-docs-content h5 {
-  font-size: 1rem;
-  font-weight: 700;
-  color: #111827;
-  margin-top: 1rem;
+.google-docs-content h4,
+:root.dark .google-docs-content h4,
+.dark .google-docs-content h4 {
+  font-size: 1.125rem;
+  font-weight: 600;
+  color: #e5e7eb !important;
+  margin-top: 1.5rem;
   margin-bottom: 0.5rem;
-  line-height: 1.25;
 }
 
-:root.dark .google-docs-content h5,
-.dark .google-docs-content h5 {
-  color: #f9fafb;
-}
-
-.google-docs-content h6 {
-  font-size: 0.875rem;
-  font-weight: 700;
-  color: #111827;
-  margin-top: 0.75rem;
-  margin-bottom: 0.5rem;
-  line-height: 1.25;
-}
-
-:root.dark .google-docs-content h6,
-.dark .google-docs-content h6 {
-  color: #f9fafb;
-}
-
+/* Paragraphs */
 .google-docs-content p {
   margin-bottom: 1rem;
   line-height: 1.625;
@@ -123,64 +155,46 @@ body {
   color: #d1d5db; /* Light gray for paragraphs in dark mode */
 }
 
-.google-docs-content a {
-  color: #2563eb;
-  text-decoration: underline;
-  transition: color 0.15s ease-in-out;
+.google-docs-content p,
+:root.dark .google-docs-content p,
+.dark .google-docs-content p {
+  color: #d1d5db !important;
+  margin-bottom: 1.25rem;
+  line-height: 1.7;
 }
 
-.google-docs-content a:hover {
-  color: #1d4ed8;
-}
-
-:root.dark .google-docs-content a,
-.dark .google-docs-content a {
-  color: #60a5fa; /* Light blue for links in dark mode */
-}
-
-:root.dark .google-docs-content a:hover,
-.dark .google-docs-content a:hover {
-  color: #93c5fd; /* Lighter blue on hover in dark mode */
-}
-
+/* Strong/Bold text */
 .google-docs-content strong,
-.google-docs-content .font-bold {
+.google-docs-content b {
   font-weight: 700;
   color: #111827;
 }
 
 :root.dark .google-docs-content strong,
-:root.dark .google-docs-content .font-bold,
+:root.dark .google-docs-content b,
 .dark .google-docs-content strong,
-.dark .google-docs-content .font-bold {
-  color: #f3f4f6; /* Light text for bold in dark mode */
+.dark .google-docs-content b {
+  color: #f3f4f6 !important;
+  font-weight: 600;
 }
 
+/* Emphasis/Italic text */
 .google-docs-content em,
-.google-docs-content .italic {
+.google-docs-content i {
   font-style: italic;
 }
 
-.google-docs-content .underline {
-  text-decoration: underline;
+.google-docs-content em,
+.google-docs-content i,
+:root.dark .google-docs-content em,
+:root.dark .google-docs-content i,
+.dark .google-docs-content em,
+.dark .google-docs-content i {
+  color: #e5e7eb !important;
+  font-style: italic;
 }
 
-.google-docs-content .line-through {
-  text-decoration: line-through;
-}
-
-.google-docs-content .text-center {
-  text-align: center;
-}
-
-.google-docs-content .text-right {
-  text-align: right;
-}
-
-.google-docs-content .text-justify {
-  text-align: justify;
-}
-
+/* Lists */
 .google-docs-content ul {
   list-style-type: disc;
   list-style-position: inside;
@@ -213,6 +227,71 @@ body {
   color: #d1d5db; /* Light gray for list items in dark mode */
 }
 
+.google-docs-content ul,
+.google-docs-content ol,
+:root.dark .google-docs-content ul,
+:root.dark .google-docs-content ol,
+.dark .google-docs-content ul,
+.dark .google-docs-content ol {
+  margin-bottom: 1.25rem;
+  padding-left: 1.5rem;
+}
+
+.google-docs-content ul li,
+.google-docs-content ol li,
+:root.dark .google-docs-content ul li,
+:root.dark .google-docs-content ol li,
+.dark .google-docs-content ul li,
+.dark .google-docs-content ol li {
+  color: #d1d5db !important;
+  margin-bottom: 0.5rem;
+  line-height: 1.6;
+}
+
+.google-docs-content ul {
+  list-style-type: disc;
+}
+
+.google-docs-content ol {
+  list-style-type: decimal;
+}
+
+/* Links */
+.google-docs-content a {
+  color: #2563eb;
+  text-decoration: underline;
+  transition: color 0.15s ease-in-out;
+}
+
+.google-docs-content a:hover {
+  color: #1d4ed8;
+}
+
+:root.dark .google-docs-content a,
+.dark .google-docs-content a {
+  color: #60a5fa; /* Light blue for links in dark mode */
+}
+
+:root.dark .google-docs-content a:hover,
+.dark .google-docs-content a:hover {
+  color: #93c5fd; /* Lighter blue on hover in dark mode */
+}
+
+.google-docs-content a,
+:root.dark .google-docs-content a,
+.dark .google-docs-content a {
+  color: #60a5fa !important;
+  text-decoration: underline;
+  transition: color 0.2s ease;
+}
+
+.google-docs-content a:hover,
+:root.dark .google-docs-content a:hover,
+.dark .google-docs-content a:hover {
+  color: #93c5fd !important;
+}
+
+/* Blockquotes */
 .google-docs-content blockquote {
   border-left: 4px solid #d1d5db;
   padding-left: 1rem;
@@ -227,82 +306,20 @@ body {
   color: #9ca3af;
 }
 
-.google-docs-content table {
-  min-width: 100%;
-  border-collapse: collapse;
-  border: 1px solid #d1d5db;
+.google-docs-content blockquote,
+:root.dark .google-docs-content blockquote,
+.dark .google-docs-content blockquote {
+  border-left: 4px solid #3b82f6;
+  padding-left: 1rem;
   margin: 1.5rem 0;
+  color: #d1d5db !important;
+  font-style: italic;
+  background: rgba(59, 130, 246, 0.05);
+  padding: 1rem;
+  border-radius: 0.25rem;
 }
 
-:root.dark .google-docs-content table,
-.dark .google-docs-content table {
-  border: 1px solid #4b5563;
-}
-
-.google-docs-content th {
-  border: 1px solid #d1d5db;
-  padding: 0.5rem 1rem;
-  background-color: #f9fafb;
-  font-weight: 600;
-  text-align: left;
-}
-
-:root.dark .google-docs-content th,
-.dark .google-docs-content th {
-  border: 1px solid #4b5563;
-  background-color: #374151;
-  color: #f9fafb;
-}
-
-.google-docs-content td {
-  border: 1px solid #d1d5db;
-  padding: 0.5rem 1rem;
-}
-
-:root.dark .google-docs-content td,
-.dark .google-docs-content td {
-  border: 1px solid #4b5563;
-  color: #d1d5db;
-}
-
-.google-docs-content .text-lg {
-  font-size: 1.125rem;
-}
-
-.google-docs-content .text-base {
-  font-size: 1rem;
-}
-
-.google-docs-content .text-sm {
-  font-size: 0.875rem;
-}
-
-.google-docs-content .text-xs {
-  font-size: 0.75rem;
-}
-
-/* Enhanced Google Docs Content Styling - Advanced Features */
-
-/* RTL Support */
-.google-docs-content .rtl {
-  direction: rtl;
-  text-align: right;
-}
-
-/* Superscript and Subscript */
-.google-docs-content .align-super {
-  vertical-align: super;
-  font-size: 0.75em;
-  line-height: 0;
-}
-
-.google-docs-content .align-sub {
-  vertical-align: sub;
-  font-size: 0.75em;
-  line-height: 0;
-}
-
-/* Enhanced Code Blocks */
+/* Code */
 .google-docs-content code {
   font-family: 'Courier New', Consolas, 'Liberation Mono', Menlo, Courier, monospace;
   background-color: #374151;
@@ -321,187 +338,17 @@ body {
   border-color: #374151;
 }
 
-/* Inline Objects and Embeds */
-.google-docs-content .inline-object {
-  display: inline-flex;
-  align-items: center;
-  background-color: #f3f4f6;
-  color: #6b7280;
-  padding: 0.25rem 0.75rem;
-  border-radius: 0.375rem;
-  border: 1px solid #d1d5db;
-  font-size: 0.875rem;
-  margin: 0 0.125rem;
-  font-weight: 500;
-}
-
-:root.dark .google-docs-content .inline-object,
-.dark .google-docs-content .inline-object {
-  background-color: #374151;
-  color: #9ca3af;
-  border-color: #4b5563;
-}
-
-/* Footnote References */
-.google-docs-content .footnote-ref {
-  color: #3b82f6;
-  text-decoration: none;
-  font-weight: 600;
-  cursor: pointer;
-  transition: color 0.2s ease;
-}
-
-.google-docs-content .footnote-ref:hover {
-  color: #1d4ed8;
-}
-
-:root.dark .google-docs-content .footnote-ref,
-.dark .google-docs-content .footnote-ref {
-  color: #60a5fa;
-}
-
-:root.dark .google-docs-content .footnote-ref:hover,
-.dark .google-docs-content .footnote-ref:hover {
-  color: #93c5fd;
-}
-
-/* Auto Text Elements */
-.google-docs-content .auto-text {
-  color: #6b7280;
-  font-style: italic;
-  font-size: 0.875rem;
-}
-
-:root.dark .google-docs-content .auto-text,
-.dark .google-docs-content .auto-text {
-  color: #9ca3af;
-}
-
-/* Mathematical Equations */
-.google-docs-content .equation {
-  font-family: 'Times New Roman', 'Liberation Serif', serif;
-  background-color: #f9fafb;
-  color: #111827;
-  padding: 0.25rem 0.5rem;
+.google-docs-content code,
+:root.dark .google-docs-content code,
+.dark .google-docs-content code {
+  background: #1f2937 !important;
+  color: #60a5fa !important;
+  padding: 0.125rem 0.375rem;
   border-radius: 0.25rem;
-  border: 1px solid #e5e7eb;
+  font-family: 'Courier New', monospace;
   font-size: 0.875rem;
-  display: inline-block;
-  margin: 0 0.125rem;
 }
 
-:root.dark .google-docs-content .equation,
-.dark .google-docs-content .equation {
-  background-color: #1f2937;
-  color: #d1d5db;
-  border-color: #374151;
-}
-
-/* Page and Section Breaks */
-.google-docs-content .page-break {
-  border-top: 2px solid #d1d5db;
-  margin: 2rem 0;
-  position: relative;
-}
-
-.google-docs-content .page-break::after {
-  content: 'Page Break';
-  position: absolute;
-  top: -0.75rem;
-  left: 50%;
-  transform: translateX(-50%);
-  background-color: #ffffff;
-  color: #6b7280;
-  padding: 0 0.5rem;
-  font-size: 0.75rem;
-  font-weight: 500;
-}
-
-:root.dark .google-docs-content .page-break,
-.dark .google-docs-content .page-break {
-  border-color: #4b5563;
-}
-
-:root.dark .google-docs-content .page-break::after,
-.dark .google-docs-content .page-break::after {
-  background-color: #111827;
-  color: #9ca3af;
-}
-
-.google-docs-content .section-break {
-  margin: 1.5rem 0;
-  height: 1px;
-  background: linear-gradient(to right, transparent, #d1d5db 20%, #d1d5db 80%, transparent);
-}
-
-:root.dark .google-docs-content .section-break,
-.dark .google-docs-content .section-break {
-  background: linear-gradient(to right, transparent, #4b5563 20%, #4b5563 80%, transparent);
-}
-
-.google-docs-content .column-break {
-  margin: 1rem 0;
-  padding-left: 1rem;
-  border-left: 2px solid #9ca3af;
-}
-
-:root.dark .google-docs-content .column-break,
-.dark .google-docs-content .column-break {
-  border-color: #6b7280;
-}
-
-/* Table of Contents */
-.google-docs-content .toc {
-  background-color: #f9fafb;
-  border: 1px solid #e5e7eb;
-  border-radius: 0.5rem;
-  padding: 1rem;
-  margin: 1.5rem 0;
-}
-
-:root.dark .google-docs-content .toc,
-.dark .google-docs-content .toc {
-  background-color: #1f2937;
-  border-color: #374151;
-}
-
-.google-docs-content .toc h4 {
-  color: #111827;
-  font-weight: 700;
-  margin-bottom: 0.5rem;
-}
-
-:root.dark .google-docs-content .toc h4,
-.dark .google-docs-content .toc h4 {
-  color: #f9fafb;
-}
-
-/* Enhanced Table Styling */
-.google-docs-content .table-container {
-  margin: 1.5rem 0;
-  border-radius: 0.5rem;
-  overflow: hidden;
-  box-shadow: 0 1px 3px 0 rgba(0, 0, 0, 0.1);
-}
-
-:root.dark .google-docs-content .table-container,
-.dark .google-docs-content .table-container {
-  box-shadow: 0 1px 3px 0 rgba(0, 0, 0, 0.3);
-}
-
-/* Enhanced Link Styling */
-.google-docs-content a {
-  transition: all 0.2s ease;
-  text-decoration-thickness: 2px;
-  text-underline-offset: 3px;
-}
-
-.google-docs-content a:hover {
-  text-decoration-thickness: 3px;
-  text-underline-offset: 2px;
-}
-
-/* Preserve Whitespace and Line Breaks */
 .google-docs-content pre {
   white-space: pre-wrap;
   word-wrap: break-word;
@@ -524,43 +371,111 @@ body {
   color: #cbd5e1;
 }
 
-/* Enhanced List Styling for Better Nesting */
-.google-docs-content ul ul,
-.google-docs-content ol ol,
-.google-docs-content ul ol,
-.google-docs-content ol ul {
-  margin-top: 0.5rem;
-  margin-bottom: 0.5rem;
+.google-docs-content pre,
+:root.dark .google-docs-content pre,
+.dark .google-docs-content pre {
+  background: #1f2937 !important;
+  color: #d1d5db !important;
+  padding: 1rem;
+  border-radius: 0.5rem;
+  overflow-x: auto;
+  margin: 1.5rem 0;
+  border: 1px solid #374151;
 }
 
-.google-docs-content li {
-  margin-bottom: 0.25rem;
+/* Tables */
+.google-docs-content table {
+  min-width: 100%;
+  border-collapse: collapse;
+  border: 1px solid #d1d5db;
+  margin: 1.5rem 0;
 }
 
-.google-docs-content li:last-child {
-  margin-bottom: 0;
+:root.dark .google-docs-content table,
+.dark .google-docs-content table {
+  border: 1px solid #4b5563;
 }
 
-/* Better Typography for Different Text Sizes */
-.google-docs-content .text-4xl {
-  line-height: 1.1;
-  letter-spacing: -0.025em;
+.google-docs-content table,
+:root.dark .google-docs-content table,
+.dark .google-docs-content table {
+  width: 100%;
+  border-collapse: collapse;
+  margin: 1.5rem 0;
+  border: 1px solid #374151;
 }
 
-.google-docs-content .text-3xl {
-  line-height: 1.2;
-  letter-spacing: -0.025em;
+.google-docs-content th {
+  border: 1px solid #d1d5db;
+  padding: 0.5rem 1rem;
+  background-color: #f9fafb;
+  font-weight: 600;
+  text-align: left;
 }
 
-.google-docs-content .text-2xl {
-  line-height: 1.25;
-  letter-spacing: -0.025em;
+:root.dark .google-docs-content th,
+.dark .google-docs-content th {
+  border: 1px solid #4b5563;
+  background-color: #374151;
+  color: #f9fafb;
 }
 
-/* Small caps support */
-.google-docs-content [style*="font-variant: small-caps"] {
-  font-variant: small-caps;
-  letter-spacing: 0.05em;
+.google-docs-content th,
+:root.dark .google-docs-content th,
+.dark .google-docs-content th {
+  background: #1f2937 !important;
+  color: #f3f4f6 !important;
+  font-weight: 600;
+}
+
+.google-docs-content td {
+  border: 1px solid #d1d5db;
+  padding: 0.5rem 1rem;
+}
+
+:root.dark .google-docs-content td,
+.dark .google-docs-content td {
+  border: 1px solid #4b5563;
+  color: #d1d5db;
+}
+
+.google-docs-content td,
+:root.dark .google-docs-content td,
+.dark .google-docs-content td {
+  color: #d1d5db !important;
+}
+
+/* Horizontal Rules */
+.google-docs-content hr,
+:root.dark .google-docs-content hr,
+.dark .google-docs-content hr {
+  border: none;
+  border-top: 1px solid #374151;
+  margin: 2rem 0;
+}
+
+/* Images */
+.google-docs-content img,
+:root.dark .google-docs-content img,
+.dark .google-docs-content img {
+  max-width: 100%;
+  height: auto;
+  border-radius: 0.5rem;
+  margin: 1rem 0;
+}
+
+/* Fix for nested elements that might have light styling */
+.google-docs-content * {
+  color: inherit !important;
+}
+
+.google-docs-content h1 *,
+.google-docs-content h2 *,
+.google-docs-content h3 *,
+.google-docs-content h4 *,
+.google-docs-content h5 *,
+.google-docs-content h6 * {
+  color: inherit !important;
 }
 
 /* Enhanced spacing and layout */

@@ -153,4 +153,82 @@ const TextArea = ({ error = false, className = '', ...props }) => {
   return <textarea className={textareaClasses} {...props} />;
 };
 
-export { LoadingSpinner, Button, Badge, Card, Input, TextArea };
+const GradientCard = ({ children, className = '', gradientFrom = 'blue', gradientTo = 'purple', ...props }) => {
+  const gradientClasses = `
+    relative
+    ${className}
+  `.trim();
+
+  const backgroundGradient = `bg-gradient-to-br from-${gradientFrom}-600/10 to-${gradientTo}-600/10`;
+  const blurGradient = `bg-gradient-to-r from-${gradientFrom}-600/20 to-${gradientTo}-600/20`;
+
+  return (
+    <div className={gradientClasses} {...props}>
+      <div className={`absolute -inset-4 ${blurGradient} rounded-3xl blur-2xl`}></div>
+      <div className="relative p-6 rounded-3xl bg-gradient-to-br from-gray-800/80 to-gray-900/80 backdrop-blur-xl border border-gray-700/50 shadow-2xl">
+        {children}
+      </div>
+    </div>
+  );
+};
+
+const IconBadge = ({ icon, color = 'blue', size = 'md', className = '' }) => {
+  const sizeClasses = {
+    sm: 'w-6 h-6',
+    md: 'w-8 h-8',
+    lg: 'w-10 h-10',
+    xl: 'w-12 h-12'
+  };
+
+  return (
+    <div className={`${sizeClasses[size]} bg-${color}-900/30 rounded-lg flex items-center justify-center ${className}`}>
+      <svg className={`h-4 w-4 text-${color}-400`} fill="none" viewBox="0 0 24 24" stroke="currentColor">
+        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="1.5" d={icon} />
+      </svg>
+    </div>
+  );
+};
+
+const GradientButton = ({ 
+  children, 
+  href, 
+  onClick,
+  gradientFrom = 'blue', 
+  gradientTo = 'purple',
+  size = 'md',
+  className = '',
+  ...props 
+}) => {
+  const sizeClasses = {
+    sm: 'px-4 py-2 text-sm',
+    md: 'px-6 py-3 text-base',
+    lg: 'px-8 py-4 text-lg',
+    xl: 'px-12 py-5 text-xl'
+  };
+
+  const baseClasses = `
+    relative inline-flex items-center justify-center space-x-3
+    bg-gradient-to-r from-${gradientFrom}-600 to-${gradientTo}-600
+    text-white font-bold rounded-2xl shadow-2xl
+    hover:shadow-${gradientFrom}-500/25 transition-all duration-300
+    transform hover:scale-105 active:scale-95
+    ${sizeClasses[size]}
+    ${className}
+  `.trim();
+
+  if (href) {
+    return (
+      <a href={href} className={baseClasses} {...props}>
+        {children}
+      </a>
+    );
+  }
+
+  return (
+    <button onClick={onClick} className={baseClasses} {...props}>
+      {children}
+    </button>
+  );
+};
+
+export { LoadingSpinner, Button, Badge, Card, Input, TextArea, GradientCard, IconBadge, GradientButton };

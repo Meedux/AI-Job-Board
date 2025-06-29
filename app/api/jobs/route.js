@@ -1,4 +1,4 @@
-// API route to fetch jobs from Google Sheets
+// API route to fetch jobs from Google Sheets with caching
 import { 
   fetchSheetData, 
   convertContentSheetToJobs, 
@@ -8,9 +8,14 @@ import {
   addJobToSheet
 } from '../../../utils/googleApi';
 
+// Simple in-memory cache
+const cache = new Map();
+const CACHE_DURATION = 5 * 60 * 1000; // 5 minutes
+
 export async function GET(request) {
   try {
-    const { searchParams } = new URL(request.url);    const limit = parseInt(searchParams.get('limit')) || 10;
+    const { searchParams } = new URL(request.url);
+    const limit = parseInt(searchParams.get('limit')) || 10;
     const search = searchParams.get('search') || '';
     const location = searchParams.get('location') || '';
     const type = searchParams.get('type') || '';
@@ -19,6 +24,25 @@ export async function GET(request) {
     const remote = searchParams.get('remote') === 'true';
     const includeExpired = searchParams.get('includeExpired') === 'true';
     const sortBy = searchParams.get('sortBy') || '';
+
+    // Create cache key from all parameters
+    const cacheKey = `jobs-${JSON.stringify({
+      search, location, type, level, category, remote, includeExpired, sortBy, limit
+    })}`;
+
+    // Check cache first
+    if (cache.has(cacheKey)) {
+      const { data, timestamp } = cache.get(cacheKey);
+      if (Date.now() - timestamp < CACHE_DURATION) {
+        return Response.json(data, {
+          headers: {
+            'Cache-Control': 'public, max-age=300, s-maxage=300',
+            'X-Cache': 'HIT'
+          }
+        });
+      }
+      cache.delete(cacheKey);
+    }
 
     // Configuration - using "Content" sheet as specified
     const SPREADSHEET_ID = process.env.GOOGLE_SPREADSHEET_ID;
@@ -39,7 +63,9 @@ export async function GET(request) {
     }
 
     // Convert sheet rows to job objects using new structure
-    let jobs = convertContentSheetToJobs(sheetData);    // Apply filters using the new filtering function
+    let jobs = convertContentSheetToJobs(sheetData);
+
+    // Apply filters using the new filtering function
     const filters = {
       search,
       location,
@@ -62,12 +88,22 @@ export async function GET(request) {
     // Process jobs with Google Docs content (if any)
     const processedJobs = await processJobsWithDocContent(paginatedJobs);
 
-    return Response.json({
+    const responseData = {
       jobs: processedJobs,
       total: totalJobs,
       limit,
       hasMore: totalJobs > limit,
       filters: filters // Return applied filters for debugging
+    };
+
+    // Cache the response
+    cache.set(cacheKey, { data: responseData, timestamp: Date.now() });
+
+    return Response.json(responseData, {
+      headers: {
+        'Cache-Control': 'public, max-age=300, s-maxage=300',
+        'X-Cache': 'MISS'
+      }
     });
 
   } catch (error) {
