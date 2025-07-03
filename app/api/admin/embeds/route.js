@@ -1,18 +1,44 @@
 import { NextResponse } from 'next/server';
 import { verifyToken } from '../../../../utils/auth';
 import { logAdminActivity, logAPIRequest, logError, getRequestInfo } from '../../../../utils/dataLogger';
-import { 
-  getNotifications, 
-  markNotificationAsRead, 
-  deleteNotification, 
-  clearAllNotifications, 
-  createNotification,
-  NOTIFICATION_TYPES,
-  CATEGORIES,
-  PRIORITY
-} from '../../../../utils/notificationService';
+import { v4 as uuidv4 } from 'uuid';
 
-// Admin email list (should match AuthContext)
+// In-memory storage for embed configurations (in production, use database)
+let embedConfigs = [
+  {
+    id: 'demo-job-list',
+    name: 'Demo Job Listings',
+    type: 'jobs',
+    config: {
+      limit: 5,
+      theme: 'light',
+      showLogo: true,
+      height: 400,
+      category: '',
+      location: ''
+    },
+    createdAt: new Date(Date.now() - 24 * 60 * 60 * 1000),
+    createdBy: 'admin@getgethired.com',
+    active: true
+  },
+  {
+    id: 'demo-search',
+    name: 'Demo Search Widget',
+    type: 'search',
+    config: {
+      theme: 'light',
+      showLogo: true,
+      height: 120,
+      width: '100%',
+      redirectUrl: '/'
+    },
+    createdAt: new Date(Date.now() - 12 * 60 * 60 * 1000),
+    createdBy: 'admin@getgethired.com',
+    active: true
+  }
+];
+
+// Admin configuration
 const adminEmails = [
   'admin@getgethired.com',
   'support@getgethired.com',
@@ -29,6 +55,47 @@ const isAdmin = (email) => {
   return adminEmails.includes(emailLower) || adminDomains.includes(domain);
 };
 
+// Generate embed code
+const generateEmbedCode = (config, baseUrl) => {
+  const { type, id } = config;
+  const params = new URLSearchParams(config.config);
+  const embedUrl = `${baseUrl}/embed/${type}?${params.toString()}`;
+  
+  const iframe = `<iframe 
+  src="${embedUrl}" 
+  width="${config.config.width || '100%'}" 
+  height="${config.config.height || '400'}" 
+  frameborder="0" 
+  scrolling="auto"
+  title="${config.name}"
+  style="border: 1px solid #e5e7eb; border-radius: 8px;">
+</iframe>`;
+
+  return {
+    iframe,
+    url: embedUrl,
+    html: iframe,
+    javascript: `
+// JavaScript embed code
+(function() {
+  var iframe = document.createElement('iframe');
+  iframe.src = '${embedUrl}';
+  iframe.width = '${config.config.width || '100%'}';
+  iframe.height = '${config.config.height || '400'}';
+  iframe.frameBorder = '0';
+  iframe.scrolling = 'auto';
+  iframe.title = '${config.name}';
+  iframe.style = 'border: 1px solid #e5e7eb; border-radius: 8px;';
+  
+  // Insert into element with id 'getgethired-widget'
+  var container = document.getElementById('getgethired-widget');
+  if (container) {
+    container.appendChild(iframe);
+  }
+})();`
+  };
+};
+
 export async function GET(request) {
   const startTime = Date.now();
   const { userAgent, ipAddress } = getRequestInfo(request);
@@ -36,7 +103,7 @@ export async function GET(request) {
   
   try {
     // Log API request
-    await logAPIRequest('GET', '/api/admin/notifications', null, ipAddress);
+    await logAPIRequest('GET', '/api/admin/embeds', null, ipAddress);
     
     // Get token from cookies
     const token = request.cookies.get('auth-token')?.value;
@@ -70,21 +137,29 @@ export async function GET(request) {
     // Log admin activity
     await logAdminActivity(
       user.email,
-      'VIEW_NOTIFICATIONS',
-      'admin_notifications',
-      'Admin viewed notifications list',
+      'VIEW_EMBEDS',
+      'admin_embeds',
+      'Admin viewed embed configurations',
       null,
       ipAddress
     );
 
-    // Return notifications for admin using the new service
-    const adminNotifications = getNotifications(true);
+    // Get base URL for embed code generation
+    const protocol = request.headers.get('x-forwarded-proto') || 'http';
+    const host = request.headers.get('host');
+    const baseUrl = `${protocol}://${host}`;
+
+    // Generate embed codes for each config
+    const embedsWithCodes = embedConfigs.map(config => ({
+      ...config,
+      embedCode: generateEmbedCode(config, baseUrl)
+    }));
 
     // Log successful API response
     const responseTime = Date.now() - startTime;
     await logAPIRequest(
       'GET',
-      '/api/admin/notifications',
+      '/api/admin/embeds',
       userId,
       ipAddress,
       200,
@@ -92,16 +167,16 @@ export async function GET(request) {
     );
 
     return NextResponse.json({
-      notifications: adminNotifications
+      embeds: embedsWithCodes
     }, { status: 200 });
 
   } catch (error) {
-    console.error('Error fetching notifications:', error);
+    console.error('Error fetching embeds:', error);
     
     // Log error
     await logError(
-      'ADMIN_NOTIFICATIONS_ERROR',
-      'admin/notifications',
+      'ADMIN_EMBEDS_ERROR',
+      'admin/embeds',
       error.message,
       error.stack,
       userId,
@@ -113,7 +188,7 @@ export async function GET(request) {
     const responseTime = Date.now() - startTime;
     await logAPIRequest(
       'GET',
-      '/api/admin/notifications',
+      '/api/admin/embeds',
       userId,
       ipAddress,
       500,
@@ -121,7 +196,7 @@ export async function GET(request) {
     );
     
     return NextResponse.json(
-      { error: 'Failed to fetch notifications' },
+      { error: 'Failed to fetch embeds' },
       { status: 500 }
     );
   }
@@ -134,7 +209,7 @@ export async function POST(request) {
 
   try {
     // Log API request
-    await logAPIRequest('POST', '/api/admin/notifications', null, ipAddress);
+    await logAPIRequest('POST', '/api/admin/embeds', null, ipAddress);
 
     // Get token from cookies
     const token = request.cookies.get('auth-token')?.value;
@@ -166,50 +241,62 @@ export async function POST(request) {
     }
 
     const body = await request.json();
-    const { 
-      type, 
-      title, 
-      message, 
-      category = CATEGORIES.ADMIN,
-      priority = PRIORITY.MEDIUM,
-      metadata = {}
-    } = body;
+    const { name, type, config } = body;
 
     // Validate required fields
-    if (!type || !title) {
+    if (!name || !type || !config) {
       return NextResponse.json(
-        { error: 'Type and title are required' },
+        { error: 'Name, type, and config are required' },
         { status: 400 }
       );
     }
 
-    // Create new notification using the notification service
-    const newNotification = await createNotification({
+    // Validate type
+    if (!['jobs', 'search', 'post-job'].includes(type)) {
+      return NextResponse.json(
+        { error: 'Invalid embed type' },
+        { status: 400 }
+      );
+    }
+
+    // Create new embed configuration
+    const newEmbed = {
+      id: uuidv4(),
+      name,
       type,
-      title,
-      message,
-      category,
-      priority,
-      userEmail: user.email,
-      metadata,
-      ipAddress
-    });
+      config,
+      createdAt: new Date(),
+      createdBy: user.email,
+      active: true
+    };
+
+    embedConfigs.push(newEmbed);
 
     // Log admin activity
     await logAdminActivity(
       user.email,
-      'CREATE_NOTIFICATION',
-      'admin_notifications',
-      `Admin created notification: ${title}`,
-      { notificationId: newNotification.id, type, category },
+      'CREATE_EMBED',
+      'admin_embeds',
+      `Admin created embed: ${name}`,
+      { embedId: newEmbed.id, type, name },
       ipAddress
     );
+
+    // Generate embed code
+    const protocol = request.headers.get('x-forwarded-proto') || 'http';
+    const host = request.headers.get('host');
+    const baseUrl = `${protocol}://${host}`;
+    
+    const embedWithCode = {
+      ...newEmbed,
+      embedCode: generateEmbedCode(newEmbed, baseUrl)
+    };
 
     // Log successful API response
     const responseTime = Date.now() - startTime;
     await logAPIRequest(
       'POST',
-      '/api/admin/notifications',
+      '/api/admin/embeds',
       userId,
       ipAddress,
       201,
@@ -217,16 +304,16 @@ export async function POST(request) {
     );
 
     return NextResponse.json({
-      notification: newNotification
+      embed: embedWithCode
     }, { status: 201 });
 
   } catch (error) {
-    console.error('Error creating notification:', error);
+    console.error('Error creating embed:', error);
     
     // Log error
     await logError(
-      'ADMIN_CREATE_NOTIFICATION_ERROR',
-      'admin/notifications',
+      'ADMIN_CREATE_EMBED_ERROR',
+      'admin/embeds',
       error.message,
       error.stack,
       userId,
@@ -238,7 +325,7 @@ export async function POST(request) {
     const responseTime = Date.now() - startTime;
     await logAPIRequest(
       'POST',
-      '/api/admin/notifications',
+      '/api/admin/embeds',
       userId,
       ipAddress,
       500,
@@ -246,20 +333,20 @@ export async function POST(request) {
     );
     
     return NextResponse.json(
-      { error: 'Failed to create notification' },
+      { error: 'Failed to create embed' },
       { status: 500 }
     );
   }
 }
 
-export async function PATCH(request) {
+export async function DELETE(request) {
   const startTime = Date.now();
   const { userAgent, ipAddress } = getRequestInfo(request);
   let userId = null;
 
   try {
     // Log API request
-    await logAPIRequest('PATCH', '/api/admin/notifications', null, ipAddress);
+    await logAPIRequest('DELETE', '/api/admin/embeds', null, ipAddress);
 
     // Get token from cookies
     const token = request.cookies.get('auth-token')?.value;
@@ -290,48 +377,43 @@ export async function PATCH(request) {
       );
     }
 
-    const body = await request.json();
-    const { action, notificationIds } = body;
+    const { searchParams } = new URL(request.url);
+    const embedId = searchParams.get('id');
 
-    let actionResult = false;
-
-    if (action === 'mark_read' && notificationIds) {
-      for (const id of notificationIds) {
-        markNotificationAsRead(id);
-      }
-      actionResult = true;
-    } else if (action === 'mark_all_read') {
-      // Get all admin notifications and mark them as read
-      const adminNotifications = getNotifications(true);
-      for (const notification of adminNotifications) {
-        markNotificationAsRead(notification.id);
-      }
-      actionResult = true;
-    } else if (action === 'delete' && notificationIds) {
-      for (const id of notificationIds) {
-        deleteNotification(id);
-      }
-      actionResult = true;
-    } else if (action === 'clear_all') {
-      clearAllNotifications(true);
-      actionResult = true;
+    if (!embedId) {
+      return NextResponse.json(
+        { error: 'Embed ID is required' },
+        { status: 400 }
+      );
     }
+
+    // Find and remove embed
+    const embedIndex = embedConfigs.findIndex(embed => embed.id === embedId);
+    if (embedIndex === -1) {
+      return NextResponse.json(
+        { error: 'Embed not found' },
+        { status: 404 }
+      );
+    }
+
+    const deletedEmbed = embedConfigs[embedIndex];
+    embedConfigs.splice(embedIndex, 1);
 
     // Log admin activity
     await logAdminActivity(
       user.email,
-      'MODIFY_NOTIFICATIONS',
-      'admin_notifications',
-      `Admin performed action: ${action}`,
-      { action, notificationIds: notificationIds || 'all' },
+      'DELETE_EMBED',
+      'admin_embeds',
+      `Admin deleted embed: ${deletedEmbed.name}`,
+      { embedId, name: deletedEmbed.name },
       ipAddress
     );
 
     // Log successful API response
     const responseTime = Date.now() - startTime;
     await logAPIRequest(
-      'PATCH',
-      '/api/admin/notifications',
+      'DELETE',
+      '/api/admin/embeds',
       userId,
       ipAddress,
       200,
@@ -339,16 +421,17 @@ export async function PATCH(request) {
     );
 
     return NextResponse.json({
-      success: actionResult
+      success: true,
+      message: 'Embed deleted successfully'
     }, { status: 200 });
 
   } catch (error) {
-    console.error('Error updating notifications:', error);
+    console.error('Error deleting embed:', error);
     
     // Log error
     await logError(
-      'ADMIN_UPDATE_NOTIFICATION_ERROR',
-      'admin/notifications',
+      'ADMIN_DELETE_EMBED_ERROR',
+      'admin/embeds',
       error.message,
       error.stack,
       userId,
@@ -359,8 +442,8 @@ export async function PATCH(request) {
     // Log failed API response
     const responseTime = Date.now() - startTime;
     await logAPIRequest(
-      'PATCH',
-      '/api/admin/notifications',
+      'DELETE',
+      '/api/admin/embeds',
       userId,
       ipAddress,
       500,
@@ -368,21 +451,8 @@ export async function PATCH(request) {
     );
     
     return NextResponse.json(
-      { error: 'Failed to update notifications' },
+      { error: 'Failed to delete embed' },
       { status: 500 }
     );
   }
 }
-
-// Function to add a new notification (can be called from other parts of the app)
-// This is now a wrapper around the notification service
-export const addAdminNotification = async (type, title, message, metadata = {}) => {
-  return await createNotification({
-    type,
-    title,
-    message,
-    category: CATEGORIES.ADMIN,
-    priority: PRIORITY.MEDIUM,
-    metadata
-  });
-};

@@ -7,6 +7,9 @@ import {
   sortJobs,
   addJobToSheet
 } from '../../../utils/googleApi';
+import { verifyToken } from '../../../utils/auth';
+import { logUserAction, logAPIRequest, logError, getRequestInfo } from '../../../utils/dataLogger';
+import { notifyJobPosted } from '../../../utils/notificationService';
 
 // Simple in-memory cache
 const cache = new Map();
@@ -116,7 +119,27 @@ export async function GET(request) {
 }
 
 export async function POST(request) {
+  const startTime = Date.now();
+  const { userAgent, ipAddress } = getRequestInfo(request);
+  let userId = null;
+
   try {
+    // Log API request
+    await logAPIRequest('POST', '/api/jobs', null, ipAddress);
+
+    // Get authentication token
+    const token = request.cookies.get('auth-token')?.value;
+    let user = null;
+
+    if (token) {
+      try {
+        user = verifyToken(token);
+        userId = user?.uid;
+      } catch (error) {
+        console.warn('Invalid token for job posting:', error.message);
+      }
+    }
+
     const { jobData } = await request.json();
 
     if (!jobData || !Array.isArray(jobData) || jobData.length !== 16) {
@@ -139,6 +162,46 @@ export async function POST(request) {
     // Add job to Google Sheets
     const result = await addJobToSheet(jobData);
 
+    // Log the job posting action
+    if (user) {
+      await logUserAction(
+        user.uid,
+        user.email,
+        'JOB_POSTED',
+        `Job posted: ${jobTitle} at ${companyName}`,
+        { jobTitle, companyName, categories },
+        ipAddress
+      );
+    }
+
+    // Send job posted notification
+    try {
+      await notifyJobPosted(jobTitle, companyName, userId, user?.email, ipAddress);
+      console.log('📱 Job posting notification sent');
+    } catch (error) {
+      console.error('Failed to send job posting notification:', error);
+      await logError(
+        'JOB_POSTING_NOTIFICATION_ERROR',
+        'api/jobs',
+        error.message,
+        error.stack,
+        userId,
+        { jobTitle, companyName },
+        'error'
+      );
+    }
+
+    // Log successful API response
+    const responseTime = Date.now() - startTime;
+    await logAPIRequest(
+      'POST',
+      '/api/jobs',
+      userId,
+      ipAddress,
+      200,
+      responseTime
+    );
+
     return Response.json({
       success: true,
       message: 'Job posted successfully',
@@ -147,6 +210,29 @@ export async function POST(request) {
 
   } catch (error) {
     console.error('Error posting job:', error);
+    
+    // Log error
+    await logError(
+      'JOB_POSTING_ERROR',
+      'api/jobs',
+      error.message,
+      error.stack,
+      userId,
+      null,
+      'error'
+    );
+    
+    // Log failed API response
+    const responseTime = Date.now() - startTime;
+    await logAPIRequest(
+      'POST',
+      '/api/jobs',
+      userId,
+      ipAddress,
+      500,
+      responseTime
+    );
+    
     return Response.json(
       { error: 'Failed to post job' },
       { status: 500 }

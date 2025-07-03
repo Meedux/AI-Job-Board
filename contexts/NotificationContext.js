@@ -117,6 +117,38 @@ export const NotificationProvider = ({ children }) => {
     setNotifications(prev => [newNotification, ...prev]);
   };
 
+  // Function to create notifications for current user using the notification service
+  const createUserNotification = useCallback(async (config) => {
+    if (!user) return;
+
+    try {
+      const response = await fetch('/api/notifications/user', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          ...config,
+          userId: user.uid,
+          userEmail: user.email
+        }),
+      });
+
+      if (response.ok) {
+        const data = await response.json();
+        // Add to local notifications if not admin-only
+        if (!data.notification.adminOnly) {
+          addNotification(data.notification);
+        }
+        return data.notification;
+      }
+    } catch (error) {
+      console.error('Error creating user notification:', error);
+      // Fallback to local notification
+      addNotification(config);
+    }
+  }, [user]);
+
   // Function to mark notification as read
   const markAsRead = async (id) => {
     if (user?.isAdmin) {
@@ -192,6 +224,7 @@ export const NotificationProvider = ({ children }) => {
     notifications,
     showToast,
     addNotification,
+    createUserNotification,
     markAsRead,
     markAllAsRead,
     removeNotification,

@@ -7,6 +7,7 @@ import Header from '../../components/Header';
 import Footer from '../../components/Footer';
 import ProtectedRoute from '../../components/ProtectedRoute';
 import { colors, typography, components, layout } from '../../utils/designSystem';
+import { CopyToClipboard } from 'react-copy-to-clipboard';
 
 const AdminDashboard = () => {
   const { user, isAdmin } = useAuth();
@@ -20,7 +21,14 @@ const AdminDashboard = () => {
   });
   const [users, setUsers] = useState([]);
   const [jobs, setJobs] = useState([]);
+  const [embeds, setEmbeds] = useState([]);
   const [loading, setLoading] = useState(true);
+  const [showEmbedForm, setShowEmbedForm] = useState(false);
+  const [newEmbed, setNewEmbed] = useState({
+    name: '',
+    type: 'jobs',
+    config: {}
+  });
 
   const fetchAdminData = useCallback(async () => {
     try {
@@ -42,6 +50,15 @@ const AdminDashboard = () => {
         const response = await jobsResponse.json();
         jobsData = response.jobs || [];
         setJobs(jobsData);
+      }
+
+      // Fetch embeds
+      const embedsResponse = await fetch('/api/admin/embeds');
+      let embedsData = [];
+      if (embedsResponse.ok) {
+        const response = await embedsResponse.json();
+        embedsData = response.embeds || [];
+        setEmbeds(embedsData);
       }
 
       // Update stats with fresh data
@@ -98,6 +115,288 @@ const AdminDashboard = () => {
     } catch (error) {
       console.error('Error creating test notifications:', error);
       showToast('Error creating test notifications', 'error');
+    }
+  };
+
+  const handleCreateEmbed = async () => {
+    try {
+      const response = await fetch('/api/admin/embeds', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify(newEmbed),
+      });
+      
+      const data = await response.json();
+      
+      if (response.ok) {
+        showToast('Embed created successfully!', 'success');
+        setEmbeds(prev => [data.embed, ...prev]);
+        setShowEmbedForm(false);
+        setNewEmbed({ name: '', type: 'jobs', config: {} });
+      } else {
+        showToast(`Failed to create embed: ${data.error}`, 'error');
+      }
+    } catch (error) {
+      console.error('Error creating embed:', error);
+      showToast('Error creating embed', 'error');
+    }
+  };
+
+  const handleDeleteEmbed = async (embedId) => {
+    if (!confirm('Are you sure you want to delete this embed?')) return;
+    
+    try {
+      const response = await fetch(`/api/admin/embeds?id=${embedId}`, {
+        method: 'DELETE',
+      });
+      
+      if (response.ok) {
+        showToast('Embed deleted successfully!', 'success');
+        setEmbeds(prev => prev.filter(embed => embed.id !== embedId));
+      } else {
+        const data = await response.json();
+        showToast(`Failed to delete embed: ${data.error}`, 'error');
+      }
+    } catch (error) {
+      console.error('Error deleting embed:', error);
+      showToast('Error deleting embed', 'error');
+    }
+  };
+
+  const getEmbedConfigForm = (type) => {
+    switch (type) {
+      case 'jobs':
+        return (
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+            <div>
+              <label className="block text-sm font-medium mb-1">Max Jobs</label>
+              <input
+                type="number"
+                min="1"
+                max="20"
+                value={newEmbed.config.limit || 5}
+                onChange={(e) => setNewEmbed(prev => ({ 
+                  ...prev, 
+                  config: { ...prev.config, limit: parseInt(e.target.value) }
+                }))}
+                className="w-full px-3 py-2 border border-gray-300 rounded focus:outline-none focus:ring-2 focus:ring-green-500"
+              />
+            </div>
+            <div>
+              <label className="block text-sm font-medium mb-1">Height (px)</label>
+              <input
+                type="number"
+                min="200"
+                max="800"
+                value={newEmbed.config.height || 400}
+                onChange={(e) => setNewEmbed(prev => ({ 
+                  ...prev, 
+                  config: { ...prev.config, height: parseInt(e.target.value) }
+                }))}
+                className="w-full px-3 py-2 border border-gray-300 rounded focus:outline-none focus:ring-2 focus:ring-green-500"
+              />
+            </div>
+            <div>
+              <label className="block text-sm font-medium mb-1">Category Filter</label>
+              <input
+                type="text"
+                value={newEmbed.config.category || ''}
+                onChange={(e) => setNewEmbed(prev => ({ 
+                  ...prev, 
+                  config: { ...prev.config, category: e.target.value }
+                }))}
+                className="w-full px-3 py-2 border border-gray-300 rounded focus:outline-none focus:ring-2 focus:ring-green-500"
+                placeholder="e.g., Technology"
+              />
+            </div>
+            <div>
+              <label className="block text-sm font-medium mb-1">Location Filter</label>
+              <input
+                type="text"
+                value={newEmbed.config.location || ''}
+                onChange={(e) => setNewEmbed(prev => ({ 
+                  ...prev, 
+                  config: { ...prev.config, location: e.target.value }
+                }))}
+                className="w-full px-3 py-2 border border-gray-300 rounded focus:outline-none focus:ring-2 focus:ring-green-500"
+                placeholder="e.g., San Francisco"
+              />
+            </div>
+            <div>
+              <label className="block text-sm font-medium mb-1">Theme</label>
+              <select
+                value={newEmbed.config.theme || 'light'}
+                onChange={(e) => setNewEmbed(prev => ({ 
+                  ...prev, 
+                  config: { ...prev.config, theme: e.target.value }
+                }))}
+                className="w-full px-3 py-2 border border-gray-300 rounded focus:outline-none focus:ring-2 focus:ring-green-500"
+              >
+                <option value="light">Light</option>
+                <option value="dark">Dark</option>
+              </select>
+            </div>
+            <div className="flex items-center">
+              <input
+                type="checkbox"
+                id="showLogo"
+                checked={newEmbed.config.showLogo !== false}
+                onChange={(e) => setNewEmbed(prev => ({ 
+                  ...prev, 
+                  config: { ...prev.config, showLogo: e.target.checked }
+                }))}
+                className="mr-2"
+              />
+              <label htmlFor="showLogo" className="text-sm font-medium">Show Logo</label>
+            </div>
+          </div>
+        );
+      case 'search':
+        return (
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+            <div>
+              <label className="block text-sm font-medium mb-1">Width</label>
+              <input
+                type="text"
+                value={newEmbed.config.width || '100%'}
+                onChange={(e) => setNewEmbed(prev => ({ 
+                  ...prev, 
+                  config: { ...prev.config, width: e.target.value }
+                }))}
+                className="w-full px-3 py-2 border border-gray-300 rounded focus:outline-none focus:ring-2 focus:ring-green-500"
+                placeholder="100% or 400px"
+              />
+            </div>
+            <div>
+              <label className="block text-sm font-medium mb-1">Height (px)</label>
+              <input
+                type="number"
+                min="100"
+                max="300"
+                value={newEmbed.config.height || 120}
+                onChange={(e) => setNewEmbed(prev => ({ 
+                  ...prev, 
+                  config: { ...prev.config, height: parseInt(e.target.value) }
+                }))}
+                className="w-full px-3 py-2 border border-gray-300 rounded focus:outline-none focus:ring-2 focus:ring-green-500"
+              />
+            </div>
+            <div>
+              <label className="block text-sm font-medium mb-1">Redirect URL</label>
+              <input
+                type="url"
+                value={newEmbed.config.redirectUrl || '/'}
+                onChange={(e) => setNewEmbed(prev => ({ 
+                  ...prev, 
+                  config: { ...prev.config, redirectUrl: e.target.value }
+                }))}
+                className="w-full px-3 py-2 border border-gray-300 rounded focus:outline-none focus:ring-2 focus:ring-green-500"
+              />
+            </div>
+            <div>
+              <label className="block text-sm font-medium mb-1">Theme</label>
+              <select
+                value={newEmbed.config.theme || 'light'}
+                onChange={(e) => setNewEmbed(prev => ({ 
+                  ...prev, 
+                  config: { ...prev.config, theme: e.target.value }
+                }))}
+                className="w-full px-3 py-2 border border-gray-300 rounded focus:outline-none focus:ring-2 focus:ring-green-500"
+              >
+                <option value="light">Light</option>
+                <option value="dark">Dark</option>
+              </select>
+            </div>
+          </div>
+        );
+      case 'post-job':
+        return (
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+            <div>
+              <label className="block text-sm font-medium mb-1">Height (px)</label>
+              <input
+                type="number"
+                min="400"
+                max="800"
+                value={newEmbed.config.height || 600}
+                onChange={(e) => setNewEmbed(prev => ({ 
+                  ...prev, 
+                  config: { ...prev.config, height: parseInt(e.target.value) }
+                }))}
+                className="w-full px-3 py-2 border border-gray-300 rounded focus:outline-none focus:ring-2 focus:ring-green-500"
+              />
+            </div>
+            <div>
+              <label className="block text-sm font-medium mb-1">Pre-fill Company Name</label>
+              <input
+                type="text"
+                value={newEmbed.config.companyName || ''}
+                onChange={(e) => setNewEmbed(prev => ({ 
+                  ...prev, 
+                  config: { ...prev.config, companyName: e.target.value }
+                }))}
+                className="w-full px-3 py-2 border border-gray-300 rounded focus:outline-none focus:ring-2 focus:ring-green-500"
+              />
+            </div>
+            <div>
+              <label className="block text-sm font-medium mb-1">Pre-fill Company Website</label>
+              <input
+                type="url"
+                value={newEmbed.config.companyWebsite || ''}
+                onChange={(e) => setNewEmbed(prev => ({ 
+                  ...prev, 
+                  config: { ...prev.config, companyWebsite: e.target.value }
+                }))}
+                className="w-full px-3 py-2 border border-gray-300 rounded focus:outline-none focus:ring-2 focus:ring-green-500"
+              />
+            </div>
+            <div>
+              <label className="block text-sm font-medium mb-1">Theme</label>
+              <select
+                value={newEmbed.config.theme || 'light'}
+                onChange={(e) => setNewEmbed(prev => ({ 
+                  ...prev, 
+                  config: { ...prev.config, theme: e.target.value }
+                }))}
+                className="w-full px-3 py-2 border border-gray-300 rounded focus:outline-none focus:ring-2 focus:ring-green-500"
+              >
+                <option value="light">Light</option>
+                <option value="dark">Dark</option>
+              </select>
+            </div>
+          </div>
+        );
+      default:
+        return null;
+    }
+  };
+
+  const handleTestNotificationSystem = async (testType) => {
+    try {
+      const response = await fetch('/api/admin/notifications/test-system', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({ testType }),
+      });
+      
+      const data = await response.json();
+      
+      if (response.ok) {
+        showToast(`Test notification created: ${testType}`, 'success');
+        // Trigger a refresh of notifications if in notifications tab
+        if (activeTab === 'notifications') {
+          window.location.reload(); // Simple refresh for demo
+        }
+      } else {
+        showToast(`Failed to create test notification: ${data.error}`, 'error');
+      }
+    } catch (error) {
+      console.error('Error creating test notification:', error);
+      showToast('Error creating test notification', 'error');
     }
   };
 
@@ -230,6 +529,12 @@ const AdminDashboard = () => {
                 id="jobs" 
                 label="Jobs" 
                 isActive={activeTab === 'jobs'} 
+                onClick={setActiveTab} 
+              />
+              <TabButton 
+                id="embeds" 
+                label="Embeds" 
+                isActive={activeTab === 'embeds'} 
                 onClick={setActiveTab} 
               />
               <TabButton 
@@ -422,6 +727,195 @@ const AdminDashboard = () => {
                   </div>
                 )}
 
+                {/* Embeds Tab */}
+                {activeTab === 'embeds' && (
+                  <div className="space-y-6">
+                    <div className={`${components.card.base} ${components.card.padding}`}>
+                      <div className="flex justify-between items-center mb-6">
+                        <h3 className={`${typography.h4} ${colors.neutral.textPrimary}`}>
+                          Embeddable Widgets
+                        </h3>
+                        <button
+                          onClick={() => setShowEmbedForm(true)}
+                          className={`${components.button.base} ${components.button.primary} ${components.button.sizes.medium}`}
+                        >
+                          + Create New Embed
+                        </button>
+                      </div>
+
+                      <p className={`${typography.bodyBase} ${colors.neutral.textSecondary} mb-6`}>
+                        Create embeddable widgets that other websites can use to display your job listings, search functionality, or job posting forms.
+                      </p>
+
+                      {/* Create Embed Form */}
+                      {showEmbedForm && (
+                        <div className={`${colors.neutral.backgroundSecondary} p-6 rounded-lg mb-6`}>
+                          <h4 className={`${typography.h6} ${colors.neutral.textPrimary} mb-4`}>
+                            Create New Embed
+                          </h4>
+                          
+                          <div className="space-y-4">
+                            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                              <div>
+                                <label className="block text-sm font-medium mb-1">Name</label>
+                                <input
+                                  type="text"
+                                  value={newEmbed.name}
+                                  onChange={(e) => setNewEmbed(prev => ({ ...prev, name: e.target.value }))}
+                                  className="w-full px-3 py-2 border border-gray-300 rounded focus:outline-none focus:ring-2 focus:ring-green-500"
+                                  placeholder="e.g., Tech Jobs Widget"
+                                />
+                              </div>
+                              <div>
+                                <label className="block text-sm font-medium mb-1">Type</label>
+                                <select
+                                  value={newEmbed.type}
+                                  onChange={(e) => setNewEmbed(prev => ({ ...prev, type: e.target.value, config: {} }))}
+                                  className="w-full px-3 py-2 border border-gray-300 rounded focus:outline-none focus:ring-2 focus:ring-green-500"
+                                >
+                                  <option value="jobs">Job Listings</option>
+                                  <option value="search">Search Widget</option>
+                                  <option value="post-job">Job Posting Form</option>
+                                </select>
+                              </div>
+                            </div>
+
+                            <div>
+                              <label className="block text-sm font-medium mb-2">Configuration</label>
+                              {getEmbedConfigForm(newEmbed.type)}
+                            </div>
+
+                            <div className="flex gap-2">
+                              <button
+                                onClick={handleCreateEmbed}
+                                disabled={!newEmbed.name}
+                                className={`${components.button.base} ${components.button.primary} ${components.button.sizes.medium} disabled:opacity-50`}
+                              >
+                                Create Embed
+                              </button>
+                              <button
+                                onClick={() => {
+                                  setShowEmbedForm(false);
+                                  setNewEmbed({ name: '', type: 'jobs', config: {} });
+                                }}
+                                className={`${components.button.base} ${components.button.secondary} ${components.button.sizes.medium}`}
+                              >
+                                Cancel
+                              </button>
+                            </div>
+                          </div>
+                        </div>
+                      )}
+
+                      {/* Embeds List */}
+                      <div className="space-y-4">
+                        {embeds.length === 0 ? (
+                          <div className="text-center py-8">
+                            <p className={`${typography.bodyBase} ${colors.neutral.textSecondary}`}>
+                              No embeds created yet. Create your first embeddable widget!
+                            </p>
+                          </div>
+                        ) : (
+                          embeds.map((embed) => (
+                            <div key={embed.id} className={`border rounded-lg p-4 ${colors.neutral.backgroundSecondary}`}>
+                              <div className="flex justify-between items-start mb-4">
+                                <div>
+                                  <h4 className={`${typography.h6} ${colors.neutral.textPrimary}`}>
+                                    {embed.name}
+                                  </h4>
+                                  <p className={`${typography.bodySmall} ${colors.neutral.textSecondary}`}>
+                                    Type: {embed.type} • Created: {new Date(embed.createdAt).toLocaleDateString()}
+                                  </p>
+                                </div>
+                                <div className="flex gap-2">
+                                  <a
+                                    href={embed.embedCode.url}
+                                    target="_blank"
+                                    rel="noopener noreferrer"
+                                    className={`${components.button.base} ${components.button.secondary} ${components.button.sizes.small}`}
+                                  >
+                                    Preview
+                                  </a>
+                                  <button
+                                    onClick={() => handleDeleteEmbed(embed.id)}
+                                    className={`${components.button.base} ${components.button.sizes.small} bg-red-600 hover:bg-red-700 text-white`}
+                                  >
+                                    Delete
+                                  </button>
+                                </div>
+                              </div>
+
+                              <div className="space-y-3">
+                                <div>
+                                  <label className="block text-sm font-medium mb-1">HTML Embed Code:</label>
+                                  <div className="flex">
+                                    <textarea
+                                      readOnly
+                                      value={embed.embedCode.html}
+                                      className="flex-1 px-3 py-2 text-xs bg-gray-50 border border-gray-300 rounded-l font-mono"
+                                      rows={4}
+                                    />
+                                    <CopyToClipboard
+                                      text={embed.embedCode.html}
+                                      onCopy={() => showToast('HTML code copied!', 'success')}
+                                    >
+                                      <button className="px-4 py-2 bg-blue-600 text-white rounded-r hover:bg-blue-700 text-sm">
+                                        Copy
+                                      </button>
+                                    </CopyToClipboard>
+                                  </div>
+                                </div>
+
+                                <div>
+                                  <label className="block text-sm font-medium mb-1">JavaScript Embed Code:</label>
+                                  <div className="flex">
+                                    <textarea
+                                      readOnly
+                                      value={embed.embedCode.javascript}
+                                      className="flex-1 px-3 py-2 text-xs bg-gray-50 border border-gray-300 rounded-l font-mono"
+                                      rows={6}
+                                    />
+                                    <CopyToClipboard
+                                      text={embed.embedCode.javascript}
+                                      onCopy={() => showToast('JavaScript code copied!', 'success')}
+                                    >
+                                      <button className="px-4 py-2 bg-blue-600 text-white rounded-r hover:bg-blue-700 text-sm">
+                                        Copy
+                                      </button>
+                                    </CopyToClipboard>
+                                  </div>
+                                  <p className="text-xs text-gray-500 mt-1">
+                                    Add <code>&lt;div id=&quot;getgethired-widget&quot;&gt;&lt;/div&gt;</code> to your HTML where you want the widget to appear.
+                                  </p>
+                                </div>
+
+                                <div>
+                                  <label className="block text-sm font-medium mb-1">Direct URL:</label>
+                                  <div className="flex">
+                                    <input
+                                      readOnly
+                                      value={embed.embedCode.url}
+                                      className="flex-1 px-3 py-2 text-sm bg-gray-50 border border-gray-300 rounded-l"
+                                    />
+                                    <CopyToClipboard
+                                      text={embed.embedCode.url}
+                                      onCopy={() => showToast('URL copied!', 'success')}
+                                    >
+                                      <button className="px-4 py-2 bg-blue-600 text-white rounded-r hover:bg-blue-700 text-sm">
+                                        Copy
+                                      </button>
+                                    </CopyToClipboard>
+                                  </div>
+                                </div>
+                              </div>
+                            </div>
+                          ))
+                        )}
+                      </div>
+                    </div>
+                  </div>
+                )}
+
                 {/* Settings Tab */}
                 {activeTab === 'settings' && (
                   <div className={`${components.card.base} ${components.card.padding}`}>
@@ -473,6 +967,59 @@ const AdminDashboard = () => {
                         </div>
                       </div>
 
+                      <div>
+                        <h4 className={`${typography.h6} ${colors.neutral.textPrimary} mb-3`}>
+                          Notification System Testing
+                        </h4>
+                        <p className={`${typography.bodyBase} ${colors.neutral.textSecondary} mb-4`}>
+                          Test the integrated notification system with different types of notifications.
+                        </p>
+                        <div className="grid grid-cols-2 gap-4 mb-4">
+                          <button
+                            onClick={() => handleTestNotificationSystem('user_registration')}
+                            className={`${components.button.base} ${components.button.secondary} ${components.button.sizes.small}`}
+                          >
+                            🔐 Test User Registration
+                          </button>
+                          <button
+                            onClick={() => handleTestNotificationSystem('job_posted')}
+                            className={`${components.button.base} ${components.button.secondary} ${components.button.sizes.small}`}
+                          >
+                            💼 Test Job Posted
+                          </button>
+                          <button
+                            onClick={() => handleTestNotificationSystem('system_error')}
+                            className={`${components.button.base} ${components.button.secondary} ${components.button.sizes.small}`}
+                          >
+                            ⚠️ Test System Error
+                          </button>
+                          <button
+                            onClick={() => handleTestNotificationSystem('security_alert')}
+                            className={`${components.button.base} ${components.button.secondary} ${components.button.sizes.small}`}
+                          >
+                            🚨 Test Security Alert
+                          </button>
+                          <button
+                            onClick={() => handleTestNotificationSystem('custom_admin')}
+                            className={`${components.button.base} ${components.button.secondary} ${components.button.sizes.small}`}
+                          >
+                            👨‍💼 Test Admin Notification
+                          </button>
+                          <button
+                            onClick={() => handleTestNotificationSystem('custom_system')}
+                            className={`${components.button.base} ${components.button.secondary} ${components.button.sizes.small}`}
+                          >
+                            🖥️ Test System Notification
+                          </button>
+                        </div>
+                        <div className={`${colors.neutral.backgroundSecondary} p-4 rounded-lg`}>
+                          <p className={`${typography.bodySmall} ${colors.neutral.textSecondary}`}>
+                            <strong>Note:</strong> These tests will create real notifications and trigger email alerts to admin addresses. 
+                            Admin-only notifications will only be visible to admin users, while user notifications will be visible to regular users.
+                          </p>
+                        </div>
+                      </div>
+                      
                       <div>
                         <h4 className={`${typography.h6} ${colors.neutral.textPrimary} mb-3`}>
                           Email Service Testing

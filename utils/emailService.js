@@ -2,6 +2,8 @@
 // Supports SMTP, Gmail, and other email services
 
 import nodemailer from 'nodemailer';
+import { logEmailNotification, logError, logSystemEvent } from './dataLogger';
+import { createNotification, NOTIFICATION_TYPES, CATEGORIES, PRIORITY } from './notificationService';
 
 class EmailNotificationService {
   constructor() {
@@ -107,6 +109,16 @@ class EmailNotificationService {
   async sendEmail({ to, subject, text, html }) {
     if (!this.enabled) {
       console.log('📧 Email notifications disabled');
+      // Log disabled email attempt
+      await logEmailNotification(
+        'generic',
+        to,
+        subject,
+        'disabled',
+        'nodemailer',
+        null,
+        'Email notifications disabled'
+      ).catch(console.error);
       return { success: false, reason: 'disabled' };
     }
 
@@ -115,6 +127,16 @@ class EmailNotificationService {
     
     if (!transporter) {
       console.log('📧 No email transporter configured');
+      // Log configuration error
+      await logEmailNotification(
+        'generic',
+        to,
+        subject,
+        'failed',
+        'nodemailer',
+        null,
+        'No email transporter configured'
+      ).catch(console.error);
       return { success: false, reason: 'no_transporter' };
     }
 
@@ -140,6 +162,36 @@ class EmailNotificationService {
         }
       }
 
+      // Log successful email
+      await logEmailNotification(
+        'generic',
+        to,
+        subject,
+        'success',
+        'nodemailer',
+        info.messageId,
+        null
+      ).catch(console.error);
+
+      // Create notification for successful email
+      try {
+        await createNotification({
+          type: NOTIFICATION_TYPES.EMAIL_SENT,
+          title: 'Email Sent Successfully',
+          message: `Email sent to ${to}: ${subject}`,
+          category: CATEGORIES.EMAIL,
+          priority: PRIORITY.LOW,
+          metadata: { 
+            recipient: to, 
+            subject, 
+            messageId: info.messageId,
+            service: 'nodemailer'
+          }
+        });
+      } catch (notificationError) {
+        console.error('Failed to create email notification:', notificationError);
+      }
+
       return { 
         success: true, 
         messageId: info.messageId,
@@ -147,6 +199,47 @@ class EmailNotificationService {
       };
     } catch (error) {
       console.error('📧 Failed to send email to:', to, error);
+      
+      // Log failed email
+      await logEmailNotification(
+        'generic',
+        to,
+        subject,
+        'failed',
+        'nodemailer',
+        null,
+        error.message
+      ).catch(console.error);
+      
+      // Create notification for failed email
+      try {
+        await createNotification({
+          type: NOTIFICATION_TYPES.EMAIL_FAILED,
+          title: 'Email Delivery Failed',
+          message: `Failed to send email to ${to}: ${error.message}`,
+          category: CATEGORIES.EMAIL,
+          priority: PRIORITY.HIGH,
+          metadata: { 
+            recipient: to, 
+            subject, 
+            error: error.message,
+            service: 'nodemailer'
+          }
+        });
+      } catch (notificationError) {
+        console.error('Failed to create email failure notification:', notificationError);
+      }
+      
+      // Log error details
+      await logError(
+        'EMAIL_SEND_ERROR',
+        'emailService',
+        error.message,
+        error.stack,
+        null,
+        { to, subject },
+        'error'
+      ).catch(console.error);
       return { 
         success: false, 
         error: error.message 
@@ -191,15 +284,51 @@ View user details in the admin dashboard: ${process.env.NEXT_PUBLIC_SITE_URL || 
       </div>
     `;
 
+    // Log system event
+    await logSystemEvent(
+      'EMAIL_NOTIFICATION',
+      'emailService',
+      `Sending new user registration notification for ${userData.email}`,
+      'info',
+      { userEmail: userData.email, userFullName: userData.fullName }
+    ).catch(console.error);
+
     const results = [];
     for (const adminEmail of this.adminEmails) {
-      const result = await this.sendEmail({
-        to: adminEmail,
-        subject,
-        text,
-        html
-      });
-      results.push({ email: adminEmail, ...result });
+      try {
+        const result = await this.sendEmail({
+          to: adminEmail,
+          subject,
+          text,
+          html
+        });
+        
+        // Log specific email notification
+        await logEmailNotification(
+          'user_registration',
+          adminEmail,
+          subject,
+          result.success ? 'success' : 'failed',
+          'nodemailer',
+          result.messageId,
+          result.success ? null : result.error
+        ).catch(console.error);
+        
+        results.push({ email: adminEmail, ...result });
+      } catch (error) {
+        // Log failed email notification
+        await logEmailNotification(
+          'user_registration',
+          adminEmail,
+          subject,
+          'failed',
+          'nodemailer',
+          null,
+          error.message
+        ).catch(console.error);
+        
+        results.push({ email: adminEmail, success: false, error: error.message });
+      }
     }
 
     return results;
