@@ -1,0 +1,396 @@
+// Email notification utility using Nodemailer
+// Supports SMTP, Gmail, and other email services
+
+import nodemailer from 'nodemailer';
+
+class EmailNotificationService {
+  constructor() {
+    this.enabled = process.env.EMAIL_NOTIFICATIONS_ENABLED === 'true';
+    this.fromEmail = process.env.EMAIL_FROM || 'noreply@getgethired.com';
+    this.adminEmails = [
+      'admin@getgethired.com',
+      'support@getgethired.com'
+    ];
+    this.adminDomains = [
+      'getgethired.com'
+    ];
+    
+    // Initialize the transporter (will be null for async creation like Ethereal)
+    this.transporter = this.createTransporter();
+    this.isTransporterReady = !this.enabled || !!this.transporter;
+  }
+
+  // Create email transporter based on environment configuration
+  createTransporter() {
+    if (!this.enabled) {
+      return null;
+    }
+
+    // Gmail configuration (most common)
+    if (process.env.EMAIL_SERVICE === 'gmail') {
+      return nodemailer.createTransporter({
+        service: 'gmail',
+        auth: {
+          user: process.env.EMAIL_USER, // your gmail address
+          pass: process.env.EMAIL_APP_PASSWORD // gmail app password (not regular password)
+        }
+      });
+    }
+
+    // SMTP configuration (generic - works with most providers)
+    if (process.env.SMTP_HOST) {
+      return nodemailer.createTransporter({
+        host: process.env.SMTP_HOST, // e.g., smtp.gmail.com, smtp.mailgun.org
+        port: parseInt(process.env.SMTP_PORT) || 587,
+        secure: process.env.SMTP_SECURE === 'true', // true for 465, false for other ports
+        auth: {
+          user: process.env.SMTP_USER,
+          pass: process.env.SMTP_PASSWORD
+        }
+      });
+    }
+
+    // Ethereal Email (for testing - creates fake accounts)
+    if (process.env.NODE_ENV === 'development' && !process.env.SMTP_HOST && !process.env.EMAIL_SERVICE) {
+      console.log('📧 Development mode: Will use Ethereal Email for testing');
+      return null; // Will be created async in ensureTransporter
+    }
+
+    // Fallback to console logging if no email service configured
+    console.log('⚠️ No email service configured. Set EMAIL_SERVICE=gmail or SMTP_* variables.');
+    return null;
+  }
+
+  // Create Ethereal Email transporter for testing
+  async createEtherealTransporter() {
+    try {
+      const testAccount = await nodemailer.createTestAccount();
+      
+      const transporter = nodemailer.createTransporter({
+        host: 'smtp.ethereal.email',
+        port: 587,
+        secure: false,
+        auth: {
+          user: testAccount.user,
+          pass: testAccount.pass
+        }
+      });
+
+      console.log('📧 Ethereal Email account created for testing:');
+      console.log('📧 User:', testAccount.user);
+      console.log('📧 Password:', testAccount.pass);
+      console.log('📧 Preview emails at: https://ethereal.email');
+
+      return transporter;
+    } catch (error) {
+      console.error('Failed to create Ethereal account:', error);
+      return null;
+    }
+  }
+
+  // Ensure transporter is ready (create Ethereal if needed)
+  async ensureTransporter() {
+    if (this.transporter) {
+      return this.transporter;
+    }
+
+    if (process.env.NODE_ENV === 'development' && !process.env.SMTP_HOST && !process.env.EMAIL_SERVICE) {
+      this.transporter = await this.createEtherealTransporter();
+      this.isTransporterReady = true;
+      return this.transporter;
+    }
+
+    return null;
+  }
+
+  // Real email sending function using Nodemailer
+  async sendEmail({ to, subject, text, html }) {
+    if (!this.enabled) {
+      console.log('📧 Email notifications disabled');
+      return { success: false, reason: 'disabled' };
+    }
+
+    // Ensure transporter is ready
+    const transporter = await this.ensureTransporter();
+    
+    if (!transporter) {
+      console.log('📧 No email transporter configured');
+      return { success: false, reason: 'no_transporter' };
+    }
+
+    try {
+      const mailOptions = {
+        from: `"GetGetHired" <${this.fromEmail}>`,
+        to,
+        subject,
+        text: text || html?.replace(/<[^>]*>/g, ''), // Strip HTML for text version
+        html: html || text?.replace(/\n/g, '<br>') // Convert text to HTML if needed
+      };
+
+      const info = await transporter.sendMail(mailOptions);
+      
+      console.log('📧 Email sent successfully to:', to);
+      console.log('📧 Message ID:', info.messageId);
+      
+      // Log preview URL for Ethereal emails
+      if (process.env.NODE_ENV === 'development') {
+        const previewUrl = nodemailer.getTestMessageUrl(info);
+        if (previewUrl) {
+          console.log('📧 Preview URL:', previewUrl);
+        }
+      }
+
+      return { 
+        success: true, 
+        messageId: info.messageId,
+        previewUrl: nodemailer.getTestMessageUrl(info)
+      };
+    } catch (error) {
+      console.error('📧 Failed to send email to:', to, error);
+      return { 
+        success: false, 
+        error: error.message 
+      };
+    }
+  }
+
+  // Send notification to admins about new user registration
+  async notifyNewUserRegistration(userData) {
+    const subject = 'New User Registration - GetGetHired';
+    const text = `
+A new user has registered on GetGetHired:
+
+Name: ${userData.fullName}
+Email: ${userData.email}
+Nickname: ${userData.nickname || 'Not provided'}
+Age: ${userData.age}
+Registration Date: ${new Date().toLocaleString()}
+
+View user details in the admin dashboard: ${process.env.NEXT_PUBLIC_SITE_URL || 'http://localhost:3000'}/admin
+    `;
+
+    const html = `
+      <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto; background: #111827; color: #e5e7eb; padding: 20px; border-radius: 8px;">
+        <h2 style="color: #3b82f6; margin-bottom: 20px;">New User Registration</h2>
+        <p>A new user has registered on GetGetHired:</p>
+        
+        <div style="background: #1f2937; padding: 15px; border-radius: 6px; margin: 15px 0;">
+          <p><strong>Name:</strong> ${userData.fullName}</p>
+          <p><strong>Email:</strong> ${userData.email}</p>
+          <p><strong>Nickname:</strong> ${userData.nickname || 'Not provided'}</p>
+          <p><strong>Age:</strong> ${userData.age}</p>
+          <p><strong>Registration Date:</strong> ${new Date().toLocaleString()}</p>
+        </div>
+        
+        <p>
+          <a href="${process.env.NEXT_PUBLIC_SITE_URL || 'http://localhost:3000'}/admin" 
+             style="background: #3b82f6; color: white; padding: 10px 20px; text-decoration: none; border-radius: 5px; display: inline-block;">
+            View Admin Dashboard
+          </a>
+        </p>
+      </div>
+    `;
+
+    const results = [];
+    for (const adminEmail of this.adminEmails) {
+      const result = await this.sendEmail({
+        to: adminEmail,
+        subject,
+        text,
+        html
+      });
+      results.push({ email: adminEmail, ...result });
+    }
+
+    return results;
+  }
+
+  // Send notification about new job posting
+  async notifyNewJobPosting(jobData) {
+    const subject = 'New Job Posted - GetGetHired';
+    const text = `
+A new job has been posted on GetGetHired:
+
+Title: ${jobData.title}
+Company: ${jobData.company}
+Location: ${jobData.location}
+Type: ${jobData.type}
+Level: ${jobData.level}
+Posted: ${new Date().toLocaleString()}
+
+View job details in the admin dashboard: ${process.env.NEXT_PUBLIC_SITE_URL || 'http://localhost:3000'}/admin
+    `;
+
+    const html = `
+      <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto; background: #111827; color: #e5e7eb; padding: 20px; border-radius: 8px;">
+        <h2 style="color: #10b981; margin-bottom: 20px;">New Job Posted</h2>
+        <p>A new job has been posted on GetGetHired:</p>
+        
+        <div style="background: #1f2937; padding: 15px; border-radius: 6px; margin: 15px 0;">
+          <p><strong>Title:</strong> ${jobData.title}</p>
+          <p><strong>Company:</strong> ${jobData.company}</p>
+          <p><strong>Location:</strong> ${jobData.location}</p>
+          <p><strong>Type:</strong> ${jobData.type}</p>
+          <p><strong>Level:</strong> ${jobData.level}</p>
+          <p><strong>Posted:</strong> ${new Date().toLocaleString()}</p>
+        </div>
+        
+        <p>
+          <a href="${process.env.NEXT_PUBLIC_SITE_URL || 'http://localhost:3000'}/admin" 
+             style="background: #10b981; color: white; padding: 10px 20px; text-decoration: none; border-radius: 5px; display: inline-block;">
+            View Admin Dashboard
+          </a>
+        </p>
+      </div>
+    `;
+
+    const results = [];
+    for (const adminEmail of this.adminEmails) {
+      const result = await this.sendEmail({
+        to: adminEmail,
+        subject,
+        text,
+        html
+      });
+      results.push({ email: adminEmail, ...result });
+    }
+
+    return results;
+  }
+
+  // Send notification about system events
+  async notifySystemEvent(eventType, message, details = {}) {
+    const subject = `System Event: ${eventType} - GetGetHired`;
+    const text = `
+System Event Notification:
+
+Event: ${eventType}
+Message: ${message}
+Time: ${new Date().toLocaleString()}
+Details: ${JSON.stringify(details, null, 2)}
+
+Check the admin dashboard: ${process.env.NEXT_PUBLIC_SITE_URL || 'http://localhost:3000'}/admin
+    `;
+
+    const html = `
+      <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto; background: #111827; color: #e5e7eb; padding: 20px; border-radius: 8px;">
+        <h2 style="color: #f59e0b; margin-bottom: 20px;">System Event</h2>
+        
+        <div style="background: #1f2937; padding: 15px; border-radius: 6px; margin: 15px 0;">
+          <p><strong>Event:</strong> ${eventType}</p>
+          <p><strong>Message:</strong> ${message}</p>
+          <p><strong>Time:</strong> ${new Date().toLocaleString()}</p>
+          ${Object.keys(details).length > 0 ? `<p><strong>Details:</strong></p><pre style="background: #374151; padding: 10px; border-radius: 4px; overflow-x: auto;">${JSON.stringify(details, null, 2)}</pre>` : ''}
+        </div>
+        
+        <p>
+          <a href="${process.env.NEXT_PUBLIC_SITE_URL || 'http://localhost:3000'}/admin" 
+             style="background: #f59e0b; color: white; padding: 10px 20px; text-decoration: none; border-radius: 5px; display: inline-block;">
+            View Admin Dashboard
+          </a>
+        </p>
+      </div>
+    `;
+
+    const results = [];
+    for (const adminEmail of this.adminEmails) {
+      const result = await this.sendEmail({
+        to: adminEmail,
+        subject,
+        text,
+        html
+      });
+      results.push({ email: adminEmail, ...result });
+    }
+
+    return results;
+  }
+
+  // Send custom email to specific recipients
+  async sendCustomEmail({ to, subject, message, isHtml = false }) {
+    const emailData = {
+      to: Array.isArray(to) ? to : [to],
+      subject,
+    };
+
+    if (isHtml) {
+      emailData.html = message;
+    } else {
+      emailData.text = message;
+    }
+
+    const results = [];
+    for (const recipient of emailData.to) {
+      const result = await this.sendEmail({
+        ...emailData,
+        to: recipient
+      });
+      results.push({ email: recipient, ...result });
+    }
+
+    return results;
+  }
+
+  // Test email functionality
+  async sendTestEmail(toEmail) {
+    const subject = 'Test Email - GetGetHired Email Service';
+    const html = `
+      <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto; background: #111827; color: #e5e7eb; padding: 20px; border-radius: 8px;">
+        <h2 style="color: #10b981; margin-bottom: 20px;">🎉 Email Service Test</h2>
+        <p>Congratulations! Your GetGetHired email service is working correctly.</p>
+        
+        <div style="background: #1f2937; padding: 15px; border-radius: 6px; margin: 15px 0;">
+          <p><strong>Test Details:</strong></p>
+          <p>✅ Email service: Active</p>
+          <p>✅ SMTP connection: Working</p>
+          <p>✅ Template rendering: Functional</p>
+          <p>✅ Time sent: ${new Date().toLocaleString()}</p>
+        </div>
+        
+        <p>
+          <a href="${process.env.NEXT_PUBLIC_SITE_URL || 'http://localhost:3000'}/admin" 
+             style="background: #10b981; color: white; padding: 10px 20px; text-decoration: none; border-radius: 5px; display: inline-block;">
+            Return to Admin Dashboard
+          </a>
+        </p>
+        
+        <hr style="border: 1px solid #374151; margin: 20px 0;">
+        <p style="font-size: 12px; color: #9ca3af;">
+          This is a test email from GetGetHired admin system. If you received this email unexpectedly, please ignore it.
+        </p>
+      </div>
+    `;
+
+    return await this.sendEmail({
+      to: toEmail,
+      subject,
+      html
+    });
+  }
+
+  // Verify email service configuration
+  async verifyConnection() {
+    if (!this.enabled) {
+      return { success: false, message: 'Email service is disabled' };
+    }
+
+    const transporter = await this.ensureTransporter();
+    
+    if (!transporter) {
+      return { success: false, message: 'No email transporter configured' };
+    }
+
+    try {
+      await transporter.verify();
+      return { success: true, message: 'Email service connection verified' };
+    } catch (error) {
+      return { success: false, message: `Connection failed: ${error.message}` };
+    }
+  }
+}
+
+// Export singleton instance
+export const emailService = new EmailNotificationService();
+
+// Export class for testing
+export { EmailNotificationService };

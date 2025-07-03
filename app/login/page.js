@@ -42,7 +42,9 @@ function LoginForm() {
     const result = await login(formData.email, formData.password);
     
     if (result.success) {
-      router.push(redirectUrl);
+      // Use the redirect URL returned from login (admin users go to /admin)
+      const finalRedirectUrl = result.redirectUrl || redirectUrl;
+      router.push(finalRedirectUrl);
     } else {
       setError(result.error || 'Login failed');
     }

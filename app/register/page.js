@@ -74,8 +74,10 @@ export default function RegisterPage() {
     
     console.log('📨 Registration result:', result);
     if (result.success) {
-      console.log('✅ Registration successful, redirecting to home');
-      router.push('/');
+      console.log('✅ Registration successful, redirecting to:', result.redirectUrl || '/');
+      // Use the redirect URL returned from registration (admin users go to /admin)
+      const finalRedirectUrl = result.redirectUrl || '/';
+      router.push(finalRedirectUrl);
     } else {
       console.log('❌ Registration failed:', result.error);
       setError(result.error || 'Registration failed');

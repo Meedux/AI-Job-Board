@@ -1,6 +1,8 @@
 import { NextResponse } from 'next/server';
 import { addUserToSheet, getUserByEmail } from '../../../../utils/googleApi';
 import { hashPassword, generateToken, generateUID, isValidEmail, isValidPassword, calculateAge, sanitizeInput } from '../../../../utils/auth';
+import { emailService } from '../../../../utils/emailService';
+import { addAdminNotification } from '../../admin/notifications/route';
 
 const SPREADSHEET_ID = process.env.GOOGLE_SPREADSHEET_ID;
 
@@ -129,6 +131,24 @@ export async function POST(request) {
     });
 
     console.log('✅ Registration completed successfully');
+    
+    // Add admin notification (sync)
+    try {
+      addAdminNotification(
+        'user_registration',
+        'New User Registration',
+        `${userData.fullName} (${userData.email}) has registered`
+      );
+      console.log('📱 Admin notification added');
+    } catch (error) {
+      console.error('Failed to add admin notification:', error);
+    }
+    
+    // Send email notification to admins (async, don't wait)
+    emailService.notifyNewUserRegistration(userData).catch(error => {
+      console.error('Failed to send admin notification email:', error);
+    });
+    
     return response;
   } catch (error) {
     console.error('❌ Registration error:', error);

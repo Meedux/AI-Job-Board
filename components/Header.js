@@ -6,6 +6,7 @@ import Link from 'next/link';
 import { useAuth } from '../contexts/AuthContext';
 import { colors, typography, components, layout, animations } from '../utils/designSystem';
 import JobPostModal from './JobPostModal';
+import NotificationBell from './NotificationBell';
 
 const Header = () => {
   const [isMenuOpen, setIsMenuOpen] = useState(false);
@@ -29,7 +30,7 @@ const Header = () => {
   ] : primaryNavItems;
   return (
     <>
-      <header className={`fixed top-0 left-0 right-0 z-40 lg:static ${colors.neutral.backgroundSecondary} ${colors.neutral.borderLight} border-b backdrop-blur-sm bg-opacity-95`}>
+      <header className={`fixed top-0 left-0 right-0 z-[9999] lg:sticky ${colors.neutral.backgroundSecondary} ${colors.neutral.borderLight} border-b backdrop-blur-sm bg-opacity-95`}>
         <div className={layout.container}>
           <div className="flex justify-between items-center py-3 sm:py-4">
             {/* Logo - Mobile Optimized */}
@@ -109,12 +110,11 @@ const Header = () => {
                 </button>
                 
                 {/* Dropdown Menu */}
-                {isResourcesOpen && (
-                  <div 
-                    className={`absolute top-full right-0 mt-2 w-48 ${colors.neutral.surface} ${colors.neutral.border} rounded-lg shadow-lg py-2 z-50`}
-                    onMouseEnter={() => setIsResourcesOpen(true)}
-                    onMouseLeave={() => setIsResourcesOpen(false)}
-                  >                    {resourcesItems.map((item) => (
+                {isResourcesOpen && (                    <div 
+                      className={`absolute top-full right-0 mt-2 w-48 ${colors.neutral.surface} ${colors.neutral.border} rounded-lg shadow-2xl py-2 z-[10001] border-2`}
+                      onMouseEnter={() => setIsResourcesOpen(true)}
+                      onMouseLeave={() => setIsResourcesOpen(false)}
+                    >{resourcesItems.map((item) => (
                       <Link
                         key={item.label}
                         href={item.href}
@@ -140,8 +140,27 @@ const Header = () => {
               {loading ? (
                 <div className="w-8 h-8 animate-pulse bg-gray-200 rounded-full"></div>
               ) : user ? (
-                // User Menu Dropdown
-                <div className="relative">
+                <div className="flex items-center space-x-4">
+                  {/* Notification Bell */}
+                  <NotificationBell />
+                  
+                  {/* Admin Link (only for admins) */}
+                  {user.isAdmin && (
+                    <Link
+                      href="/admin"
+                      className={`${components.nav.link} ${typography.bodyBase} flex items-center space-x-1`}
+                      title="Admin Dashboard"
+                    >
+                      <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z" />
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
+                      </svg>
+                      <span className="hidden xl:block">Admin</span>
+                    </Link>
+                  )}
+                
+                  {/* User Menu Dropdown */}
+                  <div className="relative">
                   <button
                     onClick={() => setIsUserMenuOpen(!isUserMenuOpen)}
                     onBlur={(e) => {
@@ -168,7 +187,7 @@ const Header = () => {
                   {/* User Dropdown Menu */}
                   {isUserMenuOpen && (
                     <div 
-                      className={`absolute top-full right-0 mt-2 w-56 ${colors.neutral.surface} ${colors.neutral.border} rounded-lg shadow-lg py-2 z-50`}
+                      className={`absolute top-full right-0 mt-2 w-56 ${colors.neutral.surface} ${colors.neutral.border} rounded-lg shadow-2xl py-2 z-[10001] border-2`}
                       onMouseEnter={() => setIsUserMenuOpen(true)}
                       onMouseLeave={() => setIsUserMenuOpen(false)}
                     >
@@ -205,6 +224,7 @@ const Header = () => {
                       </button>
                     </div>
                   )}
+                  </div>
                 </div>
               ) : (
                 // Login/Register Links
@@ -237,7 +257,7 @@ const Header = () => {
           </div>
         </div>        {/* Mobile Navigation - Enhanced */}
         {isMenuOpen && (
-          <div className={`lg:hidden ${colors.neutral.surface} ${colors.neutral.borderLight} border-t backdrop-blur-sm bg-opacity-95 max-h-screen overflow-y-auto`}>
+          <div className={`lg:hidden ${colors.neutral.surface} ${colors.neutral.borderLight} border-t backdrop-blur-sm bg-opacity-95 max-h-screen overflow-y-auto z-[10000]`}>
             <div className="px-4 py-4 space-y-4">
               {user && (
                 <div className="pb-4 border-b border-gray-700">

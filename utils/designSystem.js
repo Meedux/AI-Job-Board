@@ -9,7 +9,7 @@ export const colors = {
     500: 'bg-blue-500',
     600: 'bg-blue-600',
     700: 'bg-blue-700',
-    text: 'text-blue-400'
+    text: 'text-blue-100'
   },
   
   // Secondary Colors

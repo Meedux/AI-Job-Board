@@ -53,7 +53,7 @@ export default function Home() {
     <div className={`min-h-screen ${colors.neutral.background} font-sans`}>
       <Header />
       
-      <main className="relative">
+      <main className="relative pt-16 lg:pt-0">
         {/* Enhanced Hero Section */}
         <div className="relative overflow-hidden">
           {/* Background Elements */}
@@ -61,13 +61,13 @@ export default function Home() {
             <div className="absolute inset-0 bg-[url('data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iNjAiIGhlaWdodD0iNjAiIHZpZXdCb3g9IjAgMCA2MCA2MCIgeG1sbnM9Imh0dHA6Ly93d3cudzMub3JnLzIwMDAvc3ZnIj48ZyBmaWxsPSJub25lIiBmaWxsLXJ1bGU9ImV2ZW5vZGQiPjxnIGZpbGw9IiNmZmYiIGZpbGwtb3BhY2l0eT0iMC4wMiI+PGNpcmNsZSBjeD0iMzAiIGN5PSIzMCIgcj0iMiIvPjwvZz48L2c+PC9zdmc+')] opacity-30"></div>
           </div>
           
-          <div className="relative z-10">
+          <div className="relative z-5">
             <Hero />
           </div>
         </div>
         
         {/* Main Content with Floating Design */}
-        <div className={`${layout.container} relative -mt-8 z-20`}>
+        <div className={`${layout.container} relative -mt-8 z-10`}>
           {/* Floating Search Card */}
           <div className="relative mb-8">
             <div className="absolute -inset-4 bg-gradient-to-r from-blue-600/20 to-purple-600/20 rounded-3xl blur-2xl"></div>

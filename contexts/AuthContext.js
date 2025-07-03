@@ -1,6 +1,6 @@
 'use client';
 
-import React, { createContext, useContext, useState, useEffect } from 'react';
+import React, { createContext, useContext, useState, useEffect, useCallback, useMemo } from 'react';
 
 const AuthContext = createContext();
 
@@ -16,47 +16,80 @@ export const AuthProvider = ({ children }) => {
   const [user, setUser] = useState(null);
   const [loading, setLoading] = useState(true);
 
+  // Admin email list (in production, this would be in a database)
+  const adminEmails = useMemo(() => [
+    'admin@getgethired.com',
+    'support@getgethired.com',
+    // Add more admin emails as needed
+  ], []);
+
+  // Admin domain list
+  const adminDomains = useMemo(() => [
+    'getgethired.com'
+  ], []);
+
+  // Check if user is admin
+  const isAdmin = useCallback((userEmail) => {
+    if (!userEmail) return false;
+    const email = userEmail.toLowerCase();
+    const domain = email.split('@')[1];
+    return adminEmails.includes(email) || adminDomains.includes(domain);
+  }, [adminEmails, adminDomains]);
+
+  // Get redirect URL based on user role
+  const getRedirectUrl = useCallback((userEmail, defaultUrl = '/') => {
+    return isAdmin(userEmail) ? '/admin' : defaultUrl;
+  }, [isAdmin]);
+
   // Check authentication status on mount
   useEffect(() => {
-    checkAuth();
-  }, []);  const checkAuth = async () => {
-    console.log('🔍 Checking authentication status...');
-    console.log('🌐 Current location:', window.location.href);
-    try {
-      const sessionUrl = '/api/auth/session';
-      console.log('📡 Fetching from:', sessionUrl);
-      
-      const response = await fetch(sessionUrl);
-      console.log('📡 Session check response status:', response.status);
-      console.log('📡 Session check response headers:', Object.fromEntries(response.headers.entries()));
-      
-      const responseText = await response.text();
-      console.log('📄 Raw response text (first 200 chars):', responseText.substring(0, 200));
-      
-      if (response.ok) {
-        try {
-          const data = JSON.parse(responseText);
-          console.log('✅ Session data:', data);
-          if (data.authenticated) {
-            setUser(data.user);
-            console.log('👤 User authenticated:', data.user);
-          } else {
-            console.log('❌ User not authenticated');
+    const checkAuth = async () => {
+      console.log('🔍 Checking authentication status...');
+      console.log('🌐 Current location:', window.location.href);
+      try {
+        const sessionUrl = '/api/auth/session';
+        console.log('📡 Fetching from:', sessionUrl);
+        
+        const response = await fetch(sessionUrl);
+        console.log('📡 Session check response status:', response.status);
+        console.log('📡 Session check response headers:', Object.fromEntries(response.headers.entries()));
+        
+        const responseText = await response.text();
+        console.log('📄 Raw response text (first 200 chars):', responseText.substring(0, 200));
+        
+        if (response.ok) {
+          try {
+            const data = JSON.parse(responseText);
+            console.log('✅ Session data:', data);
+            if (data.authenticated) {
+              const userWithAdminRole = {
+                ...data.user,
+                isAdmin: isAdmin(data.user.email)
+              };
+              setUser(userWithAdminRole);
+              console.log('👤 User authenticated:', userWithAdminRole);
+            } else {
+              console.log('❌ User not authenticated');
+            }
+          } catch (parseError) {
+            console.error('❌ Failed to parse JSON response:', parseError);
+            console.log('📄 Response was HTML instead of JSON, likely redirected to login page');
           }
-        } catch (parseError) {
-          console.error('❌ Failed to parse JSON response:', parseError);
-          console.log('📄 Response was HTML instead of JSON, likely redirected to login page');
+        } else {
+          console.log('⚠️ Session check failed with status:', response.status);
         }
-      } else {
-        console.log('⚠️ Session check failed with status:', response.status);
+      } catch (error) {
+        console.error('❌ Auth check failed:', error);
+      } finally {
+        setLoading(false);
+        console.log('✅ Auth check completed, loading set to false');
       }
-    } catch (error) {
-      console.error('❌ Auth check failed:', error);
-    } finally {
-      setLoading(false);
-      console.log('✅ Auth check completed, loading set to false');
-    }
-  };
+    };
+
+    checkAuth();
+  }, [isAdmin]);
+
+
   const login = async (email, password) => {
     console.log('🔑 Starting login process for:', email);
     try {
@@ -73,9 +106,15 @@ export const AuthProvider = ({ children }) => {
       console.log('📄 Login response data:', data);
 
       if (response.ok) {
-        setUser(data.user);
-        console.log('✅ Login successful, user set:', data.user);
-        return { success: true };
+        const userWithAdminRole = {
+          ...data.user,
+          isAdmin: isAdmin(data.user.email)
+        };
+        setUser(userWithAdminRole);
+        console.log('✅ Login successful, user set:', userWithAdminRole);
+        
+        const redirectUrl = getRedirectUrl(data.user.email);
+        return { success: true, redirectUrl };
       } else {
         console.log('❌ Login failed:', data.error);
         return { success: false, error: data.error };
@@ -102,9 +141,15 @@ export const AuthProvider = ({ children }) => {
       console.log('📄 Registration response data:', data);
 
       if (response.ok) {
-        setUser(data.user);
-        console.log('✅ Registration successful, user set:', data.user);
-        return { success: true };
+        const userWithAdminRole = {
+          ...data.user,
+          isAdmin: isAdmin(data.user.email)
+        };
+        setUser(userWithAdminRole);
+        console.log('✅ Registration successful, user set:', userWithAdminRole);
+        
+        const redirectUrl = getRedirectUrl(data.user.email);
+        return { success: true, redirectUrl };
       } else {
         console.log('❌ Registration failed:', data.error);
         return { success: false, error: data.error };
@@ -133,7 +178,8 @@ export const AuthProvider = ({ children }) => {
     login,
     register,
     logout,
-    checkAuth,
+    isAdmin,
+    getRedirectUrl,
   };
 
   return (
