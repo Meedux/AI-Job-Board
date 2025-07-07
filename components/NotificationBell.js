@@ -2,7 +2,7 @@
 
 import { useState } from 'react';
 import { useNotifications } from '../contexts/NotificationContext';
-import { colors, typography, components } from '../utils/designSystem';
+import { colors, typography, components, combineClasses, animations } from '../utils/designSystem';
 
 const NotificationBell = () => {
   const [isOpen, setIsOpen] = useState(false);
@@ -45,7 +45,11 @@ const NotificationBell = () => {
       {/* Notification Bell Button */}
       <button
         onClick={() => setIsOpen(!isOpen)}
-        className={`relative p-2 rounded-lg ${colors.neutral.surfaceHover} transition-colors`}
+        className={combineClasses(
+          "relative p-2 rounded-lg",
+          colors.neutral.surfaceHover,
+          animations.transition
+        )}
       >
         <svg 
           className={`w-6 h-6 ${colors.neutral.textSecondary}`} 
@@ -63,7 +67,11 @@ const NotificationBell = () => {
         
         {/* Unread Badge */}
         {unreadCount > 0 && (
-          <span className={`absolute -top-1 -right-1 ${colors.error.background} text-white text-xs rounded-full h-5 w-5 flex items-center justify-center font-medium`}>
+          <span className={combineClasses(
+            "absolute -top-1 -right-1 text-white rounded-full h-5 w-5 flex items-center justify-center font-medium",
+            colors.error.background,
+            typography.bodyXSmall
+          )}>
             {unreadCount > 99 ? '99+' : unreadCount}
           </span>
         )}

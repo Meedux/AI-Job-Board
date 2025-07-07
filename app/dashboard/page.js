@@ -4,7 +4,7 @@ import Header from '../../components/Header';
 import Footer from '../../components/Footer';
 import ProtectedRoute from '../../components/ProtectedRoute';
 import { useAuth } from '../../contexts/AuthContext';
-import { colors, typography, components, layout } from '../../utils/designSystem';
+import { colors, typography, components, layout, spacing, gradients, combineClasses, animations } from '../../utils/designSystem';
 import Link from 'next/link';
 
 export default function DashboardPage() {
@@ -55,7 +55,10 @@ export default function DashboardPage() {
 
   return (
     <ProtectedRoute>
-      <div className={`min-h-screen ${colors.neutral.background} font-sans relative overflow-hidden`}>
+      <div className={combineClasses(
+        "min-h-screen font-sans relative overflow-hidden",
+        colors.neutral.background
+      )}>
         {/* Background decorations */}
         <div className="absolute inset-0 overflow-hidden pointer-events-none">
           <div className="absolute -top-40 -right-40 w-80 h-80 bg-gradient-to-br from-indigo-500/10 to-purple-500/10 rounded-full blur-3xl" />
@@ -70,21 +73,26 @@ export default function DashboardPage() {
             {/* Hero Welcome Section */}
             <div className="relative mb-12">
               <div className="absolute inset-0 bg-gradient-to-r from-indigo-500/10 via-purple-500/10 to-pink-500/10 rounded-3xl blur-xl" />
-              <div 
-                className="relative bg-gray-900/80 backdrop-blur-xl border border-gray-800/50 rounded-3xl p-8 sm:p-12 shadow-2xl"
-                style={{
-                  background: 'linear-gradient(135deg, rgba(15, 23, 42, 0.9) 0%, rgba(30, 41, 59, 0.9) 100%)',
-                  boxShadow: '0 25px 50px -12px rgba(0, 0, 0, 0.5), 0 0 0 1px rgba(99, 102, 241, 0.1)',
-                }}
-              >
+              <div className={combineClasses(
+                "relative backdrop-blur-xl border rounded-3xl p-8 sm:p-12 shadow-2xl",
+                colors.neutral.surface,
+                colors.neutral.border
+              )}>
                 <div className="flex flex-col lg:flex-row items-start lg:items-center space-y-6 lg:space-y-0 lg:space-x-8">
                   {/* Avatar Section */}
                   <div className="relative">
                     <div className="absolute -inset-1 bg-gradient-to-r from-indigo-500 via-purple-500 to-pink-500 rounded-full opacity-75 blur animate-pulse" />
-                    <div className={`relative w-20 h-20 sm:w-24 sm:h-24 ${colors.primary.background} rounded-full flex items-center justify-center text-white text-2xl sm:text-3xl font-bold shadow-xl ring-4 ring-white/10`}>
+                    <div className={combineClasses(
+                      "relative w-20 h-20 sm:w-24 sm:h-24 rounded-full flex items-center justify-center text-white text-2xl sm:text-3xl font-bold shadow-xl ring-4 ring-white/10",
+                      colors.primary.background
+                    )}>
                       {user?.nickname ? user.nickname.charAt(0).toUpperCase() : user?.fullName.charAt(0).toUpperCase()}
                     </div>
-                    <div className="absolute -bottom-2 -right-2 w-6 h-6 bg-green-500 rounded-full border-4 border-gray-900 flex items-center justify-center">
+                    <div className={combineClasses(
+                      "absolute -bottom-2 -right-2 w-6 h-6 rounded-full border-4 flex items-center justify-center",
+                      colors.success[600],
+                      `border-${colors.neutral.background.split('-')[1]}-900`
+                    )}>
                       <div className="w-2 h-2 bg-white rounded-full animate-pulse" />
                     </div>
                   </div>
@@ -92,7 +100,10 @@ export default function DashboardPage() {
                   {/* Welcome Text */}
                   <div className="flex-1">
                     <div className="flex items-center space-x-3 mb-3">
-                      <h1 className={`${typography.h2} sm:text-4xl ${colors.neutral.textPrimary} font-bold bg-gradient-to-r from-white via-gray-100 to-gray-300 bg-clip-text text-transparent`}>
+                      <h1 className={combineClasses(
+                        typography.h2,
+                        "sm:text-4xl font-bold bg-gradient-to-r from-white via-gray-100 to-gray-300 bg-clip-text text-transparent"
+                      )}>
                         Welcome back, {user?.nickname || user?.fullName}!
                       </h1>
                       <div className="animate-bounce">
@@ -108,7 +119,13 @@ export default function DashboardPage() {
                       {['✨ New Features', '🚀 Career Growth', '💼 Dream Jobs'].map((tag, index) => (
                         <span 
                           key={index}
-                          className="px-4 py-2 bg-gradient-to-r from-indigo-500/20 to-purple-500/20 border border-indigo-500/30 rounded-full text-sm font-medium text-indigo-300 backdrop-blur-sm"
+                          className={combineClasses(
+                            "px-4 py-2 border rounded-full font-medium backdrop-blur-sm",
+                            colors.primary.background,
+                            colors.primary.text,
+                            "border-indigo-500/30",
+                            typography.bodySmall
+                          )}
                         >
                           {tag}
                         </span>
@@ -128,7 +145,7 @@ export default function DashboardPage() {
                 </div>
                 <div className="hidden sm:flex items-center space-x-2">
                   <div className="w-2 h-2 bg-indigo-500 rounded-full animate-pulse" />
-                  <span className="text-sm text-gray-400">Live Dashboard</span>
+                  <span className={`${typography.bodySmall} ${colors.neutral.textSecondary}`}>Live Dashboard</span>
                 </div>
               </div>
               
@@ -140,28 +157,44 @@ export default function DashboardPage() {
                     className="group relative overflow-hidden"
                   >
                     {/* Gradient background */}
-                    <div className="absolute inset-0 bg-gradient-to-br from-gray-800/50 to-gray-900/50 rounded-2xl opacity-0 group-hover:opacity-100 transition-opacity duration-300" />
+                    <div className={combineClasses(
+                      "absolute inset-0 rounded-2xl opacity-0 group-hover:opacity-100",
+                      colors.neutral.surface,
+                      animations.transition
+                    )} />
                     
                     {/* Card content */}
-                    <div 
-                      className="relative bg-gray-900/60 backdrop-blur-sm border border-gray-800/50 rounded-2xl p-6 transition-all duration-300 group-hover:transform group-hover:scale-105 group-hover:shadow-2xl group-hover:border-indigo-500/30"
-                      style={{
-                        background: 'rgba(15, 23, 42, 0.6)',
-                        boxShadow: '0 10px 25px -5px rgba(0, 0, 0, 0.3)',
-                      }}
-                    >
+                    <div className={combineClasses(
+                      components.card.base,
+                      components.card.padding,
+                      animations.transition,
+                      "group-hover:transform group-hover:scale-105 group-hover:shadow-2xl group-hover:border-indigo-500/30"
+                    )}>
                       {/* Icon with gradient background */}
                       <div className="relative mb-4">
                         <div className="absolute inset-0 bg-gradient-to-r from-indigo-500/20 to-purple-500/20 rounded-xl blur-sm group-hover:blur-none transition-all duration-300" />
-                        <div className={`relative ${colors.primary.text} p-3 bg-gradient-to-br from-indigo-500/10 to-purple-500/10 rounded-xl border border-indigo-500/20 group-hover:border-indigo-400/40 transition-all duration-300`}>
+                        <div className={combineClasses(
+                          "relative p-3 rounded-xl border transition-all duration-300",
+                          colors.primary.text,
+                          colors.primary.background,
+                          "border-indigo-500/20 group-hover:border-indigo-400/40"
+                        )}>
                           {action.icon}
                         </div>
                       </div>
                       
-                      <h3 className={`${typography.h5} ${colors.neutral.textPrimary} mb-2 group-hover:text-white transition-colors duration-300`}>
+                      <h3 className={combineClasses(
+                        typography.h5,
+                        colors.neutral.textPrimary,
+                        "mb-2 group-hover:text-white transition-colors duration-300"
+                      )}>
                         {action.title}
                       </h3>
-                      <p className={`${typography.bodySmall} ${colors.neutral.textSecondary} group-hover:text-gray-300 transition-colors duration-300`}>
+                      <p className={combineClasses(
+                        typography.bodySmall,
+                        colors.neutral.textSecondary,
+                        "group-hover:text-gray-300 transition-colors duration-300"
+                      )}>
                         {action.description}
                       </p>
                       

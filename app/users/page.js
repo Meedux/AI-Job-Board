@@ -4,7 +4,7 @@ import { useState, useEffect } from 'react';
 import Header from '../../components/Header';
 import Footer from '../../components/Footer';
 import ProtectedRoute from '../../components/ProtectedRoute';
-import { colors, typography, components, layout } from '../../utils/designSystem';
+import { colors, typography, components, layout, combineClasses } from '../../utils/designSystem';
 
 export default function UsersPage() {
   const [users, setUsers] = useState([]);

@@ -4,7 +4,7 @@ import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import Link from 'next/link';
 import { useAuth } from '../../contexts/AuthContext';
-import { colors, typography, components, layout } from '../../utils/designSystem';
+import { colors, typography, components, layout, combineClasses } from '../../utils/designSystem';
 
 export default function RegisterPage() {
   const [formData, setFormData] = useState({
@@ -91,7 +91,10 @@ export default function RegisterPage() {
   }
 
   return (
-    <div className={`min-h-screen ${colors.neutral.backgroundSecondary} flex items-center justify-center py-12 px-4`}>
+    <div className={combineClasses(
+      "min-h-screen flex items-center justify-center py-12 px-4",
+      colors.neutral.backgroundSecondary
+    )}>
       <div className={`max-w-2xl w-full space-y-8`}>
         <div>
           <h2 className={`mt-6 text-center ${typography.h2} ${colors.neutral.textPrimary}`}>

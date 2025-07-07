@@ -1,6 +1,6 @@
 // Centralized Notification Service with Data Logging
 import { logSystemEvent, logUserAction, logError } from './dataLogger';
-import { sendEmail } from './emailService';
+import { emailService } from './emailService';
 
 // Notification types
 export const NOTIFICATION_TYPES = {
@@ -245,7 +245,7 @@ export const createNotification = async (config) => {
     if (routing.emailToAdmins) {
       for (const adminEmail of adminEmails) {
         try {
-          await sendEmail({
+          await emailService.sendEmail({
             to: adminEmail,
             subject: `[Admin Alert] ${title}`,
             text: `${message}\n\nCategory: ${category}\nPriority: ${priority}\nTime: ${notification.timestamp.toISOString()}\n\nMetadata: ${JSON.stringify(metadata, null, 2)}`,
@@ -289,7 +289,7 @@ export const createNotification = async (config) => {
     // Send email to user if required and email is provided
     if (routing.emailToUser && userEmail) {
       try {
-        await sendEmail({
+        await emailService.sendEmail({
           to: userEmail,
           subject: title,
           text: message,

@@ -3,7 +3,7 @@
 import { useState } from 'react';
 import Header from '../../components/Header';
 import Footer from '../../components/Footer';
-import { colors, typography, components, layout } from '../../utils/designSystem';
+import { colors, typography, components, layout, combineClasses } from '../../utils/designSystem';
 
 export default function FeedbackPage() {
   const [formData, setFormData] = useState({
@@ -63,7 +63,7 @@ export default function FeedbackPage() {
             <div className="space-y-6">
               {/* Name Field */}
               <div>
-                <label className={`block ${typography.bodyBase} ${colors.neutral.textPrimary} mb-2`}>
+                <label className={components.label.base}>
                   Your name
                 </label>
                 <input
@@ -72,14 +72,14 @@ export default function FeedbackPage() {
                   value={formData.name}
                   onChange={handleInputChange}
                   required
-                  className={`w-full rounded-lg border ${colors.neutral.border} bg-transparent px-3 py-2.5 ${typography.bodyBase} placeholder:text-slate-400 hover:border-slate-400 focus:border-blue-500 focus:outline-none focus:ring-2 focus:ring-blue-500/20 transition-all duration-200`}
+                  className={components.input.base}
                   placeholder="Enter your full name"
                 />
               </div>
 
               {/* Email Field */}
               <div>
-                <label className={`block ${typography.bodyBase} ${colors.neutral.textPrimary} mb-2`}>
+                <label className={components.label.base}>
                   Your email address
                 </label>
                 <input
@@ -88,14 +88,14 @@ export default function FeedbackPage() {
                   value={formData.email}
                   onChange={handleInputChange}
                   required
-                  className={`w-full rounded-lg border ${colors.neutral.border} bg-transparent px-3 py-2.5 ${typography.bodyBase} placeholder:text-slate-400 hover:border-slate-400 focus:border-blue-500 focus:outline-none focus:ring-2 focus:ring-blue-500/20 transition-all duration-200`}
+                  className={components.input.base}
                   placeholder="Enter your email address"
                 />
               </div>
 
               {/* Content Field */}
               <div>
-                <label className={`block ${typography.bodyBase} ${colors.neutral.textPrimary} mb-2`}>
+                <label className={components.label.base}>
                   Content
                 </label>
                 <textarea
@@ -104,7 +104,10 @@ export default function FeedbackPage() {
                   onChange={handleInputChange}
                   required
                   rows="6"
-                  className={`w-full rounded-lg border ${colors.neutral.border} bg-transparent px-3 py-2.5 ${typography.bodyBase} placeholder:text-slate-400 hover:border-slate-400 focus:border-blue-500 focus:outline-none focus:ring-2 focus:ring-blue-500/20 transition-all duration-200 resize-vertical`}
+                  className={combineClasses(
+                    components.input.base,
+                    'resize-vertical'
+                  )}
                   placeholder="Share your feedback, suggestions, or ideas..."
                 />
               </div>
@@ -140,17 +143,24 @@ export default function FeedbackPage() {
       {showModal && (
         <div className="fixed inset-0 z-50 flex items-center justify-center px-4">
           <div className="fixed inset-0 bg-black bg-opacity-50" onClick={closeModal}></div>
-          <div className="relative max-w-md w-full bg-gray-800 rounded-lg p-6 text-center">
+          <div className={combineClasses(
+            'relative max-w-md w-full rounded-lg p-6 text-center',
+            components.card.base
+          )}>
             <div className="text-4xl mb-4">🎉</div>
-            <h3 className={`${typography.h4} ${colors.neutral.textPrimary} mb-4`}>
+            <h3 className={combineClasses(typography.h4, colors.neutral.textPrimary, 'mb-4')}>
               Thanks for feedback!
             </h3>
-            <p className={`${typography.bodyBase} ${colors.neutral.textTertiary} mb-6`}>
+            <p className={combineClasses(typography.bodyBase, colors.neutral.textTertiary, 'mb-6')}>
               Thank you for your feedback! We appreciate your input and will use it to improve our service.
             </p>
             <button
               onClick={closeModal}
-              className={`${components.button.base} ${components.button.secondary} flex items-center justify-center space-x-2 mx-auto`}
+              className={combineClasses(
+                components.button.base,
+                components.button.secondary,
+                'flex items-center justify-center space-x-2 mx-auto'
+              )}
             >
               <span>Close</span>
               <svg className="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">

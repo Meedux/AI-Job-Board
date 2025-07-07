@@ -2,7 +2,7 @@
 
 import Link from 'next/link';
 import { useAuth } from '../contexts/AuthContext';
-import { colors, typography } from '../utils/designSystem';
+import { colors, typography, components, combineClasses } from '../utils/designSystem';
 
 const ProtectedRoute = ({ children, fallback = null }) => {
   const { user, loading } = useAuth();
@@ -16,10 +16,13 @@ const ProtectedRoute = ({ children, fallback = null }) => {
   // Show loading state while checking authentication
   if (loading) {
     return (
-      <div className="min-h-screen flex items-center justify-center bg-gray-800">
+      <div className={combineClasses(
+        'min-h-screen flex items-center justify-center',
+        colors.neutral.background
+      )}>
         <div className="text-center">
           <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600 mx-auto mb-4"></div>
-          <p className={`${typography.bodyBase} ${colors.neutral.textSecondary}`}>
+          <p className={combineClasses(typography.bodyBase, colors.neutral.textSecondary)}>
             Verifying authentication...
           </p>
         </div>
@@ -40,7 +43,10 @@ const ProtectedRoute = ({ children, fallback = null }) => {
 
   // Default: Show access denied message
   return (
-    <div className="min-h-screen flex items-center justify-center bg-gray-800">
+    <div className={combineClasses(
+      'min-h-screen flex items-center justify-center',
+      colors.neutral.background
+    )}>
       <div className="max-w-md w-full text-center p-8">
         <div className="mb-6">
           <div className="mx-auto h-16 w-16 rounded-full bg-red-100 flex items-center justify-center mb-4">
@@ -48,10 +54,10 @@ const ProtectedRoute = ({ children, fallback = null }) => {
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-2.5L13.732 4c-.77-.833-1.732-.833-2.5 0L4.268 19.5c-.77.833.192 2.5 1.732 2.5z" />
             </svg>
           </div>
-          <h2 className={`${typography.h3} ${colors.neutral.textPrimary} mb-2`}>
+          <h2 className={combineClasses(typography.h3, colors.neutral.textPrimary, 'mb-2')}>
             Access Denied
           </h2>
-          <p className={`${typography.bodyBase} ${colors.neutral.textSecondary} mb-6`}>
+          <p className={combineClasses(typography.bodyBase, colors.neutral.textSecondary, 'mb-6')}>
             You need to be logged in to access this page.
           </p>
         </div>
@@ -59,19 +65,33 @@ const ProtectedRoute = ({ children, fallback = null }) => {
         <div className="space-y-3">
           <a
             href="/login"
-            className="w-full inline-flex items-center justify-center px-4 py-2 border border-transparent text-sm font-medium rounded-md text-white bg-blue-600 hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 transition-colors"
+            className={combineClasses(
+              components.button.base,
+              components.button.primary,
+              components.button.sizes.medium,
+              'w-full'
+            )}
           >
             Sign In
           </a>
           <a
             href="/register"
-            className="w-full inline-flex items-center justify-center px-4 py-2 border border-gray-600 text-sm font-medium rounded-md text-gray-300 bg-gray-800 hover:bg-gray-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 transition-colors"
+            className={combineClasses(
+              components.button.base,
+              components.button.secondary,
+              components.button.sizes.medium,
+              'w-full'
+            )}
           >
             Create Account
           </a>
           <Link
             href="/"
-            className="w-full inline-flex items-center justify-center px-4 py-2 text-sm font-medium text-gray-500 hover:text-gray-700 transition-colors"
+            className={combineClasses(
+              'w-full inline-flex items-center justify-center px-4 py-2 text-sm font-medium transition-colors',
+              colors.neutral.textTertiary,
+              'hover:text-gray-300'
+            )}
           >
             ← Back to Home
           </Link>

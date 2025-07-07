@@ -5,7 +5,7 @@ import Header from '../../components/Header';
 import Footer from '../../components/Footer';
 import ProtectedRoute from '../../components/ProtectedRoute';
 import { useAuth } from '../../contexts/AuthContext';
-import { colors, typography, components, layout } from '../../utils/designSystem';
+import { colors, typography, components, layout, combineClasses } from '../../utils/designSystem';
 
 export default function ProfilePage() {
   const { user } = useAuth();
@@ -69,14 +69,17 @@ export default function ProfilePage() {
               <form onSubmit={handleSave} className="space-y-6">
                 {/* Profile Avatar */}
                 <div className="flex items-center space-x-6">
-                  <div className={`w-20 h-20 ${colors.primary[500]} rounded-full flex items-center justify-center text-white text-2xl font-bold`}>
+                  <div className={combineClasses(
+                    'w-20 h-20 rounded-full flex items-center justify-center text-white text-2xl font-bold',
+                    colors.primary[500]
+                  )}>
                     {user?.nickname ? user.nickname.charAt(0).toUpperCase() : user?.fullName.charAt(0).toUpperCase()}
                   </div>
                   <div>
-                    <h3 className={`${typography.h4} ${colors.neutral.textPrimary}`}>
+                    <h3 className={combineClasses(typography.h4, colors.neutral.textPrimary)}>
                       {user?.fullName}
                     </h3>
-                    <p className={`${typography.bodyBase} ${colors.neutral.textSecondary}`}>
+                    <p className={combineClasses(typography.bodyBase, colors.neutral.textSecondary)}>
                       {user?.email}
                     </p>
                   </div>
@@ -85,7 +88,7 @@ export default function ProfilePage() {
                 {/* Form Fields */}
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                   <div>
-                    <label className={`block ${typography.bodyBase} font-medium ${colors.neutral.textPrimary} mb-2`}>
+                    <label className={combineClasses(components.label.base)}>
                       Full Name
                     </label>
                     <input
@@ -94,12 +97,15 @@ export default function ProfilePage() {
                       value={formData.fullName}
                       onChange={handleChange}
                       disabled={!isEditing}
-                      className={`${components.input.base} ${!isEditing ? 'bg-gray-800' : ''}`}
+                      className={combineClasses(
+                        components.input.base,
+                        !isEditing && colors.neutral.backgroundSecondary
+                      )}
                     />
                   </div>
 
                   <div>
-                    <label className={`block ${typography.bodyBase} font-medium ${colors.neutral.textPrimary} mb-2`}>
+                    <label className={combineClasses(components.label.base)}>
                       Nickname
                     </label>
                     <input
@@ -108,12 +114,15 @@ export default function ProfilePage() {
                       value={formData.nickname}
                       onChange={handleChange}
                       disabled={!isEditing}
-                      className={`${components.input.base} ${!isEditing ? 'bg-gray-800' : ''}`}
+                      className={combineClasses(
+                        components.input.base,
+                        !isEditing && colors.neutral.backgroundSecondary
+                      )}
                     />
                   </div>
 
                   <div>
-                    <label className={`block ${typography.bodyBase} font-medium ${colors.neutral.textPrimary} mb-2`}>
+                    <label className={combineClasses(components.label.base)}>
                       Email
                     </label>
                     <input
@@ -122,12 +131,15 @@ export default function ProfilePage() {
                       value={formData.email}
                       onChange={handleChange}
                       disabled={!isEditing}
-                      className={`${components.input.base} ${!isEditing ? 'bg-gray-800' : ''}`}
+                      className={combineClasses(
+                        components.input.base,
+                        !isEditing && colors.neutral.backgroundSecondary
+                      )}
                     />
                   </div>
 
                   <div>
-                    <label className={`block ${typography.bodyBase} font-medium ${colors.neutral.textPrimary} mb-2`}>
+                    <label className={combineClasses(components.label.base)}>
                       Date of Birth
                     </label>
                     <input
@@ -136,13 +148,16 @@ export default function ProfilePage() {
                       value={formData.dateOfBirth}
                       onChange={handleChange}
                       disabled={!isEditing}
-                      className={`${components.input.base} ${!isEditing ? 'bg-gray-800' : ''}`}
+                      className={combineClasses(
+                        components.input.base,
+                        !isEditing && colors.neutral.backgroundSecondary
+                      )}
                     />
                   </div>
                 </div>
 
                 <div>
-                  <label className={`block ${typography.bodyBase} font-medium ${colors.neutral.textPrimary} mb-2`}>
+                  <label className={combineClasses(components.label.base)}>
                     Full Address
                   </label>
                   <textarea
@@ -151,7 +166,10 @@ export default function ProfilePage() {
                     value={formData.fullAddress}
                     onChange={handleChange}
                     disabled={!isEditing}
-                    className={`${components.input.base} ${!isEditing ? 'bg-gray-800' : ''}`}
+                    className={combineClasses(
+                      components.input.base,
+                      !isEditing && colors.neutral.backgroundSecondary
+                    )}
                   />
                 </div>
 
@@ -159,14 +177,22 @@ export default function ProfilePage() {
                   <div className="flex space-x-4">
                     <button
                       type="submit"
-                      className={`${components.button.base} ${components.button.primary} ${components.button.sizes.medium}`}
+                      className={combineClasses(
+                        components.button.base,
+                        components.button.primary,
+                        components.button.sizes.medium
+                      )}
                     >
                       Save Changes
                     </button>
                     <button
                       type="button"
                       onClick={handleCancel}
-                      className={`${components.button.base} ${components.button.secondary} ${components.button.sizes.medium}`}
+                      className={combineClasses(
+                        components.button.base,
+                        components.button.secondary,
+                        components.button.sizes.medium
+                      )}
                     >
                       Cancel
                     </button>

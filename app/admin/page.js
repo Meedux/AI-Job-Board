@@ -6,7 +6,7 @@ import { useNotifications } from '../../contexts/NotificationContext';
 import Header from '../../components/Header';
 import Footer from '../../components/Footer';
 import ProtectedRoute from '../../components/ProtectedRoute';
-import { colors, typography, components, layout } from '../../utils/designSystem';
+import { colors, typography, components, layout, combineClasses } from '../../utils/designSystem';
 import { CopyToClipboard } from 'react-copy-to-clipboard';
 
 const AdminDashboard = () => {
@@ -171,7 +171,7 @@ const AdminDashboard = () => {
         return (
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
             <div>
-              <label className="block text-sm font-medium mb-1">Max Jobs</label>
+              <label className={components.label.base}>Max Jobs</label>
               <input
                 type="number"
                 min="1"
@@ -181,11 +181,11 @@ const AdminDashboard = () => {
                   ...prev, 
                   config: { ...prev.config, limit: parseInt(e.target.value) }
                 }))}
-                className="w-full px-3 py-2 border border-gray-300 rounded focus:outline-none focus:ring-2 focus:ring-green-500"
+                className={components.input.base}
               />
             </div>
             <div>
-              <label className="block text-sm font-medium mb-1">Height (px)</label>
+              <label className={components.label.base}>Height (px)</label>
               <input
                 type="number"
                 min="200"
@@ -195,11 +195,11 @@ const AdminDashboard = () => {
                   ...prev, 
                   config: { ...prev.config, height: parseInt(e.target.value) }
                 }))}
-                className="w-full px-3 py-2 border border-gray-300 rounded focus:outline-none focus:ring-2 focus:ring-green-500"
+                className={components.input.base}
               />
             </div>
             <div>
-              <label className="block text-sm font-medium mb-1">Category Filter</label>
+              <label className={components.label.base}>Category Filter</label>
               <input
                 type="text"
                 value={newEmbed.config.category || ''}
@@ -207,12 +207,12 @@ const AdminDashboard = () => {
                   ...prev, 
                   config: { ...prev.config, category: e.target.value }
                 }))}
-                className="w-full px-3 py-2 border border-gray-300 rounded focus:outline-none focus:ring-2 focus:ring-green-500"
+                className={components.input.base}
                 placeholder="e.g., Technology"
               />
             </div>
             <div>
-              <label className="block text-sm font-medium mb-1">Location Filter</label>
+              <label className={components.label.base}>Location Filter</label>
               <input
                 type="text"
                 value={newEmbed.config.location || ''}
@@ -220,19 +220,19 @@ const AdminDashboard = () => {
                   ...prev, 
                   config: { ...prev.config, location: e.target.value }
                 }))}
-                className="w-full px-3 py-2 border border-gray-300 rounded focus:outline-none focus:ring-2 focus:ring-green-500"
+                className={components.input.base}
                 placeholder="e.g., San Francisco"
               />
             </div>
             <div>
-              <label className="block text-sm font-medium mb-1">Theme</label>
+              <label className={components.label.base}>Theme</label>
               <select
                 value={newEmbed.config.theme || 'light'}
                 onChange={(e) => setNewEmbed(prev => ({ 
                   ...prev, 
                   config: { ...prev.config, theme: e.target.value }
                 }))}
-                className="w-full px-3 py-2 border border-gray-300 rounded focus:outline-none focus:ring-2 focus:ring-green-500"
+                className={components.input.base}
               >
                 <option value="light">Light</option>
                 <option value="dark">Dark</option>
@@ -249,7 +249,7 @@ const AdminDashboard = () => {
                 }))}
                 className="mr-2"
               />
-              <label htmlFor="showLogo" className="text-sm font-medium">Show Logo</label>
+              <label htmlFor="showLogo" className={components.label.base}>Show Logo</label>
             </div>
           </div>
         );

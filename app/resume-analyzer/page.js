@@ -5,7 +5,7 @@ import Link from 'next/link';
 import Header from '../../components/Header';
 import Footer from '../../components/Footer';
 import ProtectedRoute from '../../components/ProtectedRoute';
-import { colors, typography, components, layout } from '../../utils/designSystem';
+import { colors, typography, components, layout, combineClasses } from '../../utils/designSystem';
 
 export default function ResumeAnalyzer() {
   const [isLoading, setIsLoading] = useState(true);
@@ -33,10 +33,14 @@ export default function ResumeAnalyzer() {
         <div className="max-w-5xl mx-auto mb-8 relative">
           {/* Loading State */}
           {isLoading && (
-            <div className="absolute inset-0 flex items-center justify-center bg-gray-900 bg-opacity-90 z-10 rounded-lg">
+            <div className={combineClasses(
+              'absolute inset-0 flex items-center justify-center z-10 rounded-lg',
+              colors.neutral.background,
+              'bg-opacity-90'
+            )}>
               <div className="text-center">
                 <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600 mx-auto mb-3"></div>
-                <p className={`${typography.bodyBase} ${colors.neutral.textTertiary}`}>
+                <p className={combineClasses(typography.bodyBase, colors.neutral.textTertiary)}>
                   Loading Resume Analyzer...
                 </p>
               </div>
@@ -44,7 +48,10 @@ export default function ResumeAnalyzer() {
           )}
 
           {/* Clean Iframe Container */}
-          <div className="bg-gray-800 rounded-lg shadow-sm border border-gray-700 overflow-hidden">
+          <div className={combineClasses(
+            components.card.base,
+            'shadow-sm overflow-hidden'
+          )}>
             <iframe
               src="https://meesamraza-resume-analyzer1.hf.space"
               width="100%"
