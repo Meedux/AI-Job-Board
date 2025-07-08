@@ -621,7 +621,6 @@ export const convertContentSheetToJobs = (rows) => {
       company_name: row[12] || '', // For backward compatibility
       company_logo: row[13] || '', // For backward compatibility
       postedAt: row[9] || '', // For backward compatibility
-      href: `/job/${row[1] || `job-${i}`}`, // Generate href from slug
     };
 
     jobs.push(job);

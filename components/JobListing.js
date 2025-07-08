@@ -82,7 +82,7 @@ const JobListing = ({ jobs = [], loading = false, error = null }) => {
   }
 
   return (
-    <div className="grid grid-cols-1 gap-3 sm:gap-4">
+    <div className="grid grid-cols-1 gap-4">
       {jobs.map((job, index) => (
         <JobCard 
           key={`job-${index}`} 
