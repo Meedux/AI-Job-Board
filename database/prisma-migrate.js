@@ -1,4 +1,13 @@
 // Migration script to move data from Google Sheets to Prisma/PostgreSQL
+import { config } from 'dotenv';
+import { fileURLToPath } from 'url';
+import { dirname, join } from 'path';
+
+// Load environment variables
+const __filename = fileURLToPath(import.meta.url);
+const __dirname = dirname(__filename);
+config({ path: join(__dirname, '..', '.env.local') });
+
 import { fetchSheetData, convertContentSheetToJobs } from '../utils/googleApi.js';
 import { db, transaction, prisma } from '../utils/db.js';
 
@@ -12,6 +21,10 @@ export const migrateFromGoogleSheets = async () => {
   
   try {
     // Check if we have the necessary configuration
+    console.log('📋 Checking configuration...');
+    console.log('SPREADSHEET_ID:', SPREADSHEET_ID);
+    console.log('SHEET_RANGE:', SHEET_RANGE);
+    
     if (!SPREADSHEET_ID) {
       throw new Error('GOOGLE_SPREADSHEET_ID environment variable is required');
     }
@@ -228,14 +241,16 @@ export const migrateFromGoogleSheets = async () => {
 };
 
 // Run migration if this script is executed directly
-if (import.meta.url === `file://${process.argv[1]}`) {
-  migrateFromGoogleSheets()
-    .then(() => {
-      console.log('✅ Migration script completed');
-      process.exit(0);
-    })
-    .catch(error => {
-      console.error('❌ Migration script failed:', error);
-      process.exit(1);
-    });
-}
+console.log('🎬 Starting migration script execution...');
+  
+migrateFromGoogleSheets()
+.then((result) => {
+    console.log('✅ Migration script completed successfully');
+    console.log('📊 Results:', result);
+    process.exit(0);
+})
+.catch(error => {
+    console.error('❌ Migration script failed:', error);
+    console.error('Stack trace:', error.stack);
+    process.exit(1);
+});
