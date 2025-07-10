@@ -1,0 +1,132 @@
+// This is your Prisma schema file,
+// learn more about it in the docs: https://pris.ly/d/prisma-schema
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+model Company {
+  id          String   @id @default(cuid())
+  name        String   @unique
+  logoUrl     String?  @map("logo_url")
+  websiteUrl  String?  @map("website_url")
+  description String?
+  location    String?
+  industry    String   @default("Technology")
+  isActive    Boolean  @default(true) @map("is_active")
+  createdAt   DateTime @default(now()) @map("created_at")
+  updatedAt   DateTime @updatedAt @map("updated_at")
+
+  // Relations
+  jobs Job[]
+
+  @@map("companies")
+}
+
+model JobCategory {
+  id          String   @id @default(cuid())
+  name        String
+  slug        String   @unique
+  description String?
+  isActive    Boolean  @default(true) @map("is_active")
+  createdAt   DateTime @default(now()) @map("created_at")
+  updatedAt   DateTime @updatedAt @map("updated_at")
+
+  // Relations
+  jobs JobCategoryAssignment[]
+
+  @@map("job_categories")
+}
+
+model Job {
+  id              String    @id @default(cuid())
+  title           String
+  slug            String    @unique
+  description     String?
+  contentDocUrl   String?   @map("content_doc_url")
+  salaryFrom      Int?      @map("salary_from")
+  salaryTo        Int?      @map("salary_to")
+  salaryCurrency  String    @default("PHP") @map("salary_currency")
+  location        String?
+  remoteType      String    @default("no") @map("remote_type") // "no", "hybrid", "full"
+  jobType         String    @default("full-time") @map("job_type")
+  experienceLevel String    @default("mid") @map("experience_level")
+  requiredSkills  String[]  @map("required_skills")
+  preferredSkills String[]  @map("preferred_skills")
+  applyUrl        String?   @map("apply_url")
+  applyEmail      String?   @map("apply_email")
+  viewsCount      Int       @default(0) @map("views_count")
+  isFeatured      Boolean   @default(false) @map("is_featured")
+  status          String    @default("active") // "active", "closed", "draft"
+  postedAt        DateTime  @default(now()) @map("posted_at")
+  expiresAt       DateTime? @map("expires_at")
+  createdAt       DateTime  @default(now()) @map("created_at")
+  updatedAt       DateTime  @updatedAt @map("updated_at")
+
+  // Relations
+  companyId  String  @map("company_id")
+  company    Company @relation(fields: [companyId], references: [id], onDelete: Cascade)
+  postedById String? @map("posted_by_id")
+  postedBy   User?   @relation("PostedJobs", fields: [postedById], references: [id])
+
+  categories   JobCategoryAssignment[]
+  applications JobApplication[]
+
+  @@map("jobs")
+}
+
+model JobCategoryAssignment {
+  id         String      @id @default(cuid())
+  jobId      String      @map("job_id")
+  categoryId String      @map("category_id")
+  createdAt  DateTime    @default(now()) @map("created_at")
+
+  // Relations
+  job      Job         @relation(fields: [jobId], references: [id], onDelete: Cascade)
+  category JobCategory @relation(fields: [categoryId], references: [id], onDelete: Cascade)
+
+  @@unique([jobId, categoryId])
+  @@map("job_category_assignments")
+}
+
+model User {
+  id        String   @id @default(cuid())
+  email     String   @unique
+  firstName String?  @map("first_name")
+  lastName  String?  @map("last_name")
+  password  String
+  role      String   @default("user") // "user", "admin", "recruiter"
+  isActive  Boolean  @default(true) @map("is_active")
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+
+  // Relations
+  postedJobs   Job[]            @relation("PostedJobs")
+  applications JobApplication[]
+
+  @@map("users")
+}
+
+model JobApplication {
+  id          String   @id @default(cuid())
+  jobId       String   @map("job_id")
+  userId      String   @map("user_id")
+  coverLetter String?  @map("cover_letter")
+  resumeUrl   String?  @map("resume_url")
+  status      String   @default("pending") // "pending", "reviewed", "accepted", "rejected"
+  appliedAt   DateTime @default(now()) @map("applied_at")
+  createdAt   DateTime @default(now()) @map("created_at")
+  updatedAt   DateTime @updatedAt @map("updated_at")
+
+  // Relations
+  job  Job  @relation(fields: [jobId], references: [id], onDelete: Cascade)
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([jobId, userId])
+  @@map("job_applications")
+}

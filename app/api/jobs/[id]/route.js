@@ -1,9 +1,5 @@
-// API route to fetch individual job details
-import { 
-  fetchSheetData, 
-  convertContentSheetToJobs, 
-  processJobsWithDocContent 
-} from '../../../../utils/googleApi';
+// API route for individual job operations using Prisma
+import { db, handlePrismaError } from '../../../../utils/db';
 
 export async function GET(request, { params }) {
   try {
@@ -16,32 +12,8 @@ export async function GET(request, { params }) {
       );
     }
 
-    // Configuration - using "Content" sheet as specified
-    const SPREADSHEET_ID = process.env.GOOGLE_SPREADSHEET_ID;
-    const SHEET_RANGE = process.env.GOOGLE_SHEET_RANGE || 'Content!A:P'; // Covers columns A-P for all expected data
-
-    if (!SPREADSHEET_ID) {
-      return Response.json(
-        { error: 'Google Spreadsheet ID not configured' },
-        { status: 500 }
-      );
-    }
-
-    // Fetch data from Google Sheets
-    const sheetData = await fetchSheetData(SPREADSHEET_ID, SHEET_RANGE);
-    
-    if (!sheetData || sheetData.length === 0) {
-      return Response.json(
-        { error: 'No jobs data found' },
-        { status: 404 }
-      );
-    }
-
-    // Convert sheet rows to job objects using new structure
-    const jobs = convertContentSheetToJobs(sheetData);
-
-    // Find the specific job by slug (which is used as ID)
-    const job = jobs.find(j => j.slug === jobSlug || j.id === jobSlug);
+    // Find job by slug using Prisma
+    const job = await db.jobs.findBySlug(jobSlug);
 
     if (!job) {
       return Response.json(
@@ -50,15 +22,70 @@ export async function GET(request, { params }) {
       );
     }
 
-    // Process job with Google Docs content
-    const [processedJob] = await processJobsWithDocContent([job]);
+    // Increment view count
+    try {
+      await db.jobs.incrementViews(job.id);
+    } catch (viewError) {
+      console.warn('Failed to increment view count:', viewError);
+    }
 
-    return Response.json({ job: processedJob });
+    // Transform job data
+    const transformedJob = {
+      id: job.id,
+      slug: job.slug,
+      title: job.title,
+      description: job.description,
+      content_doc_url: job.contentDocUrl,
+      salary: {
+        from: job.salaryFrom,
+        to: job.salaryTo,
+        currency: job.salaryCurrency,
+        range: job.salaryFrom && job.salaryTo 
+          ? `${job.salaryFrom} - ${job.salaryTo}` 
+          : (job.salaryFrom || job.salaryTo || null)
+      },
+      location: job.location,
+      remote: job.remoteType === 'full' ? 'Yes' : 
+              job.remoteType === 'hybrid' ? 'Hybrid' : 'No',
+      remote_type: job.remoteType,
+      type: job.jobType,
+      level: job.experienceLevel,
+      posted_time: job.postedAt,
+      expire_time: job.expiresAt,
+      apply_link: job.applyUrl || job.applyEmail,
+      company: {
+        id: job.company.id,
+        name: job.company.name,
+        logo: job.company.logoUrl,
+        website: job.company.websiteUrl,
+        location: job.company.location,
+        description: job.company.description
+      },
+      company_name: job.company.name, // Backward compatibility
+      company_logo: job.company.logoUrl, // Backward compatibility
+      categories: job.categories.map(cat => cat.category.name),
+      category_slugs: job.categories.map(cat => cat.category.slug),
+      views_count: job.viewsCount + 1, // Include the increment
+      is_featured: job.isFeatured,
+      status: job.status,
+      required_skills: job.requiredSkills || [],
+      preferred_skills: job.preferredSkills || [],
+      postedAt: job.postedAt,
+    };
+
+    return Response.json(transformedJob, {
+      headers: {
+        'Cache-Control': 'public, max-age=300, s-maxage=600',
+      }
+    });
 
   } catch (error) {
-    console.error('Error in /api/jobs/[id]:', error);
+    console.error('Error fetching job details:', error);
+    
+    const errorResponse = handlePrismaError(error);
+    
     return Response.json(
-      { error: 'Failed to fetch job details' },
+      { error: errorResponse.error || 'Failed to fetch job', details: error.message },
       { status: 500 }
     );
   }
