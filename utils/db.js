@@ -282,6 +282,12 @@ export const db = {
       });
     },
 
+    async findByUid(uid) {
+      return await prisma.user.findUnique({
+        where: { uid }
+      });
+    },
+
     async create(data) {
       return await prisma.user.create({
         data
@@ -293,6 +299,54 @@ export const db = {
         where: { id },
         data
       });
+    },
+
+    async updateByEmail(email, data) {
+      return await prisma.user.update({
+        where: { email },
+        data
+      });
+    },
+
+    async findMany(options = {}) {
+      const { skip = 0, take = 10, search, role, isActive = true } = options;
+      
+      const where = {
+        ...(isActive !== undefined && { isActive }),
+        ...(search && {
+          OR: [
+            { fullName: { contains: search, mode: 'insensitive' } },
+            { email: { contains: search, mode: 'insensitive' } },
+            { nickname: { contains: search, mode: 'insensitive' } }
+          ]
+        }),
+        ...(role && { role })
+      };
+
+      return await prisma.user.findMany({
+        skip,
+        take,
+        where,
+        orderBy: { createdAt: 'desc' }
+      });
+    },
+
+    async count(options = {}) {
+      const { search, role, isActive = true } = options;
+      
+      const where = {
+        ...(isActive !== undefined && { isActive }),
+        ...(search && {
+          OR: [
+            { fullName: { contains: search, mode: 'insensitive' } },
+            { email: { contains: search, mode: 'insensitive' } },
+            { nickname: { contains: search, mode: 'insensitive' } }
+          ]
+        }),
+        ...(role && { role })
+      };
+
+      return await prisma.user.count({ where });
     }
   },
 

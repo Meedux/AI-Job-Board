@@ -26,10 +26,15 @@ export async function GET(request) {
       { 
         authenticated: true,
         user: {
+          id: user.id,
           uid: user.uid,
-          fullName: user.fullName,
+          fullName: user.fullName || `${user.firstName || ''} ${user.lastName || ''}`.trim(),
           nickname: user.nickname,
-          email: user.email
+          email: user.email,
+          role: user.role,
+          age: user.age,
+          dateOfBirth: user.dateOfBirth,
+          fullAddress: user.fullAddress
         }
       },
       { status: 200 }

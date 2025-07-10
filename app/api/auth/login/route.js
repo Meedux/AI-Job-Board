@@ -1,11 +1,9 @@
 import { NextResponse } from 'next/server';
 import bcrypt from 'bcryptjs';
-import { getUserByEmail } from '../../../../utils/googleApi';
+import { db } from '../../../../utils/db.js';
 import { generateToken, isValidEmail } from '../../../../utils/auth';
 import { logUserAction, logAPIRequest, logError, getRequestInfo } from '../../../../utils/dataLogger';
 import { notifyUserLogin, notifyAdminLogin } from '../../../../utils/notificationService';
-
-const SPREADSHEET_ID = process.env.GOOGLE_SPREADSHEET_ID;
 
 export async function POST(request) {
   console.log('🔑 Login API called');
@@ -40,11 +38,11 @@ export async function POST(request) {
       );
     }
 
-    console.log('🔍 Looking up user in Google Sheets...');
-    // Get user from sheet
-    const user = await getUserByEmail(SPREADSHEET_ID, email);
+    console.log('🔍 Looking up user in database...');
+    // Get user from database
+    const user = await db.users.findByEmail(email);
     if (!user) {
-      console.log('❌ User not found in sheets');
+      console.log('❌ User not found in database');
       await logUserAction(
         null,
         email,
@@ -62,10 +60,28 @@ export async function POST(request) {
 
     console.log('👤 User found:', { ...user, password: '[HIDDEN]' });
     
-    // Verify password against hashed password from column H
-    console.log('🔐 Verifying password against hash from column H...');
+    // Check if user is active
+    if (!user.isActive) {
+      console.log('❌ User account is inactive');
+      await logUserAction(
+        user.uid || user.id,
+        email,
+        'LOGIN_FAILED',
+        'User account is inactive',
+        ipAddress,
+        userAgent,
+        'failed'
+      );
+      return NextResponse.json(
+        { error: 'Account is inactive. Please contact support.' },
+        { status: 401 }
+      );
+    }
+    
+    // Verify password
+    console.log('🔐 Verifying password...');
     if (!user.password) {
-      console.log('❌ No password hash found in sheet');
+      console.log('❌ No password hash found for user');
       return NextResponse.json(
         { error: 'Invalid email or password' },
         { status: 401 }
@@ -77,7 +93,7 @@ export async function POST(request) {
     if (!passwordMatch) {
       console.log('❌ Password verification failed');
       await logUserAction(
-        user?.uid || null,
+        user.uid || user.id,
         email,
         'LOGIN_FAILED',
         'Invalid password',
@@ -94,14 +110,14 @@ export async function POST(request) {
     console.log('✅ Password verified successfully');
 
     // Store user ID for logging
-    userId = user.uid;
+    userId = user.uid || user.id;
     
     // Log successful login
     await logUserAction(
-      user.uid,
+      user.uid || user.id,
       user.email,
       'USER_LOGIN',
-      `User logged in: ${user.fullName}`,
+      `User logged in: ${user.fullName || user.firstName + ' ' + user.lastName}`,
       ipAddress,
       userAgent,
       'success'
@@ -112,12 +128,12 @@ export async function POST(request) {
     const adminEmails = ['admin@getgethired.com', 'support@getgethired.com'];
     const emailLower = user.email.toLowerCase();
     const domain = emailLower.split('@')[1];
-    const isAdmin = adminEmails.includes(emailLower) || adminDomains.includes(domain);
+    const isAdmin = adminEmails.includes(emailLower) || adminDomains.includes(domain) || user.role === 'admin';
 
     if (isAdmin) {
       await notifyAdminLogin(user.email, ipAddress);
     } else {
-      await notifyUserLogin(user.email, user.uid, ipAddress);
+      await notifyUserLogin(user.email, user.uid || user.id, ipAddress);
     }
 
     // Generate JWT token
@@ -131,13 +147,15 @@ export async function POST(request) {
         success: true,
         message: 'Login successful',
         user: {
+          id: user.id,
           uid: user.uid,
-          fullName: user.fullName,
+          fullName: user.fullName || `${user.firstName || ''} ${user.lastName || ''}`.trim(),
           nickname: user.nickname,
           email: user.email,
           age: user.age,
           dateOfBirth: user.dateOfBirth,
-          fullAddress: user.fullAddress
+          fullAddress: user.fullAddress,
+          role: user.role
         }
       },
       { status: 200 }

@@ -1,5 +1,5 @@
 // Database health check API route
-import { healthCheck, dbUtils } from '../../../utils/database';
+import { healthCheck, db } from '../../../utils/db.js';
 
 export async function GET(request) {
   try {

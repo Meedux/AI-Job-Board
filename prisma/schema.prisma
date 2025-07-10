@@ -95,15 +95,21 @@ model JobCategoryAssignment {
 }
 
 model User {
-  id        String   @id @default(cuid())
-  email     String   @unique
-  firstName String?  @map("first_name")
-  lastName  String?  @map("last_name")
-  password  String
-  role      String   @default("user") // "user", "admin", "recruiter"
-  isActive  Boolean  @default(true) @map("is_active")
-  createdAt DateTime @default(now()) @map("created_at")
-  updatedAt DateTime @updatedAt @map("updated_at")
+  id           String    @id @default(cuid())
+  uid          String?   @unique // Legacy UID from Google Sheets
+  email        String    @unique
+  fullName     String?   @map("full_name")
+  nickname     String?
+  firstName    String?   @map("first_name")
+  lastName     String?   @map("last_name")
+  password     String
+  age          Int?
+  dateOfBirth  DateTime? @map("date_of_birth")
+  fullAddress  String?   @map("full_address")
+  role         String    @default("user") // "user", "admin", "recruiter"
+  isActive     Boolean   @default(true) @map("is_active")
+  createdAt    DateTime  @default(now()) @map("created_at")
+  updatedAt    DateTime  @updatedAt @map("updated_at")
 
   // Relations
   postedJobs   Job[]            @relation("PostedJobs")

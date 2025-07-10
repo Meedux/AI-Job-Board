@@ -1,11 +1,9 @@
 import { NextResponse } from 'next/server';
-import { addUserToSheet, getUserByEmail } from '../../../../utils/googleApi';
+import { db } from '../../../../utils/db.js';
 import { hashPassword, generateToken, generateUID, isValidEmail, isValidPassword, calculateAge, sanitizeInput } from '../../../../utils/auth';
 import { emailService } from '../../../../utils/emailService';
 import { logUserAction, logSystemEvent, logAPIRequest, logEmailNotification, logError, getRequestInfo } from '../../../../utils/dataLogger';
 import { notifyUserRegistration } from '../../../../utils/notificationService';
-
-const SPREADSHEET_ID = process.env.GOOGLE_SPREADSHEET_ID;
 
 export async function POST(request) {
   console.log('🚀 Registration API called');
@@ -77,14 +75,16 @@ export async function POST(request) {
     console.log('✅ Date of birth valid');
     console.log('🔍 Checking if user already exists...');
     // Check if user already exists
-    const existingUser = await getUserByEmail(SPREADSHEET_ID, email);
+    const existingUser = await db.users.findByEmail(email);
     if (existingUser) {
       console.log('❌ User already exists');
       return NextResponse.json(
         { error: 'User with this email already exists' },
         { status: 409 }
       );
-    }    console.log('✅ User does not exist, proceeding with registration');
+    }
+
+    console.log('✅ User does not exist, proceeding with registration');
     console.log('🔢 Calculating age...');
     // Calculate age
     const age = calculateAge(dateOfBirth);
@@ -101,30 +101,32 @@ export async function POST(request) {
     console.log('✅ Password hashed successfully');
 
     console.log('🧹 Sanitizing inputs...');
-    // Sanitize inputs
+    // Sanitize inputs and prepare user data
     const userData = {
-      uid,
+      uid: uid, // Keep for backward compatibility
       fullName: sanitizeInput(fullName),
       nickname: sanitizeInput(nickname || ''),
       email: sanitizeInput(email),
-      age: age.toString(),
-      dateOfBirth: dateOfBirth,
+      password: hashedPassword,
+      age: age,
+      dateOfBirth: new Date(dateOfBirth),
       fullAddress: sanitizeInput(fullAddress || ''),
-      password: hashedPassword // Note: We need to store this somewhere secure
+      role: 'user',
+      isActive: true
     };
-    console.log('✅ User data prepared:', { ...userData, hashedPassword: '[HIDDEN]' });
+    console.log('✅ User data prepared:', { ...userData, password: '[HIDDEN]' });
 
-    console.log('📊 Adding user to Google Sheets...');
-    // Add user to sheet (excluding password for now)
-    await addUserToSheet(SPREADSHEET_ID, userData);
-    console.log('✅ User added to sheet successfully');
+    console.log('� Creating user in database...');
+    // Create user in database
+    const newUser = await db.users.create(userData);
+    console.log('✅ User created successfully:', { ...newUser, password: '[HIDDEN]' });
 
     // Log successful user registration
     await logUserAction(
-      userData.uid,
-      userData.email,
+      newUser.uid || newUser.id,
+      newUser.email,
       'USER_REGISTRATION',
-      `User registered: ${userData.fullName}`,
+      `User registered: ${newUser.fullName}`,
       ipAddress,
       userAgent,
       'success'
@@ -134,29 +136,33 @@ export async function POST(request) {
     await logSystemEvent(
       'USER_REGISTRATION',
       'auth/register',
-      `New user registered: ${userData.fullName} (${userData.email})`,
+      `New user registered: ${newUser.fullName} (${newUser.email})`,
       'info',
-      { uid: userData.uid, age: userData.age }
+      { uid: newUser.uid, id: newUser.id, age: newUser.age }
     );
 
     console.log('🎫 Generating JWT token...');
     // Generate JWT token
-    const token = generateToken(userData);
+    const token = generateToken(newUser);
     console.log('✅ Token generated successfully');
 
     // Store user ID for logging
-    userId = userData.uid;
+    userId = newUser.uid || newUser.id;
 
     // Create response with token
     const response = NextResponse.json(
       { 
         message: 'User registered successfully',
         user: {
-          uid: userData.uid,
-          fullName: userData.fullName,
-          nickname: userData.nickname,
-          email: userData.email,
-          age: userData.age
+          id: newUser.id,
+          uid: newUser.uid,
+          fullName: newUser.fullName,
+          nickname: newUser.nickname,
+          email: newUser.email,
+          age: newUser.age,
+          dateOfBirth: newUser.dateOfBirth,
+          fullAddress: newUser.fullAddress,
+          role: newUser.role
         }
       },
       { status: 201 }
@@ -174,7 +180,7 @@ export async function POST(request) {
     
     // Send registration notification using the new notification service
     try {
-      await notifyUserRegistration(userData.email, userData.uid, ipAddress);
+      await notifyUserRegistration(newUser.email, newUser.uid || newUser.id, ipAddress);
       console.log('📱 Registration notification sent');
     } catch (error) {
       console.error('Failed to send registration notification:', error);
@@ -184,14 +190,14 @@ export async function POST(request) {
         'auth/register',
         error.message,
         error.stack,
-        userData.uid,
-        { email: userData.email },
+        newUser.uid || newUser.id,
+        { email: newUser.email },
         'error'
       );
     }
     
     // Send email notification to admins (async, don't wait)
-    emailService.notifyNewUserRegistration(userData)
+    emailService.notifyNewUserRegistration(newUser)
       .then(() => {
         // Log successful email notification
         logEmailNotification(
