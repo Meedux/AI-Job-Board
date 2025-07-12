@@ -4,7 +4,7 @@ import { PrismaClient } from '@prisma/client';
 // Global instance to prevent multiple connections in development
 const globalForPrisma = globalThis;
 
-// Create Prisma client with logging in development
+// Create Prisma client with proper configuration
 export const prisma = globalForPrisma.prisma || new PrismaClient({
   log: process.env.NODE_ENV === 'development' ? ['query', 'error', 'warn'] : ['error'],
   errorFormat: 'pretty',
@@ -14,6 +14,20 @@ export const prisma = globalForPrisma.prisma || new PrismaClient({
 if (process.env.NODE_ENV !== 'production') {
   globalForPrisma.prisma = prisma;
 }
+
+// Ensure the client is connected
+async function connectPrisma() {
+  try {
+    await prisma.$connect();
+    console.log('✅ Database connected successfully');
+  } catch (error) {
+    console.error('❌ Database connection failed:', error);
+    throw error;
+  }
+}
+
+// Initialize connection
+connectPrisma().catch(console.error);
 
 // Database utility functions
 export const db = {
