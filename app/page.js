@@ -189,7 +189,7 @@ const Home = () => {
               <div className="p-1">
                 <iframe 
                   id="cvviz-ifrm"
-                  src="https://jobs.cvviz.com/jobstify.com"
+                  src="https://jobs.cvviz.com/getgethired.com"
                   width="100%"
                   height="400"
                   frameBorder="0"
