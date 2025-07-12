@@ -87,7 +87,7 @@ const JobCard = ({ job }) => {
         
         <div className="relative p-3 sm:p-5">
           {/* Mobile-first layout */}
-          <div className="flex flex-col sm:flex-row sm:items-start gap-3 sm:gap-4">
+          <div className="flex flex-col sm:flex-row sm:items-stretch gap-3 sm:gap-4" style={{ justifyContent: "space-between" }}>
             {/* Top row on mobile: Logo + Header info */}
             <div className="flex items-start gap-3 sm:gap-4">
               {/* Company Logo - Mobile optimized */}
