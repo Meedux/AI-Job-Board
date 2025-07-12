@@ -1,6 +1,6 @@
 import { NextResponse } from 'next/server';
 import bcrypt from 'bcryptjs';
-import { db } from '../../../../utils/db.js';
+import { db } from '../../../../utils/db';
 import { generateToken, isValidEmail } from '../../../../utils/auth';
 import { logUserAction, logAPIRequest, logError, getRequestInfo } from '../../../../utils/dataLogger';
 import { notifyUserLogin, notifyAdminLogin } from '../../../../utils/notificationService';

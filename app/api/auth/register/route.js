@@ -1,5 +1,5 @@
 import { NextResponse } from 'next/server';
-import { db } from '../../../../utils/db.js';
+import { db } from '../../../../utils/db';
 import { hashPassword, generateToken, generateUID, isValidEmail, isValidPassword, calculateAge, sanitizeInput } from '../../../../utils/auth';
 import { emailService } from '../../../../utils/emailService';
 import { logUserAction, logSystemEvent, logAPIRequest, logEmailNotification, logError, getRequestInfo } from '../../../../utils/dataLogger';
