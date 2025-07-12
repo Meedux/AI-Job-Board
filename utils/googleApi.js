@@ -3,6 +3,12 @@ import { google } from 'googleapis';
 
 // Initialize Google Sheets API
 export const getGoogleSheetsInstance = () => {
+  // Check if environment variables are available
+  if (!process.env.GOOGLE_CLIENT_EMAIL || !process.env.GOOGLE_PRIVATE_KEY) {
+    console.error('Missing Google credentials environment variables');
+    throw new Error('Google credentials not configured');
+  }
+
   const auth = new google.auth.GoogleAuth({
     credentials: {
       client_email: process.env.GOOGLE_CLIENT_EMAIL,
@@ -19,11 +25,20 @@ export const getGoogleSheetsInstance = () => {
 
 // Initialize Google Docs API
 export const getGoogleDocsInstance = () => {
+  // Check if environment variables are available
+  if (!process.env.GOOGLE_CLIENT_EMAIL || !process.env.GOOGLE_PRIVATE_KEY) {
+    console.error('Missing Google credentials environment variables');
+    console.error('GOOGLE_CLIENT_EMAIL:', process.env.GOOGLE_CLIENT_EMAIL ? 'Present' : 'Missing');
+    console.error('GOOGLE_PRIVATE_KEY:', process.env.GOOGLE_PRIVATE_KEY ? 'Present' : 'Missing');
+    throw new Error('Google credentials not configured');
+  }
+
   const auth = new google.auth.GoogleAuth({
     credentials: {
       client_email: process.env.GOOGLE_CLIENT_EMAIL,
       private_key: process.env.GOOGLE_PRIVATE_KEY?.replace(/\\n/g, '\n'),
-    },    scopes: [
+    },
+    scopes: [
       'https://www.googleapis.com/auth/spreadsheets',
       'https://www.googleapis.com/auth/documents.readonly',
     ],
@@ -51,17 +66,27 @@ export const fetchSheetData = async (spreadsheetId, range) => {
 // Fetch content from Google Docs with preserved formatting
 export const fetchDocContent = async (documentId) => {
   try {
+    console.log('Fetching document content for ID:', documentId);
+    
     const docs = getGoogleDocsInstance();
     const response = await docs.documents.get({
       documentId,
     });
 
+    console.log('Document fetched successfully');
+    
     // Extract and convert content to HTML with styling
     const content = response.data.body.content || [];
     return convertGoogleDocsToHTML(content);
   } catch (error) {
     console.error('Error fetching doc content:', error);
-    throw new Error('Failed to fetch document content');
+    console.error('Error details:', {
+      message: error.message,
+      code: error.code,
+      status: error.status,
+      details: error.details
+    });
+    throw new Error(`Failed to fetch document content: ${error.message}`);
   }
 };
 
