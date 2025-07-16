@@ -1,17 +1,54 @@
 'use client';
 
 import { useState, useEffect } from 'react';
+import { createPortal } from 'react-dom';
 import { colors, typography, components, animations, combineClasses } from '../utils/designSystem';
 
 const JobDetailModal = ({ job, isOpen, onClose }) => {
   const [jobContent, setJobContent] = useState('');
   const [isLoadingContent, setIsLoadingContent] = useState(false);
+  const [mounted, setMounted] = useState(false);
+
+  useEffect(() => {
+    setMounted(true);
+    return () => setMounted(false);
+  }, []);
 
   useEffect(() => {
     if (isOpen && (job?.content_doc_url || job?.content)) {
       loadJobContent();
     }
   }, [isOpen, job]);
+
+  // Prevent body scroll when modal is open
+  useEffect(() => {
+    if (isOpen) {
+      document.body.style.overflow = 'hidden';
+    } else {
+      document.body.style.overflow = 'unset';
+    }
+    
+    return () => {
+      document.body.style.overflow = 'unset';
+    };
+  }, [isOpen]);
+
+  // Handle escape key
+  useEffect(() => {
+    const handleEscape = (e) => {
+      if (e.key === 'Escape' && isOpen) {
+        onClose();
+      }
+    };
+
+    if (isOpen) {
+      document.addEventListener('keydown', handleEscape);
+    }
+
+    return () => {
+      document.removeEventListener('keydown', handleEscape);
+    };
+  }, [isOpen, onClose]);
 
   const loadJobContent = async () => {
     // Check if we already have processed content
@@ -85,9 +122,9 @@ const JobDetailModal = ({ job, isOpen, onClose }) => {
     return "Not specified";
   };
 
-  if (!isOpen || !job) return null;
+  if (!isOpen || !job || !mounted) return null;
 
-  return (
+  const modalContent = (
     <>
       {/* Custom styles for Google Docs content */}
       <style jsx global>{`
@@ -265,31 +302,27 @@ const JobDetailModal = ({ job, isOpen, onClose }) => {
       `}</style>
 
       {/* Modal Overlay */}
-      <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
+      <div className="fixed inset-0 z-[9999] flex items-center justify-center p-4 bg-black/70 backdrop-blur-sm animate-in fade-in duration-300">
         <div 
-          className="fixed inset-0 bg-black/70 backdrop-blur-sm" 
+          className="fixed inset-0 cursor-pointer" 
           onClick={onClose}
-        ></div>
+          aria-label="Close modal"
+        />
         
         {/* Modal Content */}
         <div className={combineClasses(
-          "relative w-full max-w-4xl max-h-[90vh] overflow-hidden rounded-2xl shadow-2xl",
-          colors.neutral.surface,
-          colors.neutral.border,
-          "border"
+          "relative w-full max-w-4xl max-h-[90vh] flex flex-col rounded-2xl shadow-2xl",
+          "bg-gray-900 border border-gray-700",
+          "animate-in zoom-in-95 duration-300 ease-out"
         )}>
-          {/* Header */}
+          {/* Header - Fixed height */}
           <div className={combineClasses(
-            "flex items-center justify-between p-6 border-b",
-            colors.neutral.backgroundSecondary,
-            colors.neutral.border
+            "flex items-center justify-between p-6 border-b border-gray-700",
+            "bg-gray-800/50 backdrop-blur-sm flex-shrink-0"
           )}>
             <div className="flex items-center gap-4">
               {(job.company_logo || job.company?.logo) && (
-                <div className={combineClasses(
-                  "w-16 h-16 rounded-lg overflow-hidden p-2",
-                  colors.neutral.surface
-                )}>
+                <div className="w-16 h-16 rounded-lg overflow-hidden p-2 bg-gray-800">
                   <img 
                     src={job.company_logo || job.company?.logo} 
                     alt={`${job.company_name || job.company?.name} logo`}
@@ -301,10 +334,10 @@ const JobDetailModal = ({ job, isOpen, onClose }) => {
                 </div>
               )}
               <div>
-                <h1 className={combineClasses(typography.h4, colors.neutral.textPrimary, "mb-1")}>
+                <h1 className="text-xl font-semibold text-white mb-1">
                   {job.title}
                 </h1>
-                <p className={combineClasses(typography.h5, colors.neutral.textSecondary, "font-medium")}>
+                <p className="text-lg text-gray-300 font-medium">
                   {job.company_name || job.company?.name}
                 </p>
               </div>
@@ -312,12 +345,8 @@ const JobDetailModal = ({ job, isOpen, onClose }) => {
             
             <button
               onClick={onClose}
-              className={combineClasses(
-                components.button.base,
-                components.button.ghost,
-                components.button.sizes.small,
-                "rounded-lg"
-              )}
+              className="p-2 rounded-lg text-gray-400 hover:text-white hover:bg-gray-700 transition-colors duration-200"
+              aria-label="Close modal"
             >
               <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
@@ -325,26 +354,26 @@ const JobDetailModal = ({ job, isOpen, onClose }) => {
             </button>
           </div>
 
-          {/* Content */}
-          <div className="overflow-y-auto max-h-[calc(90vh-180px)]">
+          {/* Content - Scrollable area */}
+          <div className="flex-1 overflow-y-auto min-h-0">
             {/* Quick Info */}
-            <div className={combineClasses("p-6 border-b", colors.primary.background, colors.neutral.border)}>
+            <div className="p-6 border-b border-gray-700 bg-gray-800/30">
               <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
                 <div>
-                  <p className={combineClasses(typography.bodySmall, colors.neutral.textTertiary, "mb-1")}>Location</p>
-                  <p className={combineClasses(typography.bodyBase, "font-medium", colors.neutral.textPrimary)}>{job.location || "Not specified"}</p>
+                  <p className="text-sm text-gray-400 mb-1">Location</p>
+                  <p className="text-base font-medium text-white">{job.location || "Not specified"}</p>
                 </div>
                 <div>
-                  <p className={combineClasses(typography.bodySmall, colors.neutral.textTertiary, "mb-1")}>Job Type</p>
-                  <p className={combineClasses(typography.bodyBase, "font-medium capitalize", colors.neutral.textPrimary)}>{job.type || "Full-time"}</p>
+                  <p className="text-sm text-gray-400 mb-1">Job Type</p>
+                  <p className="text-base font-medium capitalize text-white">{job.type || "Full-time"}</p>
                 </div>
                 <div>
-                  <p className={combineClasses(typography.bodySmall, colors.neutral.textTertiary, "mb-1")}>Experience Level</p>
-                  <p className={combineClasses(typography.bodyBase, "font-medium capitalize", colors.neutral.textPrimary)}>{job.level || "Not specified"}</p>
+                  <p className="text-sm text-gray-400 mb-1">Experience Level</p>
+                  <p className="text-base font-medium capitalize text-white">{job.level || "Not specified"}</p>
                 </div>
                 <div>
-                  <p className={combineClasses(typography.bodySmall, colors.neutral.textTertiary, "mb-1")}>Salary</p>
-                  <p className={combineClasses(typography.bodyBase, "font-medium", colors.success.text)}>
+                  <p className="text-sm text-gray-400 mb-1">Salary</p>
+                  <p className="text-base font-medium text-green-400">
                     {formatSalary(job.salary?.from, job.salary?.to)}
                   </p>
                 </div>
@@ -353,13 +382,7 @@ const JobDetailModal = ({ job, isOpen, onClose }) => {
               {/* Remote Badge */}
               {(job.remote === "Yes" || job.remote === true) && (
                 <div className="mt-3">
-                  <span className={combineClasses(
-                    "inline-flex items-center px-3 py-1 rounded-full",
-                    typography.bodySmall,
-                    "font-medium",
-                    colors.success.background,
-                    colors.success.text
-                  )}>
+                  <span className="inline-flex items-center px-3 py-1 rounded-full text-sm font-medium bg-emerald-500/20 text-emerald-300 border border-emerald-500/30">
                     🌐 Remote Work Available
                   </span>
                 </div>
@@ -368,18 +391,12 @@ const JobDetailModal = ({ job, isOpen, onClose }) => {
               {/* Categories */}
               {job.categories && job.categories.length > 0 && (
                 <div className="mt-4">
-                  <p className={combineClasses(typography.bodySmall, colors.neutral.textTertiary, "mb-2")}>Categories</p>
+                  <p className="text-sm text-gray-400 mb-2">Categories</p>
                   <div className="flex flex-wrap gap-2">
                     {job.categories.map((category, index) => (
                       <span
                         key={index}
-                        className={combineClasses(
-                          "inline-flex items-center px-2 py-1 rounded",
-                          typography.bodyXSmall,
-                          "font-medium",
-                          colors.secondary.background,
-                          colors.secondary.text
-                        )}
+                        className="inline-flex items-center px-2 py-1 rounded text-xs font-medium bg-blue-500/20 text-blue-300 border border-blue-500/30"
                       >
                         {category}
                       </span>
@@ -391,7 +408,7 @@ const JobDetailModal = ({ job, isOpen, onClose }) => {
 
             {/* Job Description */}
             <div className="p-6">
-              <h2 className={combineClasses(typography.h5, colors.neutral.textPrimary, "mb-4")}>
+              <h2 className="text-lg font-semibold text-white mb-4">
                 Job Description
               </h2>
               
@@ -399,7 +416,7 @@ const JobDetailModal = ({ job, isOpen, onClose }) => {
                 <div className="flex items-center justify-center py-8">
                   <div className="text-center">
                     <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600 mx-auto mb-3"></div>
-                    <p className={combineClasses(typography.bodyBase, colors.neutral.textSecondary)}>
+                    <p className="text-base text-gray-300">
                       Loading job description...
                     </p>
                   </div>
@@ -410,54 +427,36 @@ const JobDetailModal = ({ job, isOpen, onClose }) => {
                   dangerouslySetInnerHTML={{ __html: jobContent }}
                 />
               ) : (
-                <div className={combineClasses(
-                  "p-4 rounded-lg border",
-                  colors.neutral.backgroundTertiary,
-                  colors.neutral.border
-                )}>
-                  <p className={combineClasses(typography.bodyBase, colors.neutral.textSecondary, "mb-3")}>
+                <div className="p-4 rounded-lg border border-gray-700 bg-gray-800/30">
+                  <p className="text-base text-gray-300 mb-3">
                     Detailed job description will be available when you apply or visit the company website.
                   </p>
-                  <div className={combineClasses("space-y-2", typography.bodySmall)}>
-                    <p className={colors.neutral.textPrimary}><strong>Position:</strong> {job.title}</p>
-                    <p className={colors.neutral.textPrimary}><strong>Company:</strong> {job.company_name || job.company?.name}</p>
-                    <p className={colors.neutral.textPrimary}><strong>Posted:</strong> {formatDate(job.posted_time)}</p>
+                  <div className="space-y-2 text-sm">
+                    <p className="text-white"><strong>Position:</strong> {job.title}</p>
+                    <p className="text-white"><strong>Company:</strong> {job.company_name || job.company?.name}</p>
+                    <p className="text-white"><strong>Posted:</strong> {formatDate(job.posted_time)}</p>
                   </div>
                 </div>
               )}
             </div>
           </div>
 
-          {/* Footer Actions */}
-          <div className={combineClasses(
-            "p-6 border-t",
-            colors.neutral.backgroundSecondary,
-            colors.neutral.border
-          )}>
+          {/* Footer Actions - Fixed at bottom */}
+          <div className="p-6 border-t border-gray-700 bg-gray-800/50 backdrop-blur-sm flex-shrink-0">
             <div className="flex flex-col sm:flex-row gap-3">
               {job.apply_link ? (
                 <a
                   href={job.apply_link}
                   target="_blank"
                   rel="noopener noreferrer"
-                  className={combineClasses(
-                    components.button.base,
-                    components.button.primary,
-                    components.button.sizes.large,
-                    "flex-1 text-center"
-                  )}
+                  className="flex-1 text-center px-6 py-3 bg-green-600 hover:bg-green-700 text-white font-medium rounded-lg transition-colors duration-200"
                 >
                   Apply Now
                 </a>
               ) : (
                 <button
                   disabled
-                  className={combineClasses(
-                    components.button.base,
-                    "bg-gray-600 text-gray-400 cursor-not-allowed",
-                    components.button.sizes.large,
-                    "flex-1"
-                  )}
+                  className="flex-1 px-6 py-3 bg-gray-600 text-gray-400 cursor-not-allowed font-medium rounded-lg"
                 >
                   Application Link Not Available
                 </button>
@@ -468,12 +467,7 @@ const JobDetailModal = ({ job, isOpen, onClose }) => {
                   href={job.company?.website || job.company_website}
                   target="_blank"
                   rel="noopener noreferrer"
-                  className={combineClasses(
-                    components.button.base,
-                    components.button.secondary,
-                    components.button.sizes.large,
-                    "text-center"
-                  )}
+                  className="text-center px-6 py-3 bg-blue-600 hover:bg-blue-700 text-white font-medium rounded-lg transition-colors duration-200"
                 >
                   Company Website
                 </a>
@@ -481,11 +475,7 @@ const JobDetailModal = ({ job, isOpen, onClose }) => {
               
               <button
                 onClick={onClose}
-                className={combineClasses(
-                  components.button.base,
-                  components.button.ghost,
-                  components.button.sizes.large
-                )}
+                className="px-6 py-3 bg-gray-700 hover:bg-gray-600 text-gray-300 hover:text-white font-medium rounded-lg transition-colors duration-200"
               >
                 Close
               </button>
@@ -495,6 +485,9 @@ const JobDetailModal = ({ job, isOpen, onClose }) => {
       </div>
     </>
   );
+
+  // Use portal to render modal at document root
+  return createPortal(modalContent, document.body);
 };
 
 export default JobDetailModal;

@@ -13,6 +13,7 @@ import {
 
 const JobCard = ({ job }) => {
   const [isModalOpen, setIsModalOpen] = useState(false);
+  const [isBookmarked, setIsBookmarked] = useState(false);
   
   const {
     title,
@@ -27,6 +28,9 @@ const JobCard = ({ job }) => {
     remote,
     categories,
     apply_link,
+    benefits,
+    skills,
+    is_featured = false,
   } = job;
 
   // Format posted date
@@ -48,15 +52,37 @@ const JobCard = ({ job }) => {
     }
   };
 
-  // Format salary
+  // Format salary - Only bold for featured jobs
   const formatSalary = (salaryData) => {
     if (!salaryData?.from && !salaryData?.to) return null;
     if (salaryData.from && salaryData.to) {
-      return `$${salaryData.from.toLocaleString()} - $${salaryData.to.toLocaleString()}`;
+      return `₱${salaryData.from.toLocaleString()} - ₱${salaryData.to.toLocaleString()}`;
     }
-    if (salaryData.from) return `$${salaryData.from.toLocaleString()}+`;
-    if (salaryData.to) return `Up to $${salaryData.to.toLocaleString()}`;
+    if (salaryData.from) return `₱${salaryData.from.toLocaleString()}+`;
+    if (salaryData.to) return `Up to ₱${salaryData.to.toLocaleString()}`;
     return null;
+  };
+
+  // Handle bookmark
+  const handleBookmark = (e) => {
+    e.stopPropagation();
+    setIsBookmarked(!isBookmarked);
+    // TODO: Add bookmark API call
+  };
+
+  // Handle share
+  const handleShare = (e) => {
+    e.stopPropagation();
+    if (navigator.share) {
+      navigator.share({
+        title: `${title} at ${companyName}`,
+        text: `Check out this job opportunity: ${title} at ${companyName}`,
+        url: window.location.href,
+      });
+    } else {
+      // Fallback: Copy to clipboard
+      navigator.clipboard.writeText(window.location.href);
+    }
   };
 
   const companyName = company?.name || company_name || "Company";
@@ -78,205 +104,235 @@ const JobCard = ({ job }) => {
         className={combineClasses(
           "group border-b border-gray-700/30 hover:border-gray-600/50 transition-all duration-200",
           "hover:bg-gradient-to-r hover:from-gray-800/40 hover:to-gray-800/20",
-          "cursor-pointer relative overflow-hidden touch-manipulation"
+          "cursor-pointer relative overflow-hidden touch-manipulation",
+          is_featured && "border-l-4 border-l-yellow-500/60 bg-gradient-to-r from-yellow-500/5 to-transparent"
         )}
         onClick={handleCardClick}
       >
+        {/* Featured badge */}
+        {is_featured && (
+          <div className="absolute top-2 right-2 z-10">
+            <span className="inline-flex items-center px-2 py-1 text-xs font-medium bg-yellow-500/20 text-yellow-300 rounded-full border border-yellow-500/30">
+              <svg className="w-3 h-3 mr-1" fill="currentColor" viewBox="0 0 20 20">
+                <path d="M9.049 2.927c.3-.921 1.603-.921 1.902 0l1.07 3.292a1 1 0 00.95.69h3.462c.969 0 1.371 1.24.588 1.81l-2.8 2.034a1 1 0 00-.364 1.118l1.07 3.292c.3.921-.755 1.688-1.54 1.118l-2.8-2.034a1 1 0 00-1.175 0l-2.8 2.034c-.784.57-1.838-.197-1.539-1.118l1.07-3.292a1 1 0 00-.364-1.118L2.98 8.72c-.783-.57-.38-1.81.588-1.81h3.461a1 1 0 00.951-.69l1.07-3.292z" />
+              </svg>
+              Featured
+            </span>
+          </div>
+        )}
+        
         {/* Subtle gradient overlay on hover */}
         <div className="absolute inset-0 bg-gradient-to-r from-blue-600/0 to-purple-600/0 group-hover:from-blue-600/5 group-hover:to-purple-600/5 transition-all duration-300" />
         
-        <div className="relative p-3 sm:p-5">
-          {/* Mobile-first layout */}
-          <div className="flex flex-col sm:flex-row sm:items-stretch gap-3 sm:gap-4" style={{ justifyContent: "space-between" }}>
-            {/* Top row on mobile: Logo + Header info */}
-            <div className="flex items-start gap-3 sm:gap-4">
-              {/* Company Logo - Mobile optimized */}
-              <div className="relative flex-shrink-0">
-                <div className="w-12 h-12 sm:w-12 sm:h-12 rounded-xl overflow-hidden bg-gray-700/50 border border-gray-600/50 group-hover:border-gray-500/50 transition-all duration-200">
-                  <Image
-                    src={companyLogo}
-                    alt={companyName}
-                    width={48}
-                    height={48}
-                    className="w-full h-full object-cover"
-                    onError={(e) => {
-                      e.target.src = "/placeholder-logo.svg";
-                    }}
-                  />
-                </div>
-                {/* Online indicator dot */}
-                <div className="absolute -top-1 -right-1 w-3 h-3 bg-green-500 rounded-full border-2 border-gray-900 opacity-80" />
+        <div className="relative p-4 sm:p-6">
+          <div className="flex gap-4">
+            {/* Company Logo */}
+            <div className="relative flex-shrink-0">
+              <div className="w-14 h-14 rounded-xl overflow-hidden bg-gray-700/50 border border-gray-600/50 group-hover:border-gray-500/50 transition-all duration-200">
+                <Image
+                  src={companyLogo}
+                  alt={companyName}
+                  width={56}
+                  height={56}
+                  className="w-full h-full object-cover"
+                  onError={(e) => {
+                    e.target.src = "/placeholder-logo.svg";
+                  }}
+                />
               </div>
+              {/* Online indicator */}
+              <div className="absolute -top-1 -right-1 w-3 h-3 bg-green-500 rounded-full border-2 border-gray-900 opacity-80" />
+            </div>
 
-              {/* Job Info - Mobile optimized */}
-              <div className="flex-1 min-w-0">
-                {/* Title and Company */}
-                <div className="mb-2">
-                  <h3 className={combineClasses(
-                    "font-semibold text-white group-hover:text-blue-300 transition-colors duration-200",
-                    "text-sm sm:text-base lg:text-lg leading-tight mb-1",
-                    "line-clamp-2"
-                  )}>
-                    {title}
-                  </h3>
-                  
-                  <div className="flex items-center gap-2 text-gray-400 flex-wrap">
-                    <span className="text-xs sm:text-sm font-medium">{companyName}</span>
-                    {isRemote && (
-                      <span className="inline-flex items-center gap-1 px-2 py-0.5 bg-emerald-500/20 text-emerald-300 rounded-full text-xs font-medium">
-                        <svg className="w-3 h-3" fill="currentColor" viewBox="0 0 20 20">
-                          <path fillRule="evenodd" d="M5.05 4.05a7 7 0 119.9 9.9L10 18.9l-4.95-4.95a7 7 0 010-9.9zM10 11a2 2 0 100-4 2 2 0 000 4z" clipRule="evenodd" />
-                        </svg>
-                        Remote
-                      </span>
-                    )}
-                  </div>
-                </div>
-
-                {/* Salary - Mobile friendly */}
-                {formattedSalary && (
-                  <div className="mb-2 sm:hidden">
-                    <span className="inline-flex items-center gap-1 px-2.5 py-1 bg-green-500/20 text-green-300 rounded-full text-xs font-semibold">
-                      <svg className="w-3 h-3" fill="currentColor" viewBox="0 0 20 20">
-                        <path d="M8.433 7.418c.155-.103.346-.196.567-.267v1.698a2.305 2.305 0 01-.567-.267C8.07 8.34 8 8.114 8 8c0-.114.07-.34.433-.582zM11 12.849v-1.698c.22.071.412.164.567.267.364.243.433.468.433.582 0 .114-.07.34-.433.582a2.305 2.305 0 01-.567.267z" />
-                        <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm1-13a1 1 0 10-2 0v.092a4.535 4.535 0 00-1.676.662C6.602 6.234 6 7.009 6 8c0 .99.602 1.765 1.324 2.246.48.32 1.054.545 1.676.662v1.941c-.391-.127-.68-.317-.843-.504a1 1 0 10-1.51 1.31c.562.649 1.413 1.076 2.353 1.253V15a1 1 0 102 0v-.092a4.535 4.535 0 001.676-.662C13.398 13.766 14 12.991 14 12c0-.99-.602-1.765-1.324-2.246A4.535 4.535 0 0011 9.092V7.151c.391.127.68.317.843.504a1 1 0 101.511-1.31c-.563-.649-1.413-1.076-2.354-1.253V5z" clipRule="evenodd" />
-                      </svg>
-                      {formattedSalary}
-                    </span>
-                  </div>
-                )}
-
-                {/* Job Details - Mobile optimized */}
-                <div className="flex items-center gap-1 sm:gap-2 text-xs text-gray-500 mb-2 sm:mb-3 flex-wrap">
+            {/* Job Content */}
+            <div className="flex-1 min-w-0">
+              {/* Job Title - Main focus */}
+              <div className="mb-3">
+                <h3 className={combineClasses(
+                  "text-white group-hover:text-blue-300 transition-colors duration-200",
+                  "text-lg sm:text-xl font-semibold leading-tight mb-2",
+                  "line-clamp-2"
+                )}>
+                  {title}
+                </h3>
+                
+                {/* Company and Location */}
+                <div className="flex items-center gap-3 text-gray-400 mb-2">
+                  <span className="font-medium text-gray-300">{companyName}</span>
+                  <span className="text-gray-600">•</span>
                   <span className="inline-flex items-center gap-1">
-                    <svg className="w-3 h-3" fill="currentColor" viewBox="0 0 20 20">
+                    <svg className="w-4 h-4" fill="currentColor" viewBox="0 0 20 20">
                       <path fillRule="evenodd" d="M5.05 4.05a7 7 0 119.9 9.9L10 18.9l-4.95-4.95a7 7 0 010-9.9zM10 11a2 2 0 100-4 2 2 0 000 4z" clipRule="evenodd" />
                     </svg>
                     {location || "Not specified"}
                   </span>
-                  
-                  {type && (
+                  {isRemote && (
                     <>
-                      <span className="text-gray-600 hidden sm:inline">•</span>
-                      <span className="inline-flex items-center gap-1 px-2 py-0.5 bg-blue-500/20 text-blue-300 rounded text-xs font-medium capitalize">
-                        {type}
+                      <span className="text-gray-600">•</span>
+                      <span className="inline-flex items-center gap-1 text-emerald-300">
+                        <svg className="w-4 h-4" fill="currentColor" viewBox="0 0 20 20">
+                          <path fillRule="evenodd" d="M5.05 4.05a7 7 0 119.9 9.9L10 18.9l-4.95-4.95a7 7 0 010-9.9zM10 11a2 2 0 100-4 2 2 0 000 4z" clipRule="evenodd" />
+                        </svg>
+                        Remote
                       </span>
                     </>
                   )}
-                  
-                  {level && (
-                    <>
-                      <span className="text-gray-600 hidden sm:inline">•</span>
-                      <span className="inline-flex items-center gap-1 px-2 py-0.5 bg-purple-500/20 text-purple-300 rounded text-xs font-medium capitalize">
-                        {level}
-                      </span>
-                    </>
-                  )}
-                  
-                  <span className="text-gray-600 hidden sm:inline">•</span>
-                  <span className="inline-flex items-center gap-1 text-gray-400">
-                    <svg className="w-3 h-3" fill="currentColor" viewBox="0 0 20 20">
-                      <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm1-12a1 1 0 10-2 0v4a1 1 0 00.293.707l2.828 2.829a1 1 0 101.415-1.415L11 9.586V6z" clipRule="evenodd" />
-                    </svg>
-                    {formatDate(posted_time)}
-                  </span>
                 </div>
+              </div>
 
-                {/* Categories - Mobile optimized */}
-                {categories && categories.length > 0 && (
-                  <div className="flex items-center gap-1 sm:gap-2 mb-3 sm:mb-2 flex-wrap">
-                    {categories.slice(0, 2).map((category, index) => (
+              {/* Job Details Tags */}
+              <div className="flex items-center gap-2 mb-3 flex-wrap">
+                {type && (
+                  <span className="inline-flex items-center px-2.5 py-1 text-xs bg-blue-500/20 text-blue-300 rounded-full border border-blue-500/30 font-medium">
+                    {type}
+                  </span>
+                )}
+                {level && (
+                  <span className="inline-flex items-center px-2.5 py-1 text-xs bg-purple-500/20 text-purple-300 rounded-full border border-purple-500/30 font-medium">
+                    {level}
+                  </span>
+                )}
+                {formattedSalary && (
+                  <span className={combineClasses(
+                    "inline-flex items-center gap-1 px-2.5 py-1 text-xs rounded-full border font-medium",
+                    is_featured 
+                      ? "bg-green-500/30 text-green-200 border-green-500/40 font-semibold" 
+                      : "bg-green-500/20 text-green-300 border-green-500/30"
+                  )}>
+                    <svg className="w-3 h-3" fill="currentColor" viewBox="0 0 20 20">
+                      <path d="M8.433 7.418c.155-.103.346-.196.567-.267v1.698a2.305 2.305 0 01-.567-.267C8.07 8.34 8 8.114 8 8c0-.114.07-.34.433-.582zM11 12.849v-1.698c.22.071.412.164.567.267.364.243.433.468.433.582 0 .114-.07.34-.433.582a2.305 2.305 0 01-.567.267z" />
+                      <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm1-13a1 1 0 10-2 0v.092a4.535 4.535 0 00-1.676.662C6.602 6.234 6 7.009 6 8c0 .99.602 1.765 1.324 2.246.48.32 1.054.545 1.676.662v1.941c-.391-.127-.68-.317-.843-.504a1 1 0 10-1.51 1.31c.562.649 1.413 1.076 2.353 1.253V15a1 1 0 102 0v-.092a4.535 4.535 0 001.676-.662C13.398 13.766 14 12.991 14 12c0-.99-.602-1.765-1.324-2.246A4.535 4.535 0 0011 9.092V7.151c.391.127.68.317.843.504a1 1 0 101.511-1.31c-.563-.649-1.413-1.076-2.354-1.253V5z" clipRule="evenodd" />
+                    </svg>
+                    {formattedSalary}
+                  </span>
+                )}
+                <span className="inline-flex items-center gap-1 px-2.5 py-1 text-xs bg-gray-700/50 text-gray-400 rounded-full border border-gray-600/30">
+                  <svg className="w-3 h-3" fill="currentColor" viewBox="0 0 20 20">
+                    <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm1-12a1 1 0 10-2 0v4a1 1 0 00.293.707l2.828 2.829a1 1 0 101.415-1.415L11 9.586V6z" clipRule="evenodd" />
+                  </svg>
+                  {formatDate(posted_time)}
+                </span>
+              </div>
+
+              {/* Benefits/Perks Tags */}
+              {benefits && benefits.length > 0 && (
+                <div className="mb-3">
+                  <div className="flex items-center gap-1 mb-2">
+                    <svg className="w-4 h-4 text-emerald-400" fill="currentColor" viewBox="0 0 20 20">
+                      <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clipRule="evenodd" />
+                    </svg>
+                    <span className="text-xs text-emerald-300 font-medium">Benefits</span>
+                  </div>
+                  <div className="flex items-center gap-1 flex-wrap">
+                    {benefits.slice(0, 3).map((benefit, index) => (
                       <span
                         key={index}
-                        className="inline-flex items-center px-2 py-0.5 text-xs bg-gray-700/50 text-gray-300 rounded-full border border-gray-600/50 hover:bg-gray-600/50 transition-colors"
+                        className="inline-flex items-center px-2 py-1 text-xs bg-emerald-500/10 text-emerald-300 rounded border border-emerald-500/20 font-medium"
                       >
-                        #{category}
+                        {benefit}
                       </span>
                     ))}
-                    {categories.length > 2 && (
-                      <span className="inline-flex items-center px-2 py-0.5 text-xs bg-gray-700/30 text-gray-400 rounded-full border border-gray-600/30">
-                        +{categories.length - 2} more
+                    {benefits.length > 3 && (
+                      <span className="inline-flex items-center px-2 py-1 text-xs bg-emerald-500/5 text-emerald-400 rounded border border-emerald-500/10">
+                        +{benefits.length - 3} more
                       </span>
                     )}
                   </div>
-                )}
-              </div>
+                </div>
+              )}
+
+              {/* Skills Tags */}
+              {skills && skills.length > 0 && (
+                <div className="mb-3">
+                  <div className="flex items-center gap-1 mb-2">
+                    <svg className="w-4 h-4 text-orange-400" fill="currentColor" viewBox="0 0 20 20">
+                      <path fillRule="evenodd" d="M3 4a1 1 0 011-1h12a1 1 0 110 2H4a1 1 0 01-1-1zm0 4a1 1 0 011-1h12a1 1 0 110 2H4a1 1 0 01-1-1zm0 4a1 1 0 011-1h12a1 1 0 110 2H4a1 1 0 01-1-1z" clipRule="evenodd" />
+                    </svg>
+                    <span className="text-xs text-orange-300 font-medium">Skills Required</span>
+                  </div>
+                  <div className="flex items-center gap-1 flex-wrap">
+                    {skills.slice(0, 4).map((skill, index) => (
+                      <span
+                        key={index}
+                        className="inline-flex items-center px-2 py-1 text-xs bg-orange-500/10 text-orange-300 rounded border border-orange-500/20 font-medium"
+                      >
+                        {skill}
+                      </span>
+                    ))}
+                    {skills.length > 4 && (
+                      <span className="inline-flex items-center px-2 py-1 text-xs bg-orange-500/5 text-orange-400 rounded border border-orange-500/10">
+                        +{skills.length - 4} more
+                      </span>
+                    )}
+                  </div>
+                </div>
+              )}
+
+              {/* Categories */}
+              {categories && categories.length > 0 && (
+                <div className="flex items-center gap-1 flex-wrap">
+                  {categories.slice(0, 2).map((category, index) => (
+                    <span
+                      key={index}
+                      className="inline-flex items-center px-2 py-1 text-xs bg-gray-700/50 text-gray-300 rounded border border-gray-600/30"
+                    >
+                      #{category}
+                    </span>
+                  ))}
+                  {categories.length > 2 && (
+                    <span className="inline-flex items-center px-2 py-1 text-xs bg-gray-700/30 text-gray-400 rounded border border-gray-600/20">
+                      +{categories.length - 2} more
+                    </span>
+                  )}
+                </div>
+              )}
             </div>
 
-            {/* Salary for desktop */}
-            {formattedSalary && (
-              <div className="hidden sm:block flex-shrink-0 text-right">
-                <span className="inline-flex items-center gap-1 px-3 py-1 bg-green-500/20 text-green-300 rounded-full text-sm font-semibold">
+            {/* Action Buttons - Right side */}
+            <div className="flex-shrink-0 flex items-start gap-2">
+              {/* Bookmark Button */}
+              <button
+                className={combineClasses(
+                  "p-2 rounded-lg transition-all duration-200 hover:scale-105",
+                  isBookmarked 
+                    ? "bg-yellow-500/20 text-yellow-300 border border-yellow-500/30" 
+                    : "bg-gray-700/50 text-gray-400 border border-gray-600/30 hover:bg-gray-600/50 hover:text-gray-300"
+                )}
+                onClick={handleBookmark}
+                title="Bookmark this job"
+              >
+                <svg className="w-4 h-4" fill={isBookmarked ? "currentColor" : "none"} stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 5a2 2 0 012-2h10a2 2 0 012 2v16l-7-3.5L5 21V5z" />
+                </svg>
+              </button>
+
+              {/* Share Button */}
+              <button
+                className="p-2 rounded-lg bg-gray-700/50 text-gray-400 border border-gray-600/30 hover:bg-gray-600/50 hover:text-gray-300 transition-all duration-200 hover:scale-105"
+                onClick={handleShare}
+                title="Share this job"
+              >
+                <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8.684 13.342C8.886 12.938 9 12.482 9 12c0-.482-.114-.938-.316-1.342m0 2.684a3 3 0 110-2.684m0 2.684l6.632 3.316m-6.632-6l6.632-3.316m0 0a3 3 0 105.367-2.684 3 3 0 00-5.367 2.684zm0 9.316a3 3 0 105.367 2.684 3 3 0 00-5.367-2.684z" />
+                </svg>
+              </button>
+
+              {/* Apply Button */}
+              {apply_link && (
+                <a
+                  href={apply_link}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="inline-flex items-center gap-2 px-4 py-2 bg-green-600/90 hover:bg-green-600 text-white rounded-lg transition-all duration-200 hover:scale-105 font-medium"
+                  onClick={(e) => e.stopPropagation()}
+                >
                   <svg className="w-4 h-4" fill="currentColor" viewBox="0 0 20 20">
-                    <path d="M8.433 7.418c.155-.103.346-.196.567-.267v1.698a2.305 2.305 0 01-.567-.267C8.07 8.34 8 8.114 8 8c0-.114.07-.34.433-.582zM11 12.849v-1.698c.22.071.412.164.567.267.364.243.433.468.433.582 0 .114-.07.34-.433.582a2.305 2.305 0 01-.567.267z" />
-                    <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm1-13a1 1 0 10-2 0v.092a4.535 4.535 0 00-1.676.662C6.602 6.234 6 7.009 6 8c0 .99.602 1.765 1.324 2.246.48.32 1.054.545 1.676.662v1.941c-.391-.127-.68-.317-.843-.504a1 1 0 10-1.51 1.31c.562.649 1.413 1.076 2.353 1.253V15a1 1 0 102 0v-.092a4.535 4.535 0 001.676-.662C13.398 13.766 14 12.991 14 12c0-.99-.602-1.765-1.324-2.246A4.535 4.535 0 0011 9.092V7.151c.391.127.68.317.843.504a1 1 0 101.511-1.31c-.563-.649-1.413-1.076-2.354-1.253V5z" clipRule="evenodd" />
+                    <path fillRule="evenodd" d="M10.293 3.293a1 1 0 011.414 0l6 6a1 1 0 010 1.414l-6 6a1 1 0 01-1.414-1.414L14.586 11H3a1 1 0 110-2h11.586l-4.293-4.293a1 1 0 010-1.414z" clipRule="evenodd" />
                   </svg>
-                  {formattedSalary}
-                </span>
-              </div>
-            )}
-          </div>
-
-          {/* Mobile Action Buttons - Always visible on mobile */}
-          <div className="flex items-center gap-2 mt-3 sm:hidden">
-            <button
-              className="flex-1 inline-flex items-center justify-center gap-1 px-3 py-2 text-xs bg-blue-600/90 hover:bg-blue-600 text-white rounded-lg transition-all duration-200 active:scale-95"
-              onClick={(e) => {
-                e.stopPropagation();
-                handleCardClick();
-              }}
-            >
-              <svg className="w-3 h-3" fill="currentColor" viewBox="0 0 20 20">
-                <path d="M10 12a2 2 0 100-4 2 2 0 000 4z" />
-                <path fillRule="evenodd" d="M.458 10C1.732 5.943 5.522 3 10 3s8.268 2.943 9.542 7c-1.274 4.057-5.064 7-9.542 7S1.732 14.057.458 10zM14 10a4 4 0 11-8 0 4 4 0 018 0z" clipRule="evenodd" />
-              </svg>
-              Details
-            </button>
-            {apply_link && (
-              <a
-                href={apply_link}
-                target="_blank"
-                rel="noopener noreferrer"
-                className="flex-1 inline-flex items-center justify-center gap-1 px-3 py-2 text-xs bg-green-600/90 hover:bg-green-600 text-white rounded-lg transition-all duration-200 active:scale-95"
-                onClick={(e) => e.stopPropagation()}
-              >
-                <svg className="w-3 h-3" fill="currentColor" viewBox="0 0 20 20">
-                  <path fillRule="evenodd" d="M10.293 3.293a1 1 0 011.414 0l6 6a1 1 0 010 1.414l-6 6a1 1 0 01-1.414-1.414L14.586 11H3a1 1 0 110-2h11.586l-4.293-4.293a1 1 0 010-1.414z" clipRule="evenodd" />
-                </svg>
-                Apply
-              </a>
-            )}
-          </div>
-
-          {/* Desktop Action Buttons - Hover only */}
-          <div className="hidden sm:flex items-center gap-2 opacity-0 group-hover:opacity-100 transition-all duration-200 translate-x-2 group-hover:translate-x-0 absolute right-5 top-1/2 -translate-y-1/2">
-            <button
-              className="inline-flex items-center gap-1 px-3 py-2 text-xs bg-blue-600/90 hover:bg-blue-600 text-white rounded-lg transition-all duration-200 hover:scale-105"
-              onClick={(e) => {
-                e.stopPropagation();
-                handleCardClick();
-              }}
-            >
-              <svg className="w-3 h-3" fill="currentColor" viewBox="0 0 20 20">
-                <path d="M10 12a2 2 0 100-4 2 2 0 000 4z" />
-                <path fillRule="evenodd" d="M.458 10C1.732 5.943 5.522 3 10 3s8.268 2.943 9.542 7c-1.274 4.057-5.064 7-9.542 7S1.732 14.057.458 10zM14 10a4 4 0 11-8 0 4 4 0 018 0z" clipRule="evenodd" />
-              </svg>
-              Details
-            </button>
-            {apply_link && (
-              <a
-                href={apply_link}
-                target="_blank"
-                rel="noopener noreferrer"
-                className="inline-flex items-center gap-1 px-3 py-2 text-xs bg-green-600/90 hover:bg-green-600 text-white rounded-lg transition-all duration-200 hover:scale-105"
-                onClick={(e) => e.stopPropagation()}
-              >
-                <svg className="w-3 h-3" fill="currentColor" viewBox="0 0 20 20">
-                  <path fillRule="evenodd" d="M10.293 3.293a1 1 0 011.414 0l6 6a1 1 0 010 1.414l-6 6a1 1 0 01-1.414-1.414L14.586 11H3a1 1 0 110-2h11.586l-4.293-4.293a1 1 0 010-1.414z" clipRule="evenodd" />
-                </svg>
-                Apply
-              </a>
-            )}
+                  Apply
+                </a>
+              )}
+            </div>
           </div>
         </div>
       </div>

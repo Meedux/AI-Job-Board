@@ -2,8 +2,6 @@
 
 import { useState, useEffect, useMemo } from 'react';
 import Header from '../components/Header';
-import Hero from '../components/Hero';
-import SearchFilters from '../components/SearchFilters';
 import JobListing from '../components/JobListing';
 import EmailSubscription from '../components/EmailSubscription';
 import Footer from '../components/Footer';
@@ -69,18 +67,12 @@ const Home = () => {
 
   return (
     <div className="min-h-screen bg-gray-900 text-white">
-      <Header />
+      <Header onSearch={handleSearch} onFilter={handleFilter} />
       
-      <main className="pt-16 lg:pt-0">
-        <Hero />
+      <main>
         
         {/* Main Content - Compact */}
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6">
-          
-          {/* Search Filters */}
-          <div className="mb-6">
-            <SearchFilters onSearch={handleSearch} onFilter={handleFilter} />
-          </div>
           
           {/* Results Summary - Enhanced */}
           {showContent && (
