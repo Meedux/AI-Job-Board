@@ -2,6 +2,7 @@ import { Geist, Geist_Mono } from "next/font/google";
 import "./globals.css";
 import { AuthProvider } from '../contexts/AuthContext';
 import { NotificationProvider } from '../contexts/NotificationContext';
+import { SubscriptionProvider } from '../contexts/SubscriptionContext';
 
 const geistSans = Geist({
   variable: "--font-geist-sans",
@@ -33,7 +34,9 @@ export default function RootLayout({ children }) {
       >
         <AuthProvider>
           <NotificationProvider>
-            {children}
+            <SubscriptionProvider>
+              {children}
+            </SubscriptionProvider>
           </NotificationProvider>
         </AuthProvider>
       </body>

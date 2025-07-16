@@ -1,14 +1,108 @@
 'use client';
 
+import { useEffect, useState } from 'react';
 import Header from '../../components/Header';
 import Footer from '../../components/Footer';
 import ProtectedRoute from '../../components/ProtectedRoute';
+import CreditsDashboard from '../../components/CreditsDashboard';
 import { useAuth } from '../../contexts/AuthContext';
+import { useSubscription } from '../../contexts/SubscriptionContext';
 import { colors, typography, components, layout, spacing, gradients, combineClasses, animations } from '../../utils/designSystem';
 import Link from 'next/link';
 
 export default function DashboardPage() {
   const { user } = useAuth();
+  const { subscription, credits, loading, loadUserData } = useSubscription();
+  const [dashboardLoading, setDashboardLoading] = useState(true);
+
+  useEffect(() => {
+    if (user) {
+      loadUserData();
+    }
+  }, [user]);
+
+  useEffect(() => {
+    if (!loading) {
+      setDashboardLoading(false);
+    }
+  }, [loading]);
+
+  // Handle payment status from GCash redirect and direct processing
+  useEffect(() => {
+    const urlParams = new URLSearchParams(window.location.search);
+    const paymentStatus = urlParams.get('payment_status');
+    const paymentIntentId = urlParams.get('payment_intent_id');
+    
+    if (paymentStatus === 'processed' && paymentIntentId) {
+      // Clear the URL parameters
+      window.history.replaceState({}, document.title, window.location.pathname);
+      
+      // Process the payment directly
+      processPaymentFromRedirect(paymentIntentId);
+    }
+  }, [user, loadUserData]);
+
+  const processPaymentFromRedirect = async (paymentIntentId) => {
+    try {
+      console.log('🔄 Processing payment from redirect:', paymentIntentId);
+      
+      const response = await fetch(`/api/payment/process?paymentIntentId=${paymentIntentId}`, {
+        method: 'GET',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        credentials: 'include',
+      });
+
+      const result = await response.json();
+      
+      if (result.success && result.status === 'succeeded') {
+        console.log('✅ Payment processed successfully from redirect');
+        
+        // Show success message
+        const successMessage = document.createElement('div');
+        successMessage.className = 'fixed top-4 right-4 bg-green-500 text-white px-6 py-3 rounded-lg shadow-lg z-50';
+        successMessage.innerHTML = '✅ Payment successful! Your purchase has been activated.';
+        document.body.appendChild(successMessage);
+        
+        // Remove message after 5 seconds
+        setTimeout(() => {
+          document.body.removeChild(successMessage);
+        }, 5000);
+        
+        // Refresh user data
+        if (user) {
+          loadUserData();
+        }
+      } else {
+        console.error('❌ Payment processing failed from redirect:', result);
+        
+        // Show error message
+        const errorMessage = document.createElement('div');
+        errorMessage.className = 'fixed top-4 right-4 bg-red-500 text-white px-6 py-3 rounded-lg shadow-lg z-50';
+        errorMessage.innerHTML = `❌ Payment ${result.status}. Please contact support.`;
+        document.body.appendChild(errorMessage);
+        
+        // Remove message after 5 seconds
+        setTimeout(() => {
+          document.body.removeChild(errorMessage);
+        }, 5000);
+      }
+    } catch (error) {
+      console.error('❌ Error processing payment from redirect:', error);
+      
+      // Show error message
+      const errorMessage = document.createElement('div');
+      errorMessage.className = 'fixed top-4 right-4 bg-red-500 text-white px-6 py-3 rounded-lg shadow-lg z-50';
+      errorMessage.innerHTML = '❌ Error processing payment. Please contact support.';
+      document.body.appendChild(errorMessage);
+      
+      // Remove message after 5 seconds
+      setTimeout(() => {
+        document.body.removeChild(errorMessage);
+      }, 5000);
+    }
+  };
 
   const quickActions = [
     {
@@ -275,7 +369,163 @@ export default function DashboardPage() {
               </div>
             </div>
 
-            {/* New Recent Activity Section */}
+            {/* Subscription Status Section */}
+            <div className="mb-12">
+              <div className="text-center mb-8">
+                <h2 className={`${typography.h3} ${colors.neutral.textPrimary} font-bold mb-2`}>Your Subscription</h2>
+                <p className={`${typography.bodyBase} ${colors.neutral.textSecondary}`}>Manage your plan and track your usage</p>
+              </div>
+              
+              {dashboardLoading ? (
+                <div className="flex justify-center items-center py-12">
+                  <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-indigo-500"></div>
+                </div>
+              ) : (
+                <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
+                  {/* Current Plan */}
+                  <div className="group relative">
+                    <div className="absolute inset-0 bg-gradient-to-br from-indigo-500/10 to-purple-500/10 opacity-0 group-hover:opacity-100 rounded-2xl transition-opacity duration-300" />
+                    <div className={combineClasses(
+                      "relative backdrop-blur-sm border rounded-2xl p-6 transition-all duration-300 group-hover:transform group-hover:scale-105",
+                      colors.neutral.surface,
+                      colors.neutral.border
+                    )}>
+                      <div className="flex items-center space-x-3 mb-4">
+                        <div className="text-2xl">🎯</div>
+                        <h3 className={`${typography.h4} ${colors.neutral.textPrimary} font-bold`}>Current Plan</h3>
+                      </div>
+                      
+                      {subscription ? (
+                        <div className="space-y-4">
+                          <div className="flex items-center justify-between">
+                            <span className={`${typography.bodyBase} ${colors.neutral.textSecondary}`}>Plan Type</span>
+                            <span className={`${typography.bodyBase} ${colors.neutral.textPrimary} font-medium capitalize`}>
+                              {subscription.plan?.name || 'Free'}
+                            </span>
+                          </div>
+                          
+                          <div className="flex items-center justify-between">
+                            <span className={`${typography.bodyBase} ${colors.neutral.textSecondary}`}>Status</span>
+                            <span className={combineClasses(
+                              "px-3 py-1 rounded-full text-sm font-medium",
+                              subscription.status === 'active' ? 'bg-green-500/20 text-green-400' : 'bg-yellow-500/20 text-yellow-400'
+                            )}>
+                              {subscription.status}
+                            </span>
+                          </div>
+                          
+                          {subscription.currentPeriodEnd && (
+                            <div className="flex items-center justify-between">
+                              <span className={`${typography.bodyBase} ${colors.neutral.textSecondary}`}>Expires</span>
+                              <span className={`${typography.bodyBase} ${colors.neutral.textPrimary}`}>
+                                {new Date(subscription.currentPeriodEnd).toLocaleDateString()}
+                              </span>
+                            </div>
+                          )}
+                          
+                          <div className="pt-4 border-t border-gray-800/50">
+                            <Link 
+                              href="/pricing"
+                              className={combineClasses(
+                                "block w-full text-center px-4 py-3 rounded-xl font-medium transition-all duration-200",
+                                colors.primary.background,
+                                colors.primary.text,
+                                "hover:transform hover:scale-105"
+                              )}
+                            >
+                              {subscription.plan?.planType === 'free' ? 'Upgrade Plan' : 'Manage Plan'}
+                            </Link>
+                          </div>
+                        </div>
+                      ) : (
+                        <div className="text-center py-8">
+                          <p className={`${typography.bodyBase} ${colors.neutral.textSecondary} mb-4`}>
+                            No subscription found
+                          </p>
+                          <Link 
+                            href="/pricing"
+                            className={combineClasses(
+                              "inline-block px-6 py-3 rounded-xl font-medium transition-all duration-200",
+                              colors.primary.background,
+                              colors.primary.text,
+                              "hover:transform hover:scale-105"
+                            )}
+                          >
+                            Choose a Plan
+                          </Link>
+                        </div>
+                      )}
+                    </div>
+                  </div>
+                  
+                  {/* Credits Overview */}
+                  <div className="group relative">
+                    <div className="absolute inset-0 bg-gradient-to-br from-purple-500/10 to-pink-500/10 opacity-0 group-hover:opacity-100 rounded-2xl transition-opacity duration-300" />
+                    <div className={combineClasses(
+                      "relative backdrop-blur-sm border rounded-2xl p-6 transition-all duration-300 group-hover:transform group-hover:scale-105",
+                      colors.neutral.surface,
+                      colors.neutral.border
+                    )}>
+                      <div className="flex items-center space-x-3 mb-4">
+                        <div className="text-2xl">💳</div>
+                        <h3 className={`${typography.h4} ${colors.neutral.textPrimary} font-bold`}>Credits Balance</h3>
+                      </div>
+                      
+                      {credits && Object.keys(credits).length > 0 ? (
+                        <div className="space-y-4">
+                          {Object.entries(credits).map(([creditType, creditData]) => (
+                            <div key={creditType} className="flex items-center justify-between">
+                              <span className={`${typography.bodyBase} ${colors.neutral.textSecondary} capitalize`}>
+                                {creditType.replace('_', ' ')}
+                              </span>
+                              <span className={`${typography.bodyBase} ${colors.neutral.textPrimary} font-medium`}>
+                                {creditData?.balance || 0}
+                              </span>
+                            </div>
+                          ))}
+                          
+                          <div className="pt-4 border-t border-gray-800/50">
+                            <Link 
+                              href="/pricing"
+                              className={combineClasses(
+                                "block w-full text-center px-4 py-3 rounded-xl font-medium transition-all duration-200",
+                                "bg-purple-500/20 text-purple-400 hover:bg-purple-500/30",
+                                "hover:transform hover:scale-105"
+                              )}
+                            >
+                              Buy More Credits
+                            </Link>
+                          </div>
+                        </div>
+                      ) : (
+                        <div className="text-center py-8">
+                          <p className={`${typography.bodyBase} ${colors.neutral.textSecondary} mb-4`}>
+                            No credits available
+                          </p>
+                          <Link 
+                            href="/pricing"
+                            className={combineClasses(
+                              "inline-block px-6 py-3 rounded-xl font-medium transition-all duration-200",
+                              "bg-purple-500/20 text-purple-400 hover:bg-purple-500/30",
+                              "hover:transform hover:scale-105"
+                            )}
+                          >
+                            Buy Credits
+                          </Link>
+                        </div>
+                      )}
+                    </div>
+                  </div>
+                </div>
+              )}
+            </div>
+
+            {/* Credits Dashboard */}
+            <div className="mb-12">
+              <CreditsDashboard />
+            </div>
+
+            {/* Recent Activity & Tips */}
             <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
               {/* Recent Activity */}
               <div 
@@ -285,22 +535,23 @@ export default function DashboardPage() {
                   boxShadow: '0 10px 25px -5px rgba(0, 0, 0, 0.3)',
                 }}
               >
-                <div className="flex items-center justify-between mb-6">
+                <div className="flex items-center space-x-2 mb-6">
+                  <div className="text-2xl">📈</div>
                   <h3 className={`${typography.h4} ${colors.neutral.textPrimary} font-bold`}>Recent Activity</h3>
-                  <div className="w-2 h-2 bg-green-500 rounded-full animate-pulse" />
                 </div>
                 
-                <div className="space-y-4">
-                  {[
+                <div className="space-y-3">
+                  {/*
                     { action: 'Profile updated', time: 'Just now', icon: '👤' },
                     { action: 'Logged in', time: '2 min ago', icon: '🔐' },
                     { action: 'Dashboard accessed', time: '5 min ago', icon: '📊' }
-                  ].map((activity, index) => (
+                  */}
+                  {Array.from({ length: 3 }).map((_, index) => (
                     <div key={index} className="flex items-center space-x-3 p-3 rounded-xl bg-gray-800/30 hover:bg-gray-800/50 transition-colors duration-200">
-                      <div className="text-lg">{activity.icon}</div>
+                      <div className="text-lg">🔹</div>
                       <div className="flex-1">
-                        <p className={`${typography.bodySmall} ${colors.neutral.textPrimary}`}>{activity.action}</p>
-                        <p className={`${typography.bodyXSmall} ${colors.neutral.textMuted}`}>{activity.time}</p>
+                        <p className={`${typography.bodySmall} ${colors.neutral.textPrimary}`}>Sample activity text here</p>
+                        <p className={`${typography.bodyXSmall} ${colors.neutral.textMuted}`}>Time ago</p>
                       </div>
                     </div>
                   ))}
@@ -321,16 +572,17 @@ export default function DashboardPage() {
                 </div>
                 
                 <div className="space-y-4">
-                  {[
+                  {/*
                     'Complete your profile to increase visibility by 60%',
                     'Upload your resume to get matched with relevant jobs',
                     'Set up job alerts to never miss an opportunity'
-                  ].map((tip, index) => (
+                  */}
+                  {Array.from({ length: 3 }).map((_, index) => (
                     <div key={index} className="flex items-start space-x-3 p-3 rounded-xl bg-gradient-to-r from-indigo-500/5 to-purple-500/5 border border-indigo-500/10">
                       <div className="w-6 h-6 bg-gradient-to-r from-indigo-500 to-purple-500 rounded-full flex items-center justify-center text-white text-xs font-bold mt-0.5">
                         {index + 1}
                       </div>
-                      <p className={`${typography.bodySmall} ${colors.neutral.textSecondary} leading-relaxed`}>{tip}</p>
+                      <p className={`${typography.bodySmall} ${colors.neutral.textSecondary} leading-relaxed`}>Sample tip text here</p>
                     </div>
                   ))}
                 </div>

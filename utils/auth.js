@@ -21,9 +21,11 @@ export const generateToken = (user) => {
   return jwt.sign(
     { 
       uid: user.uid,
+      id: user.id,
       email: user.email,
       fullName: user.fullName,
-      nickname: user.nickname
+      nickname: user.nickname,
+      role: user.role
     },
     JWT_SECRET,
     { expiresIn: '7d' }
@@ -34,6 +36,19 @@ export const generateToken = (user) => {
 export const verifyToken = (token) => {
   try {
     return jwt.verify(token, JWT_SECRET);
+  } catch (error) {
+    return null;
+  }
+};
+
+// Get user from request cookies (for session-based auth)
+export const getUserFromRequest = (request) => {
+  try {
+    const token = request.cookies.get('auth-token')?.value;
+    if (!token) {
+      return null;
+    }
+    return verifyToken(token);
   } catch (error) {
     return null;
   }
