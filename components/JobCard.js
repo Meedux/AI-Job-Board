@@ -1,8 +1,13 @@
 'use client';
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import Image from "next/image";
+import Link from "next/link";
 import JobDetailModal from "./JobDetailModal";
+import { useAuth } from "../contexts/AuthContext";
+import { useSubscription } from "../contexts/SubscriptionContext";
+import { processJobContent, hasPremiumAccess, PREMIUM_FEATURES } from "../utils/premiumFeatures";
+import PremiumFeatureButton from "./PremiumFeatureButton";
 import {
   colors,
   typography,
@@ -12,8 +17,54 @@ import {
 } from "../utils/designSystem";
 
 const JobCard = ({ job }) => {
+  const { user } = useAuth();
+  const { subscription } = useSubscription();
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [isBookmarked, setIsBookmarked] = useState(false);
+  const [companyRating, setCompanyRating] = useState(null);
+  
+  // Fetch company rating when component mounts
+  useEffect(() => {
+    if (job?.companyId) {
+      fetchCompanyRating();
+    }
+  }, [job?.companyId]);
+
+  const fetchCompanyRating = async () => {
+    try {
+      const response = await fetch(`/api/companies/${job.companyId}/reviews`);
+      if (response.ok) {
+        const data = await response.json();
+        setCompanyRating(data.averageRatings);
+      }
+    } catch (error) {
+      console.error('Error fetching company rating:', error);
+    }
+  };
+
+  const renderStars = (rating, size = 'w-3 h-3') => {
+    return (
+      <div className="flex space-x-1">
+        {[1, 2, 3, 4, 5].map((star) => (
+          <div
+            key={star}
+            className={`${size} ${
+              star <= rating ? 'text-yellow-400' : 'text-gray-300'
+            }`}
+          >
+            <svg className={`${size} fill-current`} viewBox="0 0 24 24">
+              <path d="M12 2l3.09 6.26L22 9.27l-5 4.87 1.18 6.88L12 17.77l-6.18 3.25L7 14.14 2 9.27l6.91-1.01L12 2z" />
+            </svg>
+          </div>
+        ))}
+      </div>
+    );
+  };
+  
+  // Apply content masking for free users
+  // Job content is now FREE for all job seekers - only apply content moderation
+  const processedJob = processJobContent(job, user, subscription);
+  const isPremiumUser = hasPremiumAccess(user, subscription);
   
   const {
     title,
@@ -31,7 +82,7 @@ const JobCard = ({ job }) => {
     benefits,
     skills,
     is_featured = false,
-  } = job;
+  } = processedJob;
 
   // Format posted date
   const formatDate = (dateString) => {
@@ -98,6 +149,108 @@ const JobCard = ({ job }) => {
     setIsModalOpen(false);
   };
 
+  // Job content is now free - premium features are AI tools and convenience features
+  const renderPremiumFeatureTeaser = () => {
+    if (isPremiumUser) return null;
+    
+    return (
+      <div className="absolute top-2 left-2 bg-gradient-to-r from-purple-600/90 to-pink-600/90 text-white px-2 py-1 rounded-lg text-xs font-semibold">
+        � Premium Features Available
+      </div>
+    );
+  };
+
+  // Update: No more upgrade prompt for job content, only for premium features
+  const renderUpgradePrompt = () => {
+    if (isPremiumUser) return null;
+    
+    return (
+      <div className="mt-4 p-4 bg-gradient-to-r from-purple-900/30 to-pink-900/30 border border-purple-500/30 rounded-lg">
+        <h4 className="text-sm font-semibold text-purple-300 mb-2">
+          🚀 Unlock Premium Job Seeker Features
+        </h4>
+        <div className="space-y-2 text-xs text-purple-200">
+          <div className="flex items-center space-x-2">
+            <span>🤖</span>
+            <span>AI Resume Builder & Analyzer</span>
+          </div>
+          <div className="flex items-center space-x-2">
+            <span>⚡</span>
+            <span>One-click Apply & Lazy Apply</span>
+          </div>
+          <div className="flex items-center space-x-2">
+            <span>👁️</span>
+            <span>Resume Visibility to Employers</span>
+          </div>
+          <div className="flex items-center space-x-2">
+            <span>📊</span>
+            <span>Company & Salary Insights</span>
+          </div>
+        </div>
+        <a 
+          href="/pricing" 
+          className="inline-block mt-3 px-4 py-2 bg-gradient-to-r from-purple-600 to-pink-600 hover:from-purple-700 hover:to-pink-700 text-white text-xs font-medium rounded-lg transition-all duration-200 transform hover:scale-105"
+        >
+          Upgrade to Premium
+        </a>
+      </div>
+    );
+  };
+
+  // Component for verified checkmark
+  const VerifiedCheckmark = ({ isVerified }) => {
+    if (!isVerified) return null;
+    
+    return (
+      <div className="relative">
+        <div className="absolute -inset-1 bg-gradient-to-r from-blue-500 to-cyan-500 rounded-full opacity-75 blur-sm animate-pulse"></div>
+        <div className="relative flex items-center justify-center w-6 h-6 bg-blue-500 rounded-full">
+          <svg className="w-4 h-4 text-white" fill="currentColor" viewBox="0 0 24 24">
+            <path d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
+          </svg>
+        </div>
+      </div>
+    );
+  };
+
+  // Component for premium banner
+  const PremiumBanner = ({ isPremium }) => {
+    if (!isPremium) return null;
+    
+    return (
+      <div className="absolute top-3 right-3 z-10">
+        <div className="relative">
+          <div className="absolute -inset-1 bg-gradient-to-r from-yellow-400 via-orange-500 to-red-500 rounded-lg opacity-75 blur-sm animate-pulse"></div>
+          <div className="relative flex items-center px-3 py-1 bg-gradient-to-r from-yellow-400 to-orange-500 rounded-lg">
+            <svg className="w-4 h-4 text-white mr-1" fill="currentColor" viewBox="0 0 24 24">
+              <path d="M12 2l3.09 6.26L22 9.27l-5 4.87 1.18 6.88L12 17.77l-6.18 3.25L7 14.14 2 9.27l6.91-1.01L12 2z" />
+            </svg>
+            <span className="text-xs font-bold text-white">PREMIUM</span>
+          </div>
+        </div>
+      </div>
+    );
+  };
+
+  // Component for featured job ribbon
+  const FeaturedRibbon = ({ isFeatured }) => {
+    if (!isFeatured) return null;
+    
+    return (
+      <div className="absolute top-0 right-0 z-10">
+        <div className="relative">
+          <div className="absolute -inset-1 bg-gradient-to-r from-purple-500 to-pink-500 rounded-bl-lg opacity-75 blur-sm"></div>
+          <div className="relative flex items-center px-4 py-2 bg-gradient-to-r from-purple-500 to-pink-500 rounded-bl-lg">
+            <svg className="w-4 h-4 text-white mr-1" fill="currentColor" viewBox="0 0 24 24">
+              <path d="M5 3l3.057-3 3.943 4 4-4 3 3v18l-3-3-4 4-4-4-3 3z" />
+            </svg>
+            <span className="text-xs font-bold text-white">FEATURED</span>
+          </div>
+        </div>
+      </div>
+    );
+  };
+
   return (
     <>
       <div 
@@ -109,17 +262,14 @@ const JobCard = ({ job }) => {
         )}
         onClick={handleCardClick}
       >
-        {/* Featured badge */}
-        {is_featured && (
-          <div className="absolute top-2 right-2 z-10">
-            <span className="inline-flex items-center px-2 py-1 text-xs font-medium bg-yellow-500/20 text-yellow-300 rounded-full border border-yellow-500/30">
-              <svg className="w-3 h-3 mr-1" fill="currentColor" viewBox="0 0 20 20">
-                <path d="M9.049 2.927c.3-.921 1.603-.921 1.902 0l1.07 3.292a1 1 0 00.95.69h3.462c.969 0 1.371 1.24.588 1.81l-2.8 2.034a1 1 0 00-.364 1.118l1.07 3.292c.3.921-.755 1.688-1.54 1.118l-2.8-2.034a1 1 0 00-1.175 0l-2.8 2.034c-.784.57-1.838-.197-1.539-1.118l1.07-3.292a1 1 0 00-.364-1.118L2.98 8.72c-.783-.57-.38-1.81.588-1.81h3.461a1 1 0 00.951-.69l1.07-3.292z" />
-              </svg>
-              Featured
-            </span>
-          </div>
-        )}
+        {/* Premium Banner */}
+        <PremiumBanner isPremium={job.is_premium || false} />
+        
+        {/* Featured Ribbon */}
+        <FeaturedRibbon isFeatured={is_featured} />
+        
+        {/* Premium features teaser */}
+        {renderPremiumFeatureTeaser()}
         
         {/* Subtle gradient overlay on hover */}
         <div className="absolute inset-0 bg-gradient-to-r from-blue-600/0 to-purple-600/0 group-hover:from-blue-600/5 group-hover:to-purple-600/5 transition-all duration-300" />
@@ -140,8 +290,10 @@ const JobCard = ({ job }) => {
                   }}
                 />
               </div>
-              {/* Online indicator */}
-              <div className="absolute -top-1 -right-1 w-3 h-3 bg-green-500 rounded-full border-2 border-gray-900 opacity-80" />
+              {/* Verified checkmark for companies */}
+              <div className="absolute -bottom-1 -right-1">
+                <VerifiedCheckmark isVerified={job.company_verified || false} />
+              </div>
             </div>
 
             {/* Job Content */}
@@ -158,7 +310,10 @@ const JobCard = ({ job }) => {
                 
                 {/* Company and Location */}
                 <div className="flex items-center gap-3 text-gray-400 mb-2">
-                  <span className="font-medium text-gray-300">{companyName}</span>
+                  <div className="flex items-center gap-2">
+                    <span className="font-medium text-gray-300">{companyName}</span>
+                    <VerifiedCheckmark isVerified={job.company_verified || false} />
+                  </div>
                   <span className="text-gray-600">•</span>
                   <span className="inline-flex items-center gap-1">
                     <svg className="w-4 h-4" fill="currentColor" viewBox="0 0 20 20">
@@ -178,6 +333,16 @@ const JobCard = ({ job }) => {
                     </>
                   )}
                 </div>
+                
+                {/* Company Rating */}
+                {companyRating && companyRating.overall > 0 && (
+                  <div className="flex items-center gap-2 mb-2">
+                    {renderStars(companyRating.overall)}
+                    <span className="text-xs text-gray-400">
+                      {companyRating.overall.toFixed(1)} ({companyRating.totalReviews} reviews)
+                    </span>
+                  </div>
+                )}
               </div>
 
               {/* Job Details Tags */}
@@ -290,6 +455,27 @@ const JobCard = ({ job }) => {
 
             {/* Action Buttons - Right side */}
             <div className="flex-shrink-0 flex items-start gap-2">
+              {/* <PremiumFeatureButton
+                feature={PREMIUM_FEATURES.AI_RESUME_ANALYZER}
+                onClick={() => window.location.href = '/resume-analyzer'}
+                variant="outline"
+                className="text-xs px-3 py-1.5"
+              >
+                <svg className="w-3 h-3 mr-1" fill="currentColor" viewBox="0 0 20 20">
+                  <path d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
+                </svg>
+                AI Check
+              </PremiumFeatureButton>
+
+              <PremiumFeatureButton
+                feature={PREMIUM_FEATURES.ONE_CLICK_APPLY}
+                onClick={() => alert('One-click apply feature coming soon!')}
+                variant="primary"
+                className="text-xs px-3 py-1.5"
+              >
+                ⚡ Quick Apply
+              </PremiumFeatureButton> */}
+
               {/* Bookmark Button */}
               <button
                 className={combineClasses(
@@ -317,7 +503,20 @@ const JobCard = ({ job }) => {
                 </svg>
               </button>
 
-              {/* Apply Button */}
+              {/* View Details Button */}
+              <Link
+                href={`/jobs/${job.id}`}
+                className="inline-flex items-center gap-2 px-4 py-2 bg-blue-600/90 hover:bg-blue-600 text-white rounded-lg transition-all duration-200 hover:scale-105 font-medium"
+                onClick={(e) => e.stopPropagation()}
+              >
+                <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z" />
+                </svg>
+                View Details
+              </Link>
+
+              {/* Apply Button - Now free for all users */}
               {apply_link && (
                 <a
                   href={apply_link}
@@ -335,13 +534,17 @@ const JobCard = ({ job }) => {
             </div>
           </div>
         </div>
+        
+        {/* Upgrade prompt for free users */}
+        {renderUpgradePrompt()}
       </div>
 
       {/* Job Detail Modal */}
       <JobDetailModal
-        job={job}
+        job={processedJob}
         isOpen={isModalOpen}
         onClose={handleCloseModal}
+        isPremiumUser={isPremiumUser}
       />
     </>
   );

@@ -73,8 +73,16 @@ export default function PricingPage() {
 
   const faqs = [
     {
-      question: 'How does the credit system work?',
-      answer: 'Credits are used to access premium features like viewing resume contact information and using AI-powered tools. You can purchase credits separately or get them included with your subscription plan.'
+      question: 'Is job content really free?',
+      answer: 'Yes! All job listings, descriptions, requirements, and company information are completely free to view. You can apply to any job without a premium subscription.'
+    },
+    {
+      question: 'What are premium features?',
+      answer: 'Premium features focus on AI-powered tools (resume builder, analyzer, cover letter generator) and convenience features (one-click apply, lazy apply, resume visibility to employers).'
+    },
+    {
+      question: 'How do AI credits work?',
+      answer: 'AI features like resume analysis and generation use credits. Each plan comes with a monthly allocation. Enterprise plans have unlimited usage.'
     },
     {
       question: 'Can I change my plan later?',
@@ -89,12 +97,8 @@ export default function PricingPage() {
       answer: 'Yes, we offer a 30-day money-back guarantee. If you\'re not satisfied, we\'ll refund your payment in full, no questions asked.'
     },
     {
-      question: 'What are resume view credits?',
-      answer: 'Resume view credits allow you to access contact information of job applicants. Each credit reveals one applicant\'s contact details including email, phone, and social profiles.'
-    },
-    {
-      question: 'How do AI credits work?',
-      answer: 'AI credits are used for AI-powered features like resume analysis, job matching, and personalized recommendations. Each AI operation consumes one credit.'
+      question: 'What is resume visibility?',
+      answer: 'Premium users can make their resumes visible to employers, allowing companies to find and contact them directly for job opportunities.'
     },
     {
       question: 'Do credits expire?',
@@ -117,9 +121,16 @@ export default function PricingPage() {
               <h1 className="text-4xl md:text-6xl font-bold mb-6 bg-gradient-to-r from-blue-400 to-purple-600 bg-clip-text text-transparent">
                 Choose Your Plan
               </h1>
-              <p className="text-xl text-gray-300 mb-8">
-                Find the perfect plan for your job search needs. Start free, upgrade anytime.
+              <p className="text-xl text-gray-300 mb-4">
+                Job content is FREE for everyone. Premium features unlock AI tools and convenience features.
               </p>
+              
+              <div className="inline-flex items-center px-4 py-2 bg-green-600/20 border border-green-500/30 rounded-lg mb-8">
+                <svg className="w-5 h-5 text-green-400 mr-2" fill="currentColor" viewBox="0 0 20 20">
+                  <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clipRule="evenodd" />
+                </svg>
+                <span className="text-green-300 font-medium">All job content is FREE to view and apply</span>
+              </div>
 
               {/* Login CTA for unauthenticated users */}
               {!user && (

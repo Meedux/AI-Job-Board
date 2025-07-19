@@ -5,6 +5,8 @@ import Header from '../../components/Header';
 import Footer from '../../components/Footer';
 import ProtectedRoute from '../../components/ProtectedRoute';
 import CreditsDashboard from '../../components/CreditsDashboard';
+import JobSeekerDashboard from '../../components/JobSeekerDashboard';
+import JobAlertSubscription from '../../components/JobAlertSubscription';
 import { useAuth } from '../../contexts/AuthContext';
 import { useSubscription } from '../../contexts/SubscriptionContext';
 import { colors, typography, components, layout, spacing, gradients, combineClasses, animations } from '../../utils/designSystem';
@@ -14,6 +16,7 @@ export default function DashboardPage() {
   const { user } = useAuth();
   const { subscription, credits, loading, loadUserData } = useSubscription();
   const [dashboardLoading, setDashboardLoading] = useState(true);
+  const [activeTab, setActiveTab] = useState('overview');
 
   useEffect(() => {
     if (user) {
@@ -144,6 +147,17 @@ export default function DashboardPage() {
           <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z" />
         </svg>
       )
+    },
+    {
+      title: 'Privacy & Security',
+      description: 'Manage privacy settings and notifications',
+      href: '#',
+      onClick: () => setActiveTab('privacy'),
+      icon: (
+        <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12l2 2 4-4m5.618-4.016A11.955 11.955 0 0112 2.944a11.955 11.955 0 01-8.618 3.04A12.02 12.02 0 003 9c0 5.591 3.824 10.29 9 11.622 5.176-1.332 9-6.03 9-11.622 0-1.042-.133-2.052-.382-3.016z" />
+        </svg>
+      )
     }
   ];
 
@@ -164,6 +178,48 @@ export default function DashboardPage() {
         
         <main className={`${layout.container} px-4 sm:px-6 lg:px-8 relative z-10`}>
           <div className="max-w-7xl mx-auto py-8 sm:py-12">
+            {/* Navigation Tabs */}
+            <div className="mb-8">
+              <div className="flex space-x-1 bg-gray-800/50 p-1 rounded-xl border border-gray-700/50">
+                <button
+                  onClick={() => setActiveTab('overview')}
+                  className={combineClasses(
+                    "flex-1 px-4 py-2 text-sm font-medium rounded-lg transition-all duration-200",
+                    activeTab === 'overview' 
+                      ? combineClasses(colors.primary.background, colors.primary.text, "shadow-lg")
+                      : combineClasses(colors.neutral.textSecondary, "hover:text-white hover:bg-gray-700/50")
+                  )}
+                >
+                  Overview
+                </button>
+                <button
+                  onClick={() => setActiveTab('alerts')}
+                  className={combineClasses(
+                    "flex-1 px-4 py-2 text-sm font-medium rounded-lg transition-all duration-200",
+                    activeTab === 'alerts' 
+                      ? combineClasses(colors.primary.background, colors.primary.text, "shadow-lg")
+                      : combineClasses(colors.neutral.textSecondary, "hover:text-white hover:bg-gray-700/50")
+                  )}
+                >
+                  Job Alerts
+                </button>
+                <button
+                  onClick={() => setActiveTab('privacy')}
+                  className={combineClasses(
+                    "flex-1 px-4 py-2 text-sm font-medium rounded-lg transition-all duration-200",
+                    activeTab === 'privacy' 
+                      ? combineClasses(colors.primary.background, colors.primary.text, "shadow-lg")
+                      : combineClasses(colors.neutral.textSecondary, "hover:text-white hover:bg-gray-700/50")
+                  )}
+                >
+                  Privacy & Security
+                </button>
+              </div>
+            </div>
+
+            {/* Tab Content */}
+            {activeTab === 'overview' ? (
+              <div className="space-y-12">
             {/* Hero Welcome Section */}
             <div className="relative mb-12">
               <div className="absolute inset-0 bg-gradient-to-r from-indigo-500/10 via-purple-500/10 to-pink-500/10 rounded-3xl blur-xl" />
@@ -245,61 +301,119 @@ export default function DashboardPage() {
               
               <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6">
                 {quickActions.map((action, index) => (
-                  <Link
-                    key={index}
-                    href={action.href}
-                    className="group relative overflow-hidden"
-                  >
-                    {/* Gradient background */}
-                    <div className={combineClasses(
-                      "absolute inset-0 rounded-2xl opacity-0 group-hover:opacity-100",
-                      colors.neutral.surface,
-                      animations.transition
-                    )} />
-                    
-                    {/* Card content */}
-                    <div className={combineClasses(
-                      components.card.base,
-                      components.card.padding,
-                      animations.transition,
-                      "group-hover:transform group-hover:scale-105 group-hover:shadow-2xl group-hover:border-indigo-500/30"
-                    )}>
-                      {/* Icon with gradient background */}
-                      <div className="relative mb-4">
-                        <div className="absolute inset-0 bg-gradient-to-r from-indigo-500/20 to-purple-500/20 rounded-xl blur-sm group-hover:blur-none transition-all duration-300" />
+                  <div key={index} className="group relative overflow-hidden">
+                    {action.href === '#' ? (
+                      <button
+                        onClick={action.onClick}
+                        className="w-full text-left group relative overflow-hidden"
+                      >
+                        {/* Gradient background */}
                         <div className={combineClasses(
-                          "relative p-3 rounded-xl border transition-all duration-300",
-                          colors.primary.text,
-                          colors.primary.background,
-                          "border-indigo-500/20 group-hover:border-indigo-400/40"
+                          "absolute inset-0 rounded-2xl opacity-0 group-hover:opacity-100",
+                          colors.neutral.surface,
+                          animations.transition
+                        )} />
+                        
+                        {/* Card content */}
+                        <div className={combineClasses(
+                          components.card.base,
+                          components.card.padding,
+                          animations.transition,
+                          "group-hover:transform group-hover:scale-105 group-hover:shadow-2xl group-hover:border-indigo-500/30"
                         )}>
-                          {action.icon}
+                          {/* Icon with gradient background */}
+                          <div className="relative mb-4">
+                            <div className="absolute inset-0 bg-gradient-to-r from-indigo-500/20 to-purple-500/20 rounded-xl blur-sm group-hover:blur-none transition-all duration-300" />
+                            <div className={combineClasses(
+                              "relative p-3 rounded-xl border transition-all duration-300",
+                              colors.primary.text,
+                              colors.primary.background,
+                              "border-indigo-500/20 group-hover:border-indigo-400/40"
+                            )}>
+                              {action.icon}
+                            </div>
+                          </div>
+                          
+                          <h3 className={combineClasses(
+                            typography.h5,
+                            colors.neutral.textPrimary,
+                            "mb-2 group-hover:text-white transition-colors duration-300"
+                          )}>
+                            {action.title}
+                          </h3>
+                          <p className={combineClasses(
+                            typography.bodySmall,
+                            colors.neutral.textSecondary,
+                            "group-hover:text-gray-300 transition-colors duration-300"
+                          )}>
+                            {action.description}
+                          </p>
+                          
+                          {/* Arrow indicator */}
+                          <div className="absolute top-4 right-4 opacity-0 group-hover:opacity-100 transition-all duration-300 transform translate-x-2 group-hover:translate-x-0">
+                            <svg className="w-5 h-5 text-indigo-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 7l5 5m0 0l-5 5m5-5H6" />
+                            </svg>
+                          </div>
                         </div>
-                      </div>
-                      
-                      <h3 className={combineClasses(
-                        typography.h5,
-                        colors.neutral.textPrimary,
-                        "mb-2 group-hover:text-white transition-colors duration-300"
-                      )}>
-                        {action.title}
-                      </h3>
-                      <p className={combineClasses(
-                        typography.bodySmall,
-                        colors.neutral.textSecondary,
-                        "group-hover:text-gray-300 transition-colors duration-300"
-                      )}>
-                        {action.description}
-                      </p>
-                      
-                      {/* Arrow indicator */}
-                      <div className="absolute top-4 right-4 opacity-0 group-hover:opacity-100 transition-all duration-300 transform translate-x-2 group-hover:translate-x-0">
-                        <svg className="w-5 h-5 text-indigo-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 7l5 5m0 0l-5 5m5-5H6" />
-                        </svg>
-                      </div>
-                    </div>
-                  </Link>
+                      </button>
+                    ) : (
+                      <Link
+                        href={action.href}
+                        className="group relative overflow-hidden"
+                      >
+                        {/* Gradient background */}
+                        <div className={combineClasses(
+                          "absolute inset-0 rounded-2xl opacity-0 group-hover:opacity-100",
+                          colors.neutral.surface,
+                          animations.transition
+                        )} />
+                        
+                        {/* Card content */}
+                        <div className={combineClasses(
+                          components.card.base,
+                          components.card.padding,
+                          animations.transition,
+                          "group-hover:transform group-hover:scale-105 group-hover:shadow-2xl group-hover:border-indigo-500/30"
+                        )}>
+                          {/* Icon with gradient background */}
+                          <div className="relative mb-4">
+                            <div className="absolute inset-0 bg-gradient-to-r from-indigo-500/20 to-purple-500/20 rounded-xl blur-sm group-hover:blur-none transition-all duration-300" />
+                            <div className={combineClasses(
+                              "relative p-3 rounded-xl border transition-all duration-300",
+                              colors.primary.text,
+                              colors.primary.background,
+                              "border-indigo-500/20 group-hover:border-indigo-400/40"
+                            )}>
+                              {action.icon}
+                            </div>
+                          </div>
+                          
+                          <h3 className={combineClasses(
+                            typography.h5,
+                            colors.neutral.textPrimary,
+                            "mb-2 group-hover:text-white transition-colors duration-300"
+                          )}>
+                            {action.title}
+                          </h3>
+                          <p className={combineClasses(
+                            typography.bodySmall,
+                            colors.neutral.textSecondary,
+                            "group-hover:text-gray-300 transition-colors duration-300"
+                          )}>
+                            {action.description}
+                          </p>
+                          
+                          {/* Arrow indicator */}
+                          <div className="absolute top-4 right-4 opacity-0 group-hover:opacity-100 transition-all duration-300 transform translate-x-2 group-hover:translate-x-0">
+                            <svg className="w-5 h-5 text-indigo-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 7l5 5m0 0l-5 5m5-5H6" />
+                            </svg>
+                          </div>
+                        </div>
+                      </Link>
+                    )}
+                  </div>
                 ))}
               </div>
             </div>
@@ -589,7 +703,26 @@ export default function DashboardPage() {
               </div>
             </div>
           </div>
-        </main>
+        ) : activeTab === 'alerts' ? (
+          <div className="space-y-8">
+            <div className="text-center mb-8">
+              <h2 className={combineClasses(typography.h3, colors.neutral.textPrimary, "font-bold mb-2")}>
+                Job Alert Preferences
+              </h2>
+              <p className={combineClasses(typography.bodyBase, colors.neutral.textSecondary)}>
+                Stay updated with personalized job opportunities
+              </p>
+            </div>
+            <JobAlertSubscription />
+          </div>
+        ) : (
+          <div className="space-y-8">
+            <JobSeekerDashboard />
+          </div>
+        )}
+        
+        </div>
+      </main>
         
         <Footer />
       </div>

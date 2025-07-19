@@ -5,7 +5,8 @@ import { createPaymentIntent, retrievePaymentIntent } from './paymongo';
 const prisma = new PrismaClient();
 
 /**
- * Subscription Plans and Features
+ * Subscription Plans and Features (Updated for new premium model)
+ * Job content is FREE for all users - premium features are AI tools and convenience features
  */
 export const SUBSCRIPTION_PLANS = {
   FREE: {
@@ -14,10 +15,13 @@ export const SUBSCRIPTION_PLANS = {
     price: 0,
     features: {
       jobSearch: true,
+      jobViewing: true, // All job content is free
       basicFilters: true,
-      jobAlerts: 5,
+      jobAlerts: 3,
       resumeContacts: 0,
-      aiCredits: 0
+      aiCredits: 0,
+      applyToJobs: true, // Free users can apply to jobs
+      createProfile: true
     }
   },
   BASIC: {
@@ -26,10 +30,16 @@ export const SUBSCRIPTION_PLANS = {
     price: 299,
     features: {
       jobSearch: true,
+      jobViewing: true, // All job content is free
+      basicFilters: true,
       advancedFilters: true,
-      jobAlerts: 20,
-      resumeContacts: 50,
-      aiCredits: 5
+      jobAlerts: 10,
+      resumeContacts: 0,
+      aiCredits: 5, // AI Resume Analyzer credits
+      applyToJobs: true,
+      createProfile: true,
+      resumeVisibility: true,
+      oneClickApply: 20 // Limited one-click applications
     }
   },
   PREMIUM: {
@@ -38,11 +48,20 @@ export const SUBSCRIPTION_PLANS = {
     price: 599,
     features: {
       jobSearch: true,
+      jobViewing: true, // All job content is free
+      basicFilters: true,
       advancedFilters: true,
-      jobAlerts: 100,
-      resumeContacts: 200,
-      aiCredits: 20,
-      aiMatching: true,
+      jobAlerts: 50,
+      resumeContacts: 0,
+      aiCredits: 50, // More AI credits
+      aiResumeAnalyzer: true,
+      applyToJobs: true,
+      createProfile: true,
+      resumeVisibility: true,
+      oneClickApply: 100,
+      lazyApply: 50,
+      companyInsights: true,
+      salaryInsights: true,
       prioritySupport: true
     }
   },
@@ -52,11 +71,25 @@ export const SUBSCRIPTION_PLANS = {
     price: 999,
     features: {
       jobSearch: true,
+      jobViewing: true, // All job content is free
+      basicFilters: true,
       advancedFilters: true,
       jobAlerts: -1, // unlimited
-      resumeContacts: -1, // unlimited
+      resumeContacts: 0, // Not relevant for job seekers
       aiCredits: -1, // unlimited
-      aiMatching: true,
+      aiResumeAnalyzer: true,
+      aiResumeBuilder: true,
+      aiCoverLetterGenerator: true,
+      aiInterviewPrep: true,
+      aiSkillMatcher: true,
+      applyToJobs: true,
+      createProfile: true,
+      resumeVisibility: true,
+      oneClickApply: -1, // unlimited
+      lazyApply: -1, // unlimited
+      bulkApply: true,
+      companyInsights: true,
+      salaryInsights: true,
       prioritySupport: true,
       teamManagement: true,
       customBranding: true

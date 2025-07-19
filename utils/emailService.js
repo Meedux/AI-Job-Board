@@ -4,6 +4,12 @@
 import nodemailer from 'nodemailer';
 import { logEmailNotification, logError, logSystemEvent } from './dataLogger';
 import { createNotification, NOTIFICATION_TYPES, CATEGORIES, PRIORITY } from './notificationService';
+import { 
+  jobAlertTemplate, 
+  resumeAlertTemplate, 
+  notificationTemplate, 
+  welcomeTemplate 
+} from './emailTemplates';
 
 class EmailNotificationService {
   constructor() {
@@ -515,6 +521,292 @@ Check the admin dashboard: ${process.env.NEXT_PUBLIC_SITE_URL || 'http://localho
     } catch (error) {
       return { success: false, message: `Connection failed: ${error.message}` };
     }
+  }
+
+  // Enhanced job alert email
+  async sendJobAlert({ user, jobs, alertType = 'new_jobs', stats = {} }) {
+    if (!user || !user.email) {
+      throw new Error('User email is required for job alerts');
+    }
+
+    const subject = {
+      new_jobs: `🚀 ${jobs.length} New Job${jobs.length !== 1 ? 's' : ''} Found!`,
+      daily_digest: `📊 Daily Job Digest - ${jobs.length} Opportunities`,
+      weekly_digest: `📈 Weekly Job Digest - ${jobs.length} Opportunities`
+    }[alertType] || 'Job Alert';
+
+    const html = jobAlertTemplate({ 
+      jobs, 
+      user, 
+      subscription: user.subscription,
+      alertType,
+      stats
+    });
+
+    try {
+      const result = await this.sendEmail({
+        to: user.email,
+        subject,
+        html
+      });
+
+      // Log job alert sent
+      await logEmailNotification(
+        'job_alert',
+        user.email,
+        subject,
+        'success',
+        'nodemailer',
+        result.messageId,
+        null,
+        { 
+          userId: user.id,
+          alertType,
+          jobCount: jobs.length,
+          stats
+        }
+      ).catch(console.error);
+
+      return result;
+    } catch (error) {
+      // Log job alert failed
+      await logEmailNotification(
+        'job_alert',
+        user.email,
+        subject,
+        'failed',
+        'nodemailer',
+        null,
+        error.message,
+        { 
+          userId: user.id,
+          alertType,
+          jobCount: jobs.length
+        }
+      ).catch(console.error);
+
+      throw error;
+    }
+  }
+
+  // Resume alert email for employers
+  async sendResumeAlert({ user, candidates, job }) {
+    if (!user || !user.email) {
+      throw new Error('User email is required for resume alerts');
+    }
+
+    const subject = `👥 ${candidates.length} New Candidate${candidates.length !== 1 ? 's' : ''} Found${job ? ` for "${job.title}"` : ''}`;
+
+    const html = resumeAlertTemplate({ 
+      candidates, 
+      user, 
+      job
+    });
+
+    try {
+      const result = await this.sendEmail({
+        to: user.email,
+        subject,
+        html
+      });
+
+      // Log resume alert sent
+      await logEmailNotification(
+        'resume_alert',
+        user.email,
+        subject,
+        'success',
+        'nodemailer',
+        result.messageId,
+        null,
+        { 
+          userId: user.id,
+          candidateCount: candidates.length,
+          jobId: job?.id
+        }
+      ).catch(console.error);
+
+      return result;
+    } catch (error) {
+      // Log resume alert failed
+      await logEmailNotification(
+        'resume_alert',
+        user.email,
+        subject,
+        'failed',
+        'nodemailer',
+        null,
+        error.message,
+        { 
+          userId: user.id,
+          candidateCount: candidates.length,
+          jobId: job?.id
+        }
+      ).catch(console.error);
+
+      throw error;
+    }
+  }
+
+  // General notification email
+  async sendNotification({ user, type, title, message, actionUrl, actionText }) {
+    if (!user || !user.email) {
+      throw new Error('User email is required for notifications');
+    }
+
+    const subject = title;
+    const html = notificationTemplate({ 
+      type, 
+      title, 
+      message, 
+      user, 
+      actionUrl, 
+      actionText 
+    });
+
+    try {
+      const result = await this.sendEmail({
+        to: user.email,
+        subject,
+        html
+      });
+
+      // Log notification sent
+      await logEmailNotification(
+        'notification',
+        user.email,
+        subject,
+        'success',
+        'nodemailer',
+        result.messageId,
+        null,
+        { 
+          userId: user.id,
+          notificationType: type,
+          actionUrl
+        }
+      ).catch(console.error);
+
+      return result;
+    } catch (error) {
+      // Log notification failed
+      await logEmailNotification(
+        'notification',
+        user.email,
+        subject,
+        'failed',
+        'nodemailer',
+        null,
+        error.message,
+        { 
+          userId: user.id,
+          notificationType: type
+        }
+      ).catch(console.error);
+
+      throw error;
+    }
+  }
+
+  // Welcome email
+  async sendWelcomeEmail({ user, isEmployer = false }) {
+    if (!user || !user.email) {
+      throw new Error('User email is required for welcome email');
+    }
+
+    const subject = isEmployer ? 
+      '🎉 Welcome to GetGetHired for Employers!' : 
+      '🎉 Welcome to GetGetHired!';
+
+    const html = welcomeTemplate({ user, isEmployer });
+
+    try {
+      const result = await this.sendEmail({
+        to: user.email,
+        subject,
+        html
+      });
+
+      // Log welcome email sent
+      await logEmailNotification(
+        'welcome',
+        user.email,
+        subject,
+        'success',
+        'nodemailer',
+        result.messageId,
+        null,
+        { 
+          userId: user.id,
+          isEmployer
+        }
+      ).catch(console.error);
+
+      return result;
+    } catch (error) {
+      // Log welcome email failed
+      await logEmailNotification(
+        'welcome',
+        user.email,
+        subject,
+        'failed',
+        'nodemailer',
+        null,
+        error.message,
+        { 
+          userId: user.id,
+          isEmployer
+        }
+      ).catch(console.error);
+
+      throw error;
+    }
+  }
+
+  // Bulk job alert sending
+  async sendBulkJobAlerts({ userList, jobs, alertType = 'new_jobs', stats = {} }) {
+    const results = [];
+    
+    for (const user of userList) {
+      try {
+        const result = await this.sendJobAlert({
+          user,
+          jobs,
+          alertType,
+          stats
+        });
+        results.push({ 
+          user: user.email, 
+          success: true, 
+          messageId: result.messageId 
+        });
+      } catch (error) {
+        console.error(`Failed to send job alert to ${user.email}:`, error);
+        results.push({ 
+          user: user.email, 
+          success: false, 
+          error: error.message 
+        });
+      }
+    }
+
+    // Log bulk sending summary
+    const successful = results.filter(r => r.success).length;
+    const failed = results.filter(r => !r.success).length;
+
+    await logSystemEvent(
+      'bulk_job_alerts',
+      `Sent job alerts to ${successful} users, ${failed} failed`,
+      { 
+        totalUsers: userList.length,
+        successful,
+        failed,
+        alertType,
+        jobCount: jobs.length
+      }
+    ).catch(console.error);
+
+    return results;
   }
 }
 

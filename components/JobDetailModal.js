@@ -3,11 +3,14 @@
 import { useState, useEffect } from 'react';
 import { createPortal } from 'react-dom';
 import { colors, typography, components, animations, combineClasses } from '../utils/designSystem';
+import CompanyReviewSystem from './CompanyReviewSystem';
 
 const JobDetailModal = ({ job, isOpen, onClose }) => {
   const [jobContent, setJobContent] = useState('');
   const [isLoadingContent, setIsLoadingContent] = useState(false);
   const [mounted, setMounted] = useState(false);
+  const [showReviewModal, setShowReviewModal] = useState(false);
+  const [companyRating, setCompanyRating] = useState(null);
 
   useEffect(() => {
     setMounted(true);
@@ -17,6 +20,15 @@ const JobDetailModal = ({ job, isOpen, onClose }) => {
   useEffect(() => {
     if (isOpen && (job?.content_doc_url || job?.content)) {
       loadJobContent();
+    }
+    if (isOpen && job?.companyId) {
+      fetchCompanyRating();
+    }
+    // Debug log to see job structure
+    if (isOpen && job) {
+      console.log('Job object in modal:', job);
+      console.log('Company ID available:', job.companyId);
+      console.log('Company object:', job.company);
     }
   }, [isOpen, job]);
 
@@ -99,6 +111,18 @@ const JobDetailModal = ({ job, isOpen, onClose }) => {
     }
   };
 
+  const fetchCompanyRating = async () => {
+    try {
+      const response = await fetch(`/api/companies/${job.companyId}/reviews`);
+      if (response.ok) {
+        const data = await response.json();
+        setCompanyRating(data.averageRatings);
+      }
+    } catch (error) {
+      console.error('Error fetching company rating:', error);
+    }
+  };
+
   const formatDate = (dateString) => {
     if (!dateString) return "Not specified";
     try {
@@ -120,6 +144,25 @@ const JobDetailModal = ({ job, isOpen, onClose }) => {
     if (fromSalary) return `$${fromSalary.toLocaleString()}+`;
     if (toSalary) return `Up to $${toSalary.toLocaleString()}`;
     return "Not specified";
+  };
+
+  const renderStars = (rating, size = 'w-4 h-4') => {
+    return (
+      <div className="flex space-x-1">
+        {[1, 2, 3, 4, 5].map((star) => (
+          <div
+            key={star}
+            className={`${size} ${
+              star <= rating ? 'text-yellow-400' : 'text-gray-300'
+            }`}
+          >
+            <svg className={`${size} fill-current`} viewBox="0 0 24 24">
+              <path d="M12 2l3.09 6.26L22 9.27l-5 4.87 1.18 6.88L12 17.77l-6.18 3.25L7 14.14 2 9.27l6.91-1.01L12 2z" />
+            </svg>
+          </div>
+        ))}
+      </div>
+    );
   };
 
   if (!isOpen || !job || !mounted) return null;
@@ -340,6 +383,15 @@ const JobDetailModal = ({ job, isOpen, onClose }) => {
                 <p className="text-lg text-gray-300 font-medium">
                   {job.company_name || job.company?.name}
                 </p>
+                {/* Company Rating */}
+                {companyRating && companyRating.overall > 0 && (
+                  <div className="flex items-center gap-2 mt-1">
+                    {renderStars(companyRating.overall)}
+                    <span className="text-sm text-gray-400">
+                      {companyRating.overall.toFixed(1)} ({companyRating.totalReviews} reviews)
+                    </span>
+                  </div>
+                )}
               </div>
             </div>
             
@@ -462,6 +514,22 @@ const JobDetailModal = ({ job, isOpen, onClose }) => {
                 </button>
               )}
               
+              {/* Review Company Button */}
+              <button
+                onClick={() => {
+                  console.log('Review button clicked!');
+                  console.log('Current job:', job);
+                  console.log('Company ID:', job?.companyId || job?.company?.id);
+                  setShowReviewModal(true);
+                }}
+                className="text-center px-6 py-3 bg-purple-600 hover:bg-purple-700 text-white font-medium rounded-lg transition-colors duration-200 flex items-center gap-2 justify-center"
+              >
+                <svg className="w-4 h-4" fill="currentColor" viewBox="0 0 24 24">
+                  <path d="M12 2l3.09 6.26L22 9.27l-5 4.87 1.18 6.88L12 17.77l-6.18 3.25L7 14.14 2 9.27l6.91-1.01L12 2z" />
+                </svg>
+                Review Company
+              </button>
+              
               {(job.company?.website || job.company_website) && (
                 <a
                   href={job.company?.website || job.company_website}
@@ -487,7 +555,39 @@ const JobDetailModal = ({ job, isOpen, onClose }) => {
   );
 
   // Use portal to render modal at document root
-  return createPortal(modalContent, document.body);
+  return createPortal(
+    <>
+      {modalContent}
+      
+      {/* Review Modal */}
+      {showReviewModal && (job?.companyId || job?.company?.id) && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-[10000] p-4">
+          <div className="bg-gray-900 rounded-lg max-w-4xl max-h-[90vh] overflow-y-auto w-full border border-gray-700">
+            <div className="p-4 border-b border-gray-700 flex items-center justify-between">
+              <h2 className="text-xl font-bold text-white">
+                Review {job.company_name || job.company?.name}
+              </h2>
+              <button
+                onClick={() => setShowReviewModal(false)}
+                className="text-gray-400 hover:text-white"
+              >
+                <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                </svg>
+              </button>
+            </div>
+            <div className="p-6">
+              <CompanyReviewSystem 
+                companyId={job.companyId || job.company?.id} 
+                companyName={job.company_name || job.company?.name} 
+              />
+            </div>
+          </div>
+        </div>
+      )}
+    </>,
+    document.body
+  );
 };
 
 export default JobDetailModal;

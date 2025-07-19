@@ -24,6 +24,7 @@ model Company {
 
   // Relations
   jobs Job[]
+  reviews CompanyReview[]
 
   @@map("companies")
 }
@@ -108,6 +109,18 @@ model User {
   fullAddress  String?   @map("full_address")
   role         String    @default("user") // "user", "admin", "recruiter"
   isActive     Boolean   @default(true) @map("is_active")
+  
+  // Privacy and Content Settings
+  showSensitiveInfo Boolean @default(false) @map("show_sensitive_info")
+  profileVisibility String  @default("public") @map("profile_visibility") // "public", "private", "premium_only"
+  hideProfile      Boolean  @default(false) @map("hide_profile")
+  
+  // Notification Preferences
+  emailNotifications    Boolean @default(true) @map("email_notifications")
+  jobAlerts            Boolean @default(true) @map("job_alerts")
+  resumeAlerts         Boolean @default(true) @map("resume_alerts")
+  marketingEmails      Boolean @default(false) @map("marketing_emails")
+  
   createdAt    DateTime  @default(now()) @map("created_at")
   updatedAt    DateTime  @updatedAt @map("updated_at")
 
@@ -118,6 +131,13 @@ model User {
   credits      UserCredit[]
   transactions PaymentTransaction[]
   activities   UserActivity[]
+  preferences  UserPreference?
+  notificationSettings NotificationSetting?
+  companyReviews CompanyReview[]
+  reviewReports ReviewReport[]
+  reviewVotes ReviewVote[]
+  deletionRequests AccountDeletionRequest[]
+  dataProcessingLogs DataProcessingLog[]
 
   @@map("users")
 }
@@ -319,4 +339,214 @@ model UserActivity {
 
   @@unique([userId, activityType, month, year])
   @@map("user_activities")
+}
+
+// User Preferences Model
+model UserPreference {
+  id                  String   @id @default(cuid())
+  userId              String   @map("user_id")
+  
+  // Job Alert Preferences
+  jobAlertFrequency   String   @default("daily") @map("job_alert_frequency") // "instant", "daily", "weekly", "never"
+  jobKeywords         String[] @map("job_keywords")
+  jobLocations        String[] @map("job_locations")
+  jobTypes            String[] @map("job_types") // "full-time", "part-time", "contract", "internship"
+  experienceLevels    String[] @map("experience_levels") // "entry", "mid", "senior", "executive"
+  salaryMin           Int?     @map("salary_min")
+  salaryMax           Int?     @map("salary_max")
+  remoteWork          Boolean? @map("remote_work")
+  jobCategories       String[] @map("job_categories")
+  
+  // Privacy Preferences
+  hideContactInfo     Boolean  @default(true) @map("hide_contact_info")
+  hideEmail           Boolean  @default(true) @map("hide_email")
+  hidePhone           Boolean  @default(true) @map("hide_phone")
+  hideAddress         Boolean  @default(true) @map("hide_address")
+  
+  // Account Preferences
+  accountStatus       String   @default("active") @map("account_status") // "active", "deactivated", "deleted"
+  dataRetention       Boolean  @default(true) @map("data_retention")
+  marketingOptIn      Boolean  @default(false) @map("marketing_opt_in")
+  
+  createdAt           DateTime @default(now()) @map("created_at")
+  updatedAt           DateTime @updatedAt @map("updated_at")
+
+  // Relations
+  user                User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([userId])
+  @@map("user_preferences")
+}
+
+// Email Subscription Model
+model EmailSubscription {
+  id            String   @id @default(cuid())
+  email         String   @unique
+  userId        String?  @map("user_id")
+  
+  // Subscription Types
+  jobAlerts     Boolean  @default(true) @map("job_alerts")
+  resumeAlerts  Boolean  @default(true) @map("resume_alerts")
+  newsletter    Boolean  @default(false)
+  announcements Boolean  @default(true)
+  
+  // Metadata
+  source        String?  // "signup", "job_application", "manual"
+  isActive      Boolean  @default(true) @map("is_active")
+  unsubscribeToken String? @unique @map("unsubscribe_token")
+  
+  createdAt     DateTime @default(now()) @map("created_at")
+  updatedAt     DateTime @updatedAt @map("updated_at")
+
+  @@map("email_subscriptions")
+}
+
+// Notification Settings Model
+model NotificationSetting {
+  id                    String   @id @default(cuid())
+  userId                String   @map("user_id")
+  
+  // Email Notifications
+  emailJobAlerts        Boolean  @default(true) @map("email_job_alerts")
+  emailResumeAlerts     Boolean  @default(true) @map("email_resume_alerts")
+  emailApplications     Boolean  @default(true) @map("email_applications")
+  emailMessages         Boolean  @default(true) @map("email_messages")
+  emailAnnouncements    Boolean  @default(true) @map("email_announcements")
+  emailMarketing        Boolean  @default(false) @map("email_marketing")
+  
+  // Push Notifications
+  pushJobAlerts         Boolean  @default(true) @map("push_job_alerts")
+  pushApplications      Boolean  @default(true) @map("push_applications")
+  pushMessages          Boolean  @default(true) @map("push_messages")
+  
+  createdAt             DateTime @default(now()) @map("created_at")
+  updatedAt             DateTime @updatedAt @map("updated_at")
+
+  // Relations
+  user                  User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([userId])
+  @@map("notification_settings")
+}
+
+// Employer Feedback System
+model CompanyReview {
+  id                   String    @id @default(cuid())
+  companyId            String    @map("company_id")
+  userId               String    @map("user_id")
+  
+  // Ratings (1-5 stars)
+  overallRating        Int       @map("overall_rating")
+  compensationRating   Int       @map("compensation_rating")
+  cultureRating        Int       @map("culture_rating")
+  managementRating     Int       @map("management_rating")
+  workLifeBalanceRating Int      @map("work_life_balance_rating")
+  
+  // Review Content
+  title                String?
+  comment              String?
+  pros                 String?
+  cons                 String?
+  
+  // Position Information
+  position             String?
+  employmentType       String?   @map("employment_type") // "full-time", "part-time", "contract", "internship"
+  employmentStatus     String?   @map("employment_status") // "current", "former"
+  workDuration         String?   @map("work_duration") // "less_than_1_year", "1-2_years", "3-5_years", "more_than_5_years"
+  
+  // Moderation
+  status               String    @default("pending") // "pending", "approved", "rejected", "flagged"
+  moderationNotes      String?   @map("moderation_notes")
+  moderatedAt          DateTime? @map("moderated_at")
+  moderatedBy          String?   @map("moderated_by")
+  
+  // Metadata
+  isAnonymous          Boolean   @default(false) @map("is_anonymous")
+  isVerified           Boolean   @default(false) @map("is_verified")
+  helpfulVotes         Int       @default(0) @map("helpful_votes")
+  reportCount          Int       @default(0) @map("report_count")
+  ipAddress            String?   @map("ip_address")
+  
+  createdAt            DateTime  @default(now()) @map("created_at")
+  updatedAt            DateTime  @updatedAt @map("updated_at")
+
+  // Relations
+  company              Company   @relation(fields: [companyId], references: [id], onDelete: Cascade)
+  user                 User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  reports              ReviewReport[]
+  votes                ReviewVote[]
+
+  @@unique([companyId, userId])
+  @@map("company_reviews")
+}
+
+model ReviewReport {
+  id        String   @id @default(cuid())
+  reviewId  String   @map("review_id")
+  userId    String   @map("user_id")
+  reason    String   // "spam", "inappropriate", "fake", "offensive", "other"
+  details   String?
+  status    String   @default("pending") // "pending", "resolved", "dismissed"
+  createdAt DateTime @default(now()) @map("created_at")
+
+  // Relations
+  review    CompanyReview @relation(fields: [reviewId], references: [id], onDelete: Cascade)
+  user      User         @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([reviewId, userId])
+  @@map("review_reports")
+}
+
+model ReviewVote {
+  id        String   @id @default(cuid())
+  reviewId  String   @map("review_id")
+  userId    String   @map("user_id")
+  voteType  String   // "helpful", "not_helpful"
+  createdAt DateTime @default(now()) @map("created_at")
+
+  // Relations
+  review    CompanyReview @relation(fields: [reviewId], references: [id], onDelete: Cascade)
+  user      User         @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([reviewId, userId])
+  @@map("review_votes")
+}
+
+// Account Deletion and Privacy Models
+model AccountDeletionRequest {
+  id                 String    @id @default(cuid())
+  userId             String    @map("user_id")
+  reason             String?   // "privacy", "not_useful", "found_job", "other"
+  reasonDetails      String?   @map("reason_details")
+  requestedAt        DateTime  @default(now()) @map("requested_at")
+  processedAt        DateTime? @map("processed_at")
+  status             String    @default("pending") // "pending", "approved", "completed", "cancelled"
+  dataRetentionDays  Int       @default(30) @map("data_retention_days")
+  finalDeletionDate  DateTime? @map("final_deletion_date")
+  
+  // Backup data before deletion
+  backupData         Json?     @map("backup_data")
+  
+  createdAt          DateTime  @default(now()) @map("created_at")
+  updatedAt          DateTime  @updatedAt @map("updated_at")
+
+  // Relations
+  user               User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@map("account_deletion_requests")
+}
+
+model DataProcessingLog {
+  id            String   @id @default(cuid())
+  userId        String   @map("user_id")
+  action        String   // "data_export", "data_deletion", "privacy_update", "deactivation"
+  details       Json?
+  ipAddress     String?  @map("ip_address")
+  userAgent     String?  @map("user_agent")
+  createdAt     DateTime @default(now()) @map("created_at")
+
+  // Relations
+  user          User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@map("data_processing_logs")
 }

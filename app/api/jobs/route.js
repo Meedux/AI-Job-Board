@@ -78,6 +78,7 @@ export async function GET(request) {
       title: job.title,
       description: job.description,
       content_doc_url: job.contentDocUrl,
+      companyId: job.companyId, // Add companyId for review functionality
       salary: {
         from: job.salaryFrom,
         to: job.salaryTo,

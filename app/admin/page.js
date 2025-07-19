@@ -6,6 +6,7 @@ import { useNotifications } from '../../contexts/NotificationContext';
 import Header from '../../components/Header';
 import Footer from '../../components/Footer';
 import ProtectedRoute from '../../components/ProtectedRoute';
+import AdminReviewModeration from '../../components/AdminReviewModeration';
 import { colors, typography, components, layout, combineClasses } from '../../utils/designSystem';
 import { CopyToClipboard } from 'react-copy-to-clipboard';
 
@@ -538,6 +539,12 @@ const AdminDashboard = () => {
                 onClick={setActiveTab} 
               />
               <TabButton 
+                id="reviews" 
+                label="Reviews" 
+                isActive={activeTab === 'reviews'} 
+                onClick={setActiveTab} 
+              />
+              <TabButton 
                 id="settings" 
                 label="Settings" 
                 isActive={activeTab === 'settings'} 
@@ -914,6 +921,11 @@ const AdminDashboard = () => {
                       </div>
                     </div>
                   </div>
+                )}
+
+                {/* Review Moderation Tab */}
+                {activeTab === 'reviews' && (
+                  <AdminReviewModeration />
                 )}
 
                 {/* Settings Tab */}
