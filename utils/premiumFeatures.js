@@ -19,6 +19,9 @@ export const PREMIUM_FEATURES = {
   PRIORITY_SUPPORT: 'priority_support',
   ADVANCED_FILTERS: 'advanced_filters',
   
+  // Privacy features
+  CONTENT_MASKING: 'content_masking',
+  
   // Enhanced features
   UNLIMITED_APPLICATIONS: 'unlimited_applications',
   JOB_ALERTS: 'job_alerts',
@@ -82,7 +85,8 @@ export function hasPremiumFeature(feature, user, subscription) {
       return [
         PREMIUM_FEATURES.JOB_ALERTS,
         PREMIUM_FEATURES.ADVANCED_FILTERS,
-        PREMIUM_FEATURES.RESUME_VISIBILITY
+        PREMIUM_FEATURES.RESUME_VISIBILITY,
+        PREMIUM_FEATURES.CONTENT_MASKING
       ].includes(feature);
       
     case 'premium':
@@ -90,6 +94,7 @@ export function hasPremiumFeature(feature, user, subscription) {
         PREMIUM_FEATURES.JOB_ALERTS,
         PREMIUM_FEATURES.ADVANCED_FILTERS,
         PREMIUM_FEATURES.RESUME_VISIBILITY,
+        PREMIUM_FEATURES.CONTENT_MASKING,
         PREMIUM_FEATURES.AI_RESUME_ANALYZER,
         PREMIUM_FEATURES.ONE_CLICK_APPLY,
         PREMIUM_FEATURES.LAZY_APPLY,
@@ -129,7 +134,8 @@ export function getAvailablePremiumFeatures(user, subscription) {
       return [
         PREMIUM_FEATURES.JOB_ALERTS,
         PREMIUM_FEATURES.ADVANCED_FILTERS,
-        PREMIUM_FEATURES.RESUME_VISIBILITY
+        PREMIUM_FEATURES.RESUME_VISIBILITY,
+        PREMIUM_FEATURES.CONTENT_MASKING
       ];
       
     case 'premium':
@@ -137,6 +143,7 @@ export function getAvailablePremiumFeatures(user, subscription) {
         PREMIUM_FEATURES.JOB_ALERTS,
         PREMIUM_FEATURES.ADVANCED_FILTERS,
         PREMIUM_FEATURES.RESUME_VISIBILITY,
+        PREMIUM_FEATURES.CONTENT_MASKING,
         PREMIUM_FEATURES.AI_RESUME_ANALYZER,
         PREMIUM_FEATURES.ONE_CLICK_APPLY,
         PREMIUM_FEATURES.LAZY_APPLY,

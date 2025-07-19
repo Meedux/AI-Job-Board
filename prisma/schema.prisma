@@ -114,6 +114,7 @@ model User {
   showSensitiveInfo Boolean @default(false) @map("show_sensitive_info")
   profileVisibility String  @default("public") @map("profile_visibility") // "public", "private", "premium_only"
   hideProfile      Boolean  @default(false) @map("hide_profile")
+  contentMasking   Boolean  @default(false) @map("content_masking") // Premium feature to mask sensitive info
   
   // Notification Preferences
   emailNotifications    Boolean @default(true) @map("email_notifications")
