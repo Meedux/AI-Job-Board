@@ -30,6 +30,21 @@ function PaymentSuccessContent() {
     processPayment(paymentIntentId);
   }, [searchParams]);
 
+  // Function to get role-specific dashboard URL
+  const getRoleBasedDashboard = (userRole) => {
+    switch (userRole) {
+      case 'super_admin':
+        return '/admin';
+      case 'employer_admin':
+        return '/admin';
+      case 'sub_user':
+        return '/admin';
+      case 'job_seeker':
+      default:
+        return '/dashboard';
+    }
+  };
+
   useEffect(() => {
     if (success && countdown > 0) {
       const timer = setTimeout(() => {
@@ -37,9 +52,10 @@ function PaymentSuccessContent() {
       }, 1000);
       return () => clearTimeout(timer);
     } else if (success && countdown === 0) {
-      router.push('/dashboard');
+      const dashboardUrl = getRoleBasedDashboard(user?.role);
+      router.push(dashboardUrl);
     }
-  }, [success, countdown, router]);
+  }, [success, countdown, router, user]);
 
   const processPayment = async (paymentIntentId) => {
     try {
@@ -153,7 +169,7 @@ function PaymentSuccessContent() {
             <p className="text-gray-300 mb-6">{error}</p>
             <div className="space-y-3">
               <button
-                onClick={() => router.push('/dashboard')}
+                onClick={() => router.push(getRoleBasedDashboard(user?.role))}
                 className="w-full bg-blue-600 hover:bg-blue-700 text-white font-medium py-2 px-4 rounded-lg transition-colors"
               >
                 Go to Dashboard
@@ -230,15 +246,15 @@ function PaymentSuccessContent() {
             
             <div className="bg-blue-600 rounded-lg p-4 mb-6">
               <p className="text-white">
-                Redirecting to dashboard in <span className="font-bold">{countdown}</span> seconds...
+                Redirecting to {user?.role === 'job_seeker' ? 'your dashboard' : 'admin panel'} in <span className="font-bold">{countdown}</span> seconds...
               </p>
             </div>
             
             <button
-              onClick={() => router.push('/dashboard')}
+              onClick={() => router.push(getRoleBasedDashboard(user?.role))}
               className="w-full bg-blue-600 hover:bg-blue-700 text-white font-medium py-2 px-4 rounded-lg transition-colors"
             >
-              Go to Dashboard Now
+              {user?.role === 'job_seeker' ? 'Go to Dashboard Now' : 'Go to Admin Panel Now'}
             </button>
           </div>
         </div>

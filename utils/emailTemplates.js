@@ -707,9 +707,161 @@ export function welcomeTemplate({ user, isEmployer = false }) {
   `;
 }
 
+// Email verification template
+export function verificationTemplate(name, verificationUrl) {
+  return `
+    <!DOCTYPE html>
+    <html>
+    <head>
+      <meta charset="utf-8">
+      <meta name="viewport" content="width=device-width, initial-scale=1">
+      <title>Verify Your Email - JobSite</title>
+      ${BASE_STYLES}
+    </head>
+    <body>
+      <div class="container">
+        <!-- Header -->
+        <div class="header">
+          <h1>JobSite</h1>
+          <p>Verify Your Email Address</p>
+        </div>
+
+        <!-- Content -->
+        <div class="content">
+          <div style="text-align: center; margin-bottom: 32px;">
+            <div style="font-size: 64px; margin-bottom: 16px;">📧</div>
+            <h2 style="color: #10b981; margin-bottom: 16px;">Welcome to JobSite!</h2>
+            <p style="color: #d1d5db; font-size: 18px;">
+              Hi ${name || 'there'},
+            </p>
+          </div>
+
+          <p style="margin-bottom: 24px; color: #d1d5db;">
+            Thank you for joining JobSite! To complete your registration and start using all our features, 
+            please verify your email address by clicking the button below.
+          </p>
+
+          <div style="text-align: center; margin: 32px 0;">
+            <a href="${verificationUrl}" class="cta-button">
+              Verify Email Address
+            </a>
+          </div>
+
+          <div class="info-box">
+            <h3>What happens after verification?</h3>
+            <ul style="margin: 16px 0; padding-left: 20px; color: #d1d5db;">
+              <li>Access to your personalized dashboard</li>
+              <li>Ability to apply for jobs or post positions</li>
+              <li>Resume upload and AI-powered matching</li>
+              <li>Email notifications for relevant opportunities</li>
+            </ul>
+          </div>
+
+          <p style="margin-top: 32px; color: #9ca3af; font-size: 14px;">
+            If you didn't create this account, you can safely ignore this email.
+            The verification link will expire in 24 hours.
+          </p>
+
+          <p style="margin-top: 16px; color: #9ca3af; font-size: 14px;">
+            If the button doesn't work, copy and paste this link into your browser:<br>
+            <a href="${verificationUrl}" style="color: #6366f1; word-break: break-all;">${verificationUrl}</a>
+          </p>
+        </div>
+
+        <!-- Footer -->
+        <div class="footer">
+          <p>
+            <a href="${process.env.NEXT_PUBLIC_BASE_URL || 'https://jobsite.com'}">JobSite</a> | 
+            <a href="${process.env.NEXT_PUBLIC_BASE_URL || 'https://jobsite.com'}/help">Help</a> | 
+            <a href="${process.env.NEXT_PUBLIC_BASE_URL || 'https://jobsite.com'}/unsubscribe">Unsubscribe</a>
+          </p>
+        </div>
+      </div>
+    </body>
+    </html>
+  `;
+}
+
+// Password reset template
+export function passwordResetTemplate(name, resetUrl) {
+  return `
+    <!DOCTYPE html>
+    <html>
+    <head>
+      <meta charset="utf-8">
+      <meta name="viewport" content="width=device-width, initial-scale=1">
+      <title>Reset Your Password - JobSite</title>
+      ${BASE_STYLES}
+    </head>
+    <body>
+      <div class="container">
+        <!-- Header -->
+        <div class="header">
+          <h1>JobSite</h1>
+          <p>Password Reset Request</p>
+        </div>
+
+        <!-- Content -->
+        <div class="content">
+          <div style="text-align: center; margin-bottom: 32px;">
+            <div style="font-size: 64px; margin-bottom: 16px;">🔑</div>
+            <h2 style="color: #f59e0b; margin-bottom: 16px;">Reset Your Password</h2>
+            <p style="color: #d1d5db; font-size: 18px;">
+              Hi ${name || 'there'},
+            </p>
+          </div>
+
+          <p style="margin-bottom: 24px; color: #d1d5db;">
+            We received a request to reset your password for your JobSite account. 
+            If you made this request, click the button below to create a new password.
+          </p>
+
+          <div style="text-align: center; margin: 32px 0;">
+            <a href="${resetUrl}" class="cta-button">
+              Reset Password
+            </a>
+          </div>
+
+          <div class="info-box" style="background-color: #fef3c7; border-left: 4px solid #f59e0b; color: #92400e;">
+            <h3 style="color: #92400e;">Security Notice</h3>
+            <ul style="margin: 16px 0; padding-left: 20px; color: #92400e;">
+              <li>This link will expire in 1 hour for security</li>
+              <li>You can only use this link once</li>
+              <li>If you didn't request this, ignore this email</li>
+              <li>Consider enabling 2FA for extra security</li>
+            </ul>
+          </div>
+
+          <p style="margin-top: 32px; color: #9ca3af; font-size: 14px;">
+            If you didn't request a password reset, you can safely ignore this email. 
+            Your password will remain unchanged.
+          </p>
+
+          <p style="margin-top: 16px; color: #9ca3af; font-size: 14px;">
+            If the button doesn't work, copy and paste this link into your browser:<br>
+            <a href="${resetUrl}" style="color: #6366f1; word-break: break-all;">${resetUrl}</a>
+          </p>
+        </div>
+
+        <!-- Footer -->
+        <div class="footer">
+          <p>
+            <a href="${process.env.NEXT_PUBLIC_BASE_URL || 'https://jobsite.com'}">JobSite</a> | 
+            <a href="${process.env.NEXT_PUBLIC_BASE_URL || 'https://jobsite.com'}/help">Help</a> | 
+            <a href="${process.env.NEXT_PUBLIC_BASE_URL || 'https://jobsite.com'}/contact">Contact Support</a>
+          </p>
+        </div>
+      </div>
+    </body>
+    </html>
+  `;
+}
+
 export default {
   jobAlertTemplate,
   resumeAlertTemplate,
   notificationTemplate,
-  welcomeTemplate
+  welcomeTemplate,
+  verificationTemplate,
+  passwordResetTemplate
 };

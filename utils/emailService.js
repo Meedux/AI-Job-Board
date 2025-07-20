@@ -8,7 +8,9 @@ import {
   jobAlertTemplate, 
   resumeAlertTemplate, 
   notificationTemplate, 
-  welcomeTemplate 
+  welcomeTemplate,
+  verificationTemplate,
+  passwordResetTemplate
 } from './emailTemplates';
 
 class EmailNotificationService {
@@ -808,10 +810,47 @@ Check the admin dashboard: ${process.env.NEXT_PUBLIC_SITE_URL || 'http://localho
 
     return results;
   }
+
+  // Send email verification
+  async sendVerificationEmail(email, token, name) {
+    if (!this.enabled) {
+      console.log('Email notifications disabled, skipping verification email');
+      return { success: true, message: 'Email service disabled' };
+    }
+
+    const verificationUrl = `${process.env.NEXT_PUBLIC_BASE_URL || 'http://localhost:3000'}/api/auth/verify-email?token=${token}`;
+    
+    const subject = 'Verify Your Email - JobSite';
+    const html = verificationTemplate(name, verificationUrl);
+    
+    return await this.sendEmail(email, subject, html, 'verification');
+  }
+
+  // Send password reset email
+  async sendPasswordResetEmail(email, token, name) {
+    if (!this.enabled) {
+      console.log('Email notifications disabled, skipping password reset email');
+      return { success: true, message: 'Email service disabled' };
+    }
+
+    const resetUrl = `${process.env.NEXT_PUBLIC_BASE_URL || 'http://localhost:3000'}/reset-password?token=${token}`;
+    
+    const subject = 'Reset Your Password - JobSite';
+    const html = passwordResetTemplate(name, resetUrl);
+    
+    return await this.sendEmail(email, subject, html, 'password_reset');
+  }
 }
 
 // Export singleton instance
 export const emailService = new EmailNotificationService();
+
+// Export individual functions for convenience
+export const sendVerificationEmail = (email, token, name) => 
+  emailService.sendVerificationEmail(email, token, name);
+
+export const sendPasswordResetEmail = (email, token, name) => 
+  emailService.sendPasswordResetEmail(email, token, name);
 
 // Export class for testing
 export { EmailNotificationService };

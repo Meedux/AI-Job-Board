@@ -11,6 +11,7 @@ const Header = ({ onSearch, onFilter }) => {
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
   const [isUserMenuOpen, setIsUserMenuOpen] = useState(false);
   const [isFilterModalOpen, setIsFilterModalOpen] = useState(false);
+  const [activeDropdown, setActiveDropdown] = useState(null);
   const [searchTerm, setSearchTerm] = useState('');
   const [location, setLocation] = useState('');
   const [filters, setFilters] = useState({
@@ -59,11 +60,14 @@ const Header = ({ onSearch, onFilter }) => {
       if (isFilterModalOpen && !event.target.closest('.filter-modal')) {
         setIsFilterModalOpen(false);
       }
+      if (activeDropdown && !event.target.closest('.nav-dropdown')) {
+        setActiveDropdown(null);
+      }
     };
 
     document.addEventListener('click', handleClickOutside);
     return () => document.removeEventListener('click', handleClickOutside);
-  }, [isMobileMenuOpen, isUserMenuOpen, isFilterModalOpen]);
+  }, [isMobileMenuOpen, isUserMenuOpen, isFilterModalOpen, activeDropdown]);
 
   const handleLogout = async () => {
     try {
@@ -82,6 +86,36 @@ const Header = ({ onSearch, onFilter }) => {
   const getUserInitials = (fullName) => {
     if (!fullName) return 'U';
     return fullName.split(' ').map(n => n[0]).join('').toUpperCase();
+  };
+
+  const getRoleDisplayName = (role) => {
+    switch (role) {
+      case 'super_admin':
+        return 'Super Admin';
+      case 'employer_admin':
+        return 'Employer Admin';
+      case 'sub_user':
+        return 'Sub User';
+      case 'job_seeker':
+        return 'Job Seeker';
+      default:
+        return role || 'User';
+    }
+  };
+
+  const getRoleColorClass = (role) => {
+    switch (role) {
+      case 'super_admin':
+        return 'bg-red-900 text-red-300';
+      case 'employer_admin':
+        return 'bg-purple-900 text-purple-300';
+      case 'sub_user':
+        return 'bg-yellow-900 text-yellow-300';
+      case 'job_seeker':
+        return 'bg-blue-900 text-blue-300';
+      default:
+        return 'bg-gray-900 text-gray-300';
+    }
   };
 
   const handleSearch = (e) => {
@@ -165,17 +199,170 @@ const Header = ({ onSearch, onFilter }) => {
     { value: 'Freelance', label: 'Freelance' }
   ];
 
-  const navLinks = [
-    { href: '/', label: 'Jobs' },
-    { href: '/about', label: 'About' },
-    { href: '/pricing', label: 'Pricing' },
-  ];
+  // Enhanced Role-specific navigation with dropdowns
+  const getNavigationStructure = () => {
+    if (!user) {
+      return {
+        simple: [
+          { href: '/', label: 'Jobs', icon: '💼' },
+          { href: '/about', label: 'About', icon: 'ℹ️' },
+          { href: '/pricing', label: 'Pricing', icon: '💰' },
+        ],
+        dropdowns: []
+      };
+    }
 
-  const userNavLinks = [
-    { href: '/dashboard', label: 'Dashboard' },
-    { href: '/my-applications', label: 'My Applications' },
-    { href: '/profile', label: 'Profile' },
-  ];
+    switch (user.role) {
+      case 'super_admin':
+        return {
+          simple: [
+            { href: '/', label: 'Jobs', icon: '💼' }
+          ],
+          dropdowns: [
+            {
+              label: 'Admin Panel',
+              icon: '⚙️',
+              items: [
+                { href: '/admin', label: 'Dashboard', icon: '📊' },
+                { href: '/admin/users', label: 'User Management', icon: '👥' },
+                { href: '/admin/reports', label: 'Reports', icon: '📈' },
+                { href: '/admin/analytics', label: 'Analytics', icon: '📊' },
+                { href: '/admin/settings', label: 'System Settings', icon: '🔧' },
+              ]
+            },
+            {
+              label: 'More',
+              icon: '➕',
+              items: [
+                { href: '/about', label: 'About', icon: 'ℹ️' },
+                { href: '/pricing', label: 'Pricing', icon: '💰' },
+              ]
+            }
+          ]
+        };
+      
+      case 'employer_admin':
+        return {
+          simple: [
+            { href: '/', label: 'Jobs', icon: '💼' }
+          ],
+          dropdowns: [
+            {
+              label: 'Employer Hub',
+              icon: '🏢',
+              items: [
+                { href: '/admin', label: 'Dashboard', icon: '📊' },
+                { href: '/admin/post-job', label: 'Post Job', icon: '➕' },
+                { href: '/admin/jobs', label: 'Manage Jobs', icon: '📋' },
+                { href: '/admin/applications', label: 'Applications', icon: '📄' },
+                { href: '/admin/candidates', label: 'Candidates', icon: '👤' },
+              ]
+            },
+            {
+              label: 'Resources',
+              icon: '📚',
+              items: [
+                { href: '/admin/credits', label: 'Credits', icon: '💳' },
+                { href: '/admin/billing', label: 'Billing', icon: '💰' },
+                { href: '/admin/analytics', label: 'Analytics', icon: '📈' },
+                { href: '/pricing', label: 'Pricing', icon: '💰' },
+              ]
+            }
+          ]
+        };
+      
+      case 'sub_user':
+        return {
+          simple: [
+            { href: '/', label: 'Jobs', icon: '💼' }
+          ],
+          dropdowns: [
+            {
+              label: 'Workspace',
+              icon: '👤',
+              items: [
+                { href: '/admin', label: 'Dashboard', icon: '📊' },
+                { href: '/admin/assigned-tasks', label: 'Assigned Tasks', icon: '✅' },
+                { href: '/admin/reports', label: 'My Reports', icon: '📄' },
+              ]
+            },
+            {
+              label: 'More',
+              icon: '➕',
+              items: [
+                { href: '/about', label: 'About', icon: 'ℹ️' },
+              ]
+            }
+          ]
+        };
+      
+      default: // job_seeker
+        return {
+          simple: [
+            { href: '/', label: 'Jobs', icon: '💼' }
+          ],
+          dropdowns: [
+            {
+              label: 'Tools',
+              icon: '🛠️',
+              items: [
+                { href: '/resume-analyzer', label: 'Resume Analyzer', icon: '📄' },
+                { href: '/my-applications', label: 'My Applications', icon: '📋' },
+                { href: '/job-alerts', label: 'Job Alerts', icon: '🔔' },
+              ]
+            },
+            {
+              label: 'More',
+              icon: '➕',
+              items: [
+                { href: '/about', label: 'About', icon: 'ℹ️' },
+                { href: '/pricing', label: 'Pricing', icon: '💰' },
+              ]
+            }
+          ]
+        };
+    }
+  };
+
+  const getUserNavigationItems = () => {
+    if (!user) return [];
+
+    const baseUserLinks = [];
+    
+    switch (user.role) {
+      case 'super_admin':
+        return [
+          ...baseUserLinks,
+          { href: '/admin', label: 'Admin Panel', icon: '⚙️' },
+          { href: '/profile', label: 'Profile', icon: '👤' },
+        ];
+      
+      case 'employer_admin':
+        return [
+          ...baseUserLinks,
+          { href: '/profile', label: 'Profile', icon: '👤' },
+        ];
+      
+      case 'sub_user':
+        return [
+          ...baseUserLinks,
+          { href: '/admin', label: 'Workspace', icon: '👤' },
+          { href: '/profile', label: 'Profile', icon: '👤' },
+        ];
+      
+      default: // job_seeker
+        return [
+          ...baseUserLinks,
+          { href: '/my-applications', label: 'My Applications', icon: '📋' },
+          { href: '/resume-analyzer', label: 'Resume Analyzer', icon: '📄' },
+          { href: '/profile', label: 'Profile', icon: '👤' },
+          { href: '/dashboard', label: 'Dashboard', icon: '📊' }
+        ];
+    }
+  };
+
+  const navigation = getNavigationStructure();
+  const userNavLinks = getUserNavigationItems();
 
   return (
     <div className="relative">
@@ -229,14 +416,56 @@ const Header = ({ onSearch, onFilter }) => {
 
             {/* Desktop Navigation */}
             <nav className="hidden lg:flex items-center space-x-1">
-              {navLinks.map((link) => (
+              {/* Simple Links */}
+              {navigation.simple.map((link) => (
                 <Link 
                   key={link.href}
                   href={link.href} 
-                  className="px-3 py-2 text-gray-300 hover:text-blue-400 hover:bg-gray-800 rounded-lg transition-all duration-200 font-medium text-sm"
+                  className="px-3 py-2 text-gray-300 hover:text-blue-400 hover:bg-gray-800 rounded-lg transition-all duration-200 font-medium text-sm flex items-center space-x-1"
                 >
-                  {link.label}
+                  <span className="text-xs">{link.icon}</span>
+                  <span>{link.label}</span>
                 </Link>
+              ))}
+              
+              {/* Dropdown Links */}
+              {navigation.dropdowns.map((dropdown, index) => (
+                <div key={index} className="relative nav-dropdown">
+                  <button
+                    onClick={() => setActiveDropdown(activeDropdown === index ? null : index)}
+                    className="px-3 py-2 text-gray-300 hover:text-blue-400 hover:bg-gray-800 rounded-lg transition-all duration-200 font-medium text-sm flex items-center space-x-1"
+                  >
+                    <span className="text-xs">{dropdown.icon}</span>
+                    <span>{dropdown.label}</span>
+                    <svg 
+                      className={`w-4 h-4 transition-transform duration-200 ${activeDropdown === index ? 'rotate-180' : ''}`} 
+                      fill="none" 
+                      stroke="currentColor" 
+                      viewBox="0 0 24 24"
+                    >
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
+                    </svg>
+                  </button>
+                  
+                  {/* Dropdown Menu */}
+                  {activeDropdown === index && (
+                    <div className="absolute top-full left-0 mt-2 w-56 bg-gray-800 border border-gray-700 rounded-xl shadow-lg z-50 animate-fadeIn">
+                      <div className="py-2">
+                        {dropdown.items.map((item) => (
+                          <Link
+                            key={item.href}
+                            href={item.href}
+                            className="flex items-center space-x-2 px-4 py-2 text-gray-300 hover:bg-gray-700 hover:text-blue-400 transition-colors text-sm w-full"
+                            onClick={() => setActiveDropdown(null)}
+                          >
+                            <span className="text-xs">{item.icon}</span>
+                            <span>{item.label}</span>
+                          </Link>
+                        ))}
+                      </div>
+                    </div>
+                  )}
+                </div>
               ))}
             </nav>
 
@@ -253,9 +482,10 @@ const Header = ({ onSearch, onFilter }) => {
                           <Link 
                             key={link.href}
                             href={link.href} 
-                            className="px-3 py-2 text-gray-300 hover:text-blue-400 hover:bg-gray-800 rounded-lg transition-all duration-200 text-sm font-medium"
+                            className="px-3 py-2 text-gray-300 hover:text-blue-400 hover:bg-gray-800 rounded-lg transition-all duration-200 text-sm font-medium flex items-center space-x-1"
                           >
-                            {link.label}
+                            <span className="text-xs">{link.icon}</span>
+                            <span>{link.label}</span>
                           </Link>
                         ))}
                       </nav>
@@ -286,8 +516,8 @@ const Header = ({ onSearch, onFilter }) => {
                               <p className="text-white text-sm font-semibold truncate">{user.fullName || 'User'}</p>
                               <p className="text-gray-400 text-xs truncate">{user.email}</p>
                               {user.role && (
-                                <span className="inline-flex items-center px-2 py-1 rounded-full text-xs font-medium bg-blue-900 text-blue-300 mt-1">
-                                  {user.role}
+                                <span className={`inline-flex items-center px-2 py-1 rounded-full text-xs font-medium mt-1 ${getRoleColorClass(user.role)}`}>
+                                  {getRoleDisplayName(user.role)}
                                 </span>
                               )}
                             </div>
@@ -406,15 +636,38 @@ const Header = ({ onSearch, onFilter }) => {
                   </form>
                 </div>
 
-                {navLinks.map((link) => (
+                {/* Simple Navigation Links */}
+                {navigation.simple.map((link) => (
                   <Link 
                     key={link.href}
                     href={link.href} 
-                    className="block px-3 py-2 text-gray-300 hover:text-blue-400 hover:bg-gray-800 rounded-lg transition-all duration-200 font-medium"
+                    className="flex items-center space-x-2 px-3 py-2 text-gray-300 hover:text-blue-400 hover:bg-gray-800 rounded-lg transition-all duration-200 font-medium"
                     onClick={closeMobileMenu}
                   >
-                    {link.label}
+                    <span className="text-sm">{link.icon}</span>
+                    <span>{link.label}</span>
                   </Link>
+                ))}
+                
+                {/* Dropdown Navigation Sections */}
+                {navigation.dropdowns.map((dropdown, index) => (
+                  <div key={index} className="mt-4">
+                    <div className="px-3 py-2 text-xs font-semibold text-gray-400 uppercase tracking-wider flex items-center space-x-1">
+                      <span>{dropdown.icon}</span>
+                      <span>{dropdown.label}</span>
+                    </div>
+                    {dropdown.items.map((item) => (
+                      <Link
+                        key={item.href}
+                        href={item.href}
+                        className="flex items-center space-x-2 px-6 py-2 text-gray-300 hover:text-blue-400 hover:bg-gray-800 rounded-lg transition-all duration-200 font-medium text-sm"
+                        onClick={closeMobileMenu}
+                      >
+                        <span className="text-xs">{item.icon}</span>
+                        <span>{item.label}</span>
+                      </Link>
+                    ))}
+                  </div>
                 ))}
                 
                 {user && (
@@ -427,9 +680,14 @@ const Header = ({ onSearch, onFilter }) => {
                             {getUserInitials(user.fullName)}
                           </span>
                         </div>
-                        <div>
+                        <div className="flex-1">
                           <p className="text-white text-sm font-semibold">{user.fullName || 'User'}</p>
                           <p className="text-gray-400 text-xs">{user.email}</p>
+                          {user.role && (
+                            <span className={`inline-flex items-center px-2 py-1 rounded-full text-xs font-medium mt-1 ${getRoleColorClass(user.role)}`}>
+                              {getRoleDisplayName(user.role)}
+                            </span>
+                          )}
                         </div>
                       </div>
                     </div>

@@ -100,6 +100,7 @@ model User {
   uid          String?   @unique // Legacy UID from Google Sheets
   email        String    @unique
   fullName     String?   @map("full_name")
+  companyName  String?   @map("company_name") // For hirers/employers
   nickname     String?
   firstName    String?   @map("first_name")
   lastName     String?   @map("last_name")
@@ -107,8 +108,27 @@ model User {
   age          Int?
   dateOfBirth  DateTime? @map("date_of_birth")
   fullAddress  String?   @map("full_address")
-  role         String    @default("user") // "user", "admin", "recruiter"
+  
+  // Enhanced Role System
+  role         String    @default("job_seeker") // "super_admin", "employer_admin", "sub_user", "job_seeker"
+  userType     String?   @map("user_type") // For sub-users: "staff", "vendor", "customer"
+  employerType String?   @map("employer_type") // "local_direct", "local_pea", "local_do174", "local_psa", "local_government", "abroad_recruitment", "abroad_manning", "abroad_dmw"
+  
+  // Account Hierarchy
+  parentUserId String?   @map("parent_user_id") // Reference to main employer account
+  parentUser   User?     @relation("UserHierarchy", fields: [parentUserId], references: [id])
+  subUsers     User[]    @relation("UserHierarchy")
+  
+  // Access Control
   isActive     Boolean   @default(true) @map("is_active")
+  accessLevel  Int       @default(1) @map("access_level") // 1-10 scale for granular permissions
+  permissions  Json?     // Flexible permissions object
+  
+  // Credits and Limits (for sub-users, inherited from parent)
+  allocatedResumeCredits  Int    @default(0) @map("allocated_resume_credits")
+  allocatedAiCredits      Int    @default(0) @map("allocated_ai_credits")
+  usedResumeCredits       Int    @default(0) @map("used_resume_credits")
+  usedAiCredits           Int    @default(0) @map("used_ai_credits")
   
   // Privacy and Content Settings
   showSensitiveInfo Boolean @default(false) @map("show_sensitive_info")
@@ -121,6 +141,25 @@ model User {
   jobAlerts            Boolean @default(true) @map("job_alerts")
   resumeAlerts         Boolean @default(true) @map("resume_alerts")
   marketingEmails      Boolean @default(false) @map("marketing_emails")
+  
+  // Account Status
+  accountStatus    String   @default("active") @map("account_status") // "active", "suspended", "expired", "pending"
+  lastLoginAt      DateTime? @map("last_login_at")
+  activationCode   String?  @map("activation_code") // For sub-user activation
+  activatedAt      DateTime? @map("activated_at")
+  
+  // Email Verification
+  emailVerificationToken String?  @map("email_verification_token")
+  emailVerifiedAt        DateTime? @map("email_verified_at")
+  
+  // Password Reset
+  passwordResetToken   String?   @map("password_reset_token")
+  passwordResetExpires DateTime? @map("password_reset_expires")
+  
+  // Two-Factor Authentication
+  enableTwoFactor     Boolean @default(false) @map("enable_two_factor")
+  twoFactorSecret     String? @map("two_factor_secret")
+  twoFactorBackupCodes Json?  @map("two_factor_backup_codes")
   
   createdAt    DateTime  @default(now()) @map("created_at")
   updatedAt    DateTime  @updatedAt @map("updated_at")
@@ -139,6 +178,13 @@ model User {
   reviewVotes ReviewVote[]
   deletionRequests AccountDeletionRequest[]
   dataProcessingLogs DataProcessingLog[]
+  
+  // New Relations for Enhanced System
+  managedUsers     UserManagement[] @relation("ManagedBy")
+  managerOf        UserManagement[] @relation("ManagerOf")
+  resumeExports    ResumeExport[]
+  reminders        Reminder[]
+  atsActivities    ATSActivity[]
 
   @@map("users")
 }
@@ -550,4 +596,117 @@ model DataProcessingLog {
   user          User     @relation(fields: [userId], references: [id], onDelete: Cascade)
 
   @@map("data_processing_logs")
+}
+
+// Enhanced User Management System Models
+model UserManagement {
+  id               String   @id @default(cuid())
+  managerId        String   @map("manager_id")
+  managedUserId    String   @map("managed_user_id")
+  accessLevel      Int      @default(1) @map("access_level") // 1-10 scale
+  permissions      Json?    // Specific permissions
+  creditLimits     Json?    @map("credit_limits") // Resume and AI credit limits
+  isActive         Boolean  @default(true) @map("is_active")
+  createdAt        DateTime @default(now()) @map("created_at")
+  updatedAt        DateTime @updatedAt @map("updated_at")
+
+  // Relations
+  manager          User     @relation("ManagerOf", fields: [managerId], references: [id], onDelete: Cascade)
+  managedUser      User     @relation("ManagedBy", fields: [managedUserId], references: [id], onDelete: Cascade)
+
+  @@unique([managerId, managedUserId])
+  @@map("user_management")
+}
+
+model ResumeExport {
+  id           String   @id @default(cuid())
+  userId       String   @map("user_id")
+  exportedBy   String   @map("exported_by") // User who performed the export
+  resumeData   Json     @map("resume_data") // Resume content
+  format       String   // "pdf", "csv", "json"
+  fileName     String   @map("file_name")
+  fileSize     Int?     @map("file_size")
+  downloadUrl  String?  @map("download_url")
+  isShared     Boolean  @default(false) @map("is_shared")
+  sharedWith   Json?    @map("shared_with") // Array of user IDs or emails
+  expiresAt    DateTime? @map("expires_at")
+  createdAt    DateTime @default(now()) @map("created_at")
+
+  // Relations
+  user         User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@map("resume_exports")
+}
+
+model Reminder {
+  id           String    @id @default(cuid())
+  userId       String    @map("user_id")
+  createdBy    String    @map("created_by") // Super admin who created it
+  title        String
+  message      String
+  type         String    // "subscription_expiry", "credit_low", "account_inactive", "custom"
+  priority     String    @default("medium") // "low", "medium", "high", "urgent"
+  targetDate   DateTime? @map("target_date")
+  isRead       Boolean   @default(false) @map("is_read")
+  isArchived   Boolean   @default(false) @map("is_archived")
+  metadata     Json?     // Additional reminder data
+  createdAt    DateTime  @default(now()) @map("created_at")
+  updatedAt    DateTime  @updatedAt @map("updated_at")
+
+  // Relations
+  user         User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@map("reminders")
+}
+
+model ATSActivity {
+  id           String   @id @default(cuid())
+  userId       String   @map("user_id")
+  activityType String   @map("activity_type") // "resume_view", "candidate_status_change", "interview_scheduled", etc.
+  entityType   String   @map("entity_type") // "job_application", "candidate", "job_posting"
+  entityId     String   @map("entity_id")
+  description  String
+  metadata     Json?    // Additional activity data
+  createdAt    DateTime @default(now()) @map("created_at")
+
+  // Relations
+  user         User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@map("ats_activities")
+}
+
+// Enhanced Subscription Plans for new user types
+model SubscriptionAddon {
+  id                String   @id @default(cuid())
+  name              String
+  description       String?
+  type              String   // "resume_credits", "ai_credits", "sub_users", "features"
+  value             Int      // Number of credits or features
+  price             Decimal
+  currency          String   @default("PHP")
+  isActive          Boolean  @default(true) @map("is_active")
+  requiredPlanTypes Json?    @map("required_plan_types") // Which plan types can purchase this
+  createdAt         DateTime @default(now()) @map("created_at")
+  updatedAt         DateTime @updatedAt @map("updated_at")
+
+  // Relations
+  purchases         SubscriptionAddonPurchase[]
+
+  @@map("subscription_addons")
+}
+
+model SubscriptionAddonPurchase {
+  id             String            @id @default(cuid())
+  userId         String            @map("user_id")
+  addonId        String            @map("addon_id")
+  quantity       Int               @default(1)
+  totalPrice     Decimal           @map("total_price")
+  status         String            @default("active") // "active", "consumed", "expired"
+  expiresAt      DateTime?         @map("expires_at")
+  purchasedAt    DateTime          @default(now()) @map("purchased_at")
+
+  // Relations
+  addon          SubscriptionAddon @relation(fields: [addonId], references: [id])
+
+  @@map("subscription_addon_purchases")
 }

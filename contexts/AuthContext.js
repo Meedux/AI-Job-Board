@@ -90,38 +90,57 @@ export const AuthProvider = ({ children }) => {
   }, [isAdmin]);
 
 
-  const login = async (email, password) => {
-    console.log('🔑 Starting login process for:', email);
-    try {
-      const response = await fetch('/api/auth/login', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({ email, password }),
-      });
+  const login = async (emailOrUser, passwordOrToken) => {
+    // Handle two call patterns:
+    // 1. login(email, password) - traditional login
+    // 2. login(userData, token) - after successful API response
+    
+    if (typeof emailOrUser === 'object' && emailOrUser.email) {
+      // Pattern 2: Already have user data and token, just set the user
+      const userWithAdminRole = {
+        ...emailOrUser,
+        isAdmin: isAdmin(emailOrUser.email)
+      };
+      setUser(userWithAdminRole);
+      console.log('✅ User authenticated with token:', userWithAdminRole);
+      return { success: true, user: userWithAdminRole };
+    } else {
+      // Pattern 1: Traditional email/password login
+      const email = emailOrUser;
+      const password = passwordOrToken;
+      
+      console.log('🔑 Starting login process for:', email);
+      try {
+        const response = await fetch('/api/auth/login', {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify({ email, password }),
+        });
 
-      console.log('📡 Login response status:', response.status);
-      const data = await response.json();
-      console.log('📄 Login response data:', data);
+        console.log('📡 Login response status:', response.status);
+        const data = await response.json();
+        console.log('📄 Login response data:', data);
 
-      if (response.ok) {
-        const userWithAdminRole = {
-          ...data.user,
-          isAdmin: isAdmin(data.user.email)
-        };
-        setUser(userWithAdminRole);
-        console.log('✅ Login successful, user set:', userWithAdminRole);
-        
-        const redirectUrl = getRedirectUrl(data.user.email);
-        return { success: true, redirectUrl };
-      } else {
-        console.log('❌ Login failed:', data.error);
-        return { success: false, error: data.error };
+        if (response.ok) {
+          const userWithAdminRole = {
+            ...data.user,
+            isAdmin: isAdmin(data.user.email)
+          };
+          setUser(userWithAdminRole);
+          console.log('✅ Login successful, user set:', userWithAdminRole);
+          
+          const redirectUrl = getRedirectUrl(data.user.email);
+          return { success: true, redirectUrl };
+        } else {
+          console.log('❌ Login failed:', data.error);
+          return { success: false, error: data.error };
+        }
+      } catch (error) {
+        console.error('❌ Login network error:', error);
+        return { success: false, error: 'Network error' };
       }
-    } catch (error) {
-      console.error('❌ Login network error:', error);
-      return { success: false, error: 'Network error' };
     }
   };
   const register = async (userData) => {
