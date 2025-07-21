@@ -2,6 +2,7 @@
 
 import { useState, useEffect, useRef } from 'react';
 import Link from 'next/link';
+import { useRouter } from 'next/navigation';
 import { useAuth } from '../contexts/AuthContext';
 
 const Header = ({ onSearch, onFilter }) => {
@@ -22,6 +23,7 @@ const Header = ({ onSearch, onFilter }) => {
   });
   
   const { user, logout, loading } = useAuth();
+  const router = useRouter();
   const lastScrollY = useRef(0);
   const heroRef = useRef(null);
 
@@ -74,6 +76,8 @@ const Header = ({ onSearch, onFilter }) => {
       await logout();
       setIsUserMenuOpen(false);
       setIsMobileMenuOpen(false);
+      // Redirect to landing page after successful logout
+      router.push('/');
     } catch (error) {
       console.error('Logout failed:', error);
     }
