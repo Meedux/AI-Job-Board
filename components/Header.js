@@ -260,6 +260,7 @@ const Header = ({ onSearch, onFilter }) => {
               icon: '🏢',
               items: [
                 { href: '/admin', label: 'Dashboard', icon: '📊' },
+                { href: '/ats', label: 'ATS Dashboard', icon: '👥' },
                 { href: '/admin/post-job', label: 'Post Job', icon: '➕' },
                 { href: '/admin/jobs', label: 'Manage Jobs', icon: '📋' },
                 { href: '/admin/applications', label: 'Applications', icon: '📄' },

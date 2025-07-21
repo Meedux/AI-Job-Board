@@ -209,6 +209,7 @@ model User {
   reminders        Reminder[]
   atsActivities    ATSActivity[]
   createdForms     ApplicationForm[] @relation("CreatedForms")
+  conductedInterviews ATSInterview[] @relation("InterviewerRelation")
 
   @@map("users")
 }
@@ -222,10 +223,17 @@ model JobApplication {
   fileData       Json?     @map("file_data") // Uploaded files info
   coverLetter    String?   @map("cover_letter")
   resumeUrl      String?   @map("resume_url")
-  status         String    @default("pending") // "pending", "reviewed", "accepted", "rejected", "withdrawn"
+  status         String    @default("pending") // "pending", "reviewed", "shortlisted", "interview_scheduled", "interviewed", "offered", "hired", "rejected", "withdrawn"
+  stage          String    @default("application") // "application", "screening", "interview", "offer", "onboarding"
+  priority       String    @default("normal") // "low", "normal", "high", "urgent"
+  rating         Int?      // 1-5 star rating
   notes          String?   // Employer notes
+  feedback       Json?     // Structured feedback data
+  scheduledInterviews Json? @map("scheduled_interviews") // Interview scheduling data
   appliedAt      DateTime  @default(now()) @map("applied_at")
   reviewedAt     DateTime? @map("reviewed_at")
+  interviewedAt  DateTime? @map("interviewed_at")
+  decidedAt      DateTime? @map("decided_at")
   createdAt      DateTime  @default(now()) @map("created_at")
   updatedAt      DateTime  @updatedAt @map("updated_at")
 
@@ -233,9 +241,34 @@ model JobApplication {
   job       Job              @relation(fields: [jobId], references: [id], onDelete: Cascade)
   applicant User             @relation(fields: [applicantId], references: [id], onDelete: Cascade)
   form      ApplicationForm? @relation(fields: [formId], references: [id])
+  interviews ATSInterview[]
 
   @@unique([jobId, applicantId])
   @@map("job_applications")
+}
+
+// New model for interview scheduling
+model ATSInterview {
+  id              String    @id @default(cuid())
+  applicationId   String    @map("application_id")
+  interviewerId   String    @map("interviewer_id")
+  type            String    // "phone", "video", "in_person", "panel"
+  scheduledAt     DateTime  @map("scheduled_at")
+  duration        Int       @default(60) // Duration in minutes
+  location        String?   // Physical location or video link
+  status          String    @default("scheduled") // "scheduled", "completed", "cancelled", "rescheduled"
+  notes           String?   // Interviewer notes
+  feedback        Json?     // Structured interview feedback
+  score           Int?      // Interview score
+  recordingUrl    String?   @map("recording_url")
+  createdAt       DateTime  @default(now()) @map("created_at")
+  updatedAt       DateTime  @updatedAt @map("updated_at")
+
+  // Relations
+  application JobApplication @relation(fields: [applicationId], references: [id], onDelete: Cascade)
+  interviewer User          @relation("InterviewerRelation", fields: [interviewerId], references: [id])
+
+  @@map("ats_interviews")
 }
 
 // Subscription Models - Freemium Job Posting Site

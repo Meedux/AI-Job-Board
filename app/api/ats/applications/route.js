@@ -1,0 +1,218 @@
+import { NextResponse } from 'next/server';
+import { PrismaClient } from '@prisma/client';
+import { getUserFromRequest } from '@/utils/auth';
+
+const prisma = new PrismaClient();
+
+export async function GET(request) {
+  try {
+    const user = await getUserFromRequest(request);
+    
+    if (!user || !['employer_admin', 'super_admin'].includes(user.role)) {
+      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+    }
+
+    const { searchParams } = new URL(request.url);
+    const jobId = searchParams.get('jobId');
+    const status = searchParams.get('status');
+    const stage = searchParams.get('stage');
+    const page = parseInt(searchParams.get('page') || '1');
+    const limit = parseInt(searchParams.get('limit') || '20');
+
+    let whereClause = {};
+
+    // Filter by employer's jobs only (unless super admin)
+    if (user.role !== 'super_admin') {
+      const employerJobs = await prisma.job.findMany({
+        where: { employerId: user.id }, // Only employer_admin can access ATS
+        select: { id: true }
+      });
+      whereClause.jobId = { in: employerJobs.map(job => job.id) };
+    }
+
+    if (jobId) whereClause.jobId = jobId;
+    if (status) whereClause.status = status;
+    if (stage) whereClause.stage = stage;
+
+    const [applications, totalCount] = await Promise.all([
+      prisma.jobApplication.findMany({
+        where: whereClause,
+        include: {
+          applicant: {
+            select: {
+              id: true,
+              firstName: true,
+              lastName: true,
+              email: true,
+              phoneNumber: true,
+              profilePicture: true,
+              location: true,
+              experience: true,
+              skills: true
+            }
+          },
+          job: {
+            select: {
+              id: true,
+              title: true,
+              location: true,
+              company: true
+            }
+          },
+          interviews: {
+            include: {
+              interviewer: {
+                select: {
+                  id: true,
+                  firstName: true,
+                  lastName: true,
+                  email: true
+                }
+              }
+            },
+            orderBy: { scheduledAt: 'desc' }
+          }
+        },
+        orderBy: [
+          { priority: 'desc' },
+          { appliedAt: 'desc' }
+        ],
+        skip: (page - 1) * limit,
+        take: limit
+      }),
+      prisma.jobApplication.count({ where: whereClause })
+    ]);
+
+    // Log ATS activity
+    await prisma.aTSActivity.create({
+      data: {
+        userId: user.id,
+        activityType: 'applications_viewed',
+        entityType: 'job_application',
+        entityId: 'multiple',
+        description: `Viewed applications dashboard (${applications.length} applications)`,
+        metadata: { page, limit, filters: { jobId, status, stage } }
+      }
+    });
+
+    return NextResponse.json({
+      applications,
+      pagination: {
+        page,
+        limit,
+        total: totalCount,
+        pages: Math.ceil(totalCount / limit)
+      }
+    });
+
+  } catch (error) {
+    console.error('ATS applications error:', error);
+    return NextResponse.json(
+      { error: 'Failed to fetch applications' },
+      { status: 500 }
+    );
+  } finally {
+    await prisma.$disconnect();
+  }
+}
+
+export async function PATCH(request) {
+  try {
+    const user = await getUserFromRequest(request);
+    
+    if (!user || !['employer_admin', 'super_admin'].includes(user.role)) {
+      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+    }
+
+    const { applicationId, status, stage, priority, rating, notes, feedback } = await request.json();
+
+    if (!applicationId) {
+      return NextResponse.json({ error: 'Application ID is required' }, { status: 400 });
+    }
+
+    // Verify user can update this application
+    const application = await prisma.jobApplication.findFirst({
+      where: {
+        id: applicationId,
+        job: user.role === 'super_admin' ? undefined : {
+          employerId: user.id // Only employer_admin can access ATS
+        }
+      },
+      include: {
+        job: true,
+        applicant: true
+      }
+    });
+
+    if (!application) {
+      return NextResponse.json({ error: 'Application not found' }, { status: 404 });
+    }
+
+    const updateData = {};
+    if (status) updateData.status = status;
+    if (stage) updateData.stage = stage;
+    if (priority) updateData.priority = priority;
+    if (rating !== undefined) updateData.rating = rating;
+    if (notes !== undefined) updateData.notes = notes;
+    if (feedback !== undefined) updateData.feedback = feedback;
+
+    // Set timestamps based on status changes
+    if (status === 'reviewed' && !application.reviewedAt) {
+      updateData.reviewedAt = new Date();
+    }
+    if (status === 'interviewed' && !application.interviewedAt) {
+      updateData.interviewedAt = new Date();
+    }
+    if (['offered', 'hired', 'rejected'].includes(status) && !application.decidedAt) {
+      updateData.decidedAt = new Date();
+    }
+
+    const updatedApplication = await prisma.jobApplication.update({
+      where: { id: applicationId },
+      data: updateData,
+      include: {
+        applicant: {
+          select: {
+            id: true,
+            firstName: true,
+            lastName: true,
+            email: true
+          }
+        },
+        job: {
+          select: {
+            id: true,
+            title: true
+          }
+        }
+      }
+    });
+
+    // Log ATS activity
+    await prisma.aTSActivity.create({
+      data: {
+        userId: user.id,
+        activityType: 'application_updated',
+        entityType: 'job_application',
+        entityId: applicationId,
+        description: `Updated application for ${updatedApplication.applicant.firstName} ${updatedApplication.applicant.lastName} - ${updatedApplication.job.title}`,
+        metadata: { 
+          previousStatus: application.status,
+          newStatus: status,
+          changes: updateData
+        }
+      }
+    });
+
+    return NextResponse.json(updatedApplication);
+
+  } catch (error) {
+    console.error('ATS application update error:', error);
+    return NextResponse.json(
+      { error: 'Failed to update application' },
+      { status: 500 }
+    );
+  } finally {
+    await prisma.$disconnect();
+  }
+}
