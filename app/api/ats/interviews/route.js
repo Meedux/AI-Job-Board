@@ -8,7 +8,7 @@ export async function GET(request) {
   try {
     const user = await getUserFromRequest(request);
     
-    if (!user || (user.role !== 'employer_admin' && user.role !== 'sub_user')) {
+    if (!user || !['employer_admin', 'super_admin'].includes(user.role)) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
 
@@ -22,31 +22,11 @@ export async function GET(request) {
     if (user.role === 'employer_admin') {
       whereClause.application = {
         job: {
-          postedById: user.id
-        }
-      };
-    } else if (user.role === 'sub_user') {
-      // Sub-users can only see interviews for applications from their parent employer's jobs
-      const parentEmployer = await prisma.user.findFirst({
-        where: {
-          managedUsers: {
-            some: {
-              subUserId: user.id
-            }
-          }
-        }
-      });
-      
-      if (!parentEmployer) {
-        return NextResponse.json({ error: 'Access denied' }, { status: 403 });
-      }
-      
-      whereClause.application = {
-        job: {
-          postedById: parentEmployer.id
+          employerId: user.id
         }
       };
     }
+    // Super admin can see all interviews (no additional filter needed)
 
     // Add filters
     if (status && status !== 'all') {

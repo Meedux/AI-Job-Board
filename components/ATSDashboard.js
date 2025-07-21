@@ -67,60 +67,21 @@ export default function ATSDashboard() {
   const fetchApplications = async () => {
     setIsLoading(true);
     try {
-      // For now, we'll use the existing applications API
-      let url = '/api/applications?';
+      // Use the ATS API endpoint for actual data
+      let url = '/api/ats/applications?';
       if (statusFilter !== 'all') url += `status=${statusFilter}&`;
       
       const response = await fetch(url);
       if (response.ok) {
         const data = await response.json();
         setApplications(data.applications || []);
+      } else {
+        console.error('Failed to fetch applications:', response.statusText);
+        setApplications([]);
       }
     } catch (error) {
       console.error('Error fetching applications:', error);
-      // Mock data for demonstration
-      setApplications([
-        {
-          id: '1',
-          applicant: {
-            firstName: 'John',
-            lastName: 'Doe',
-            email: 'john.doe@example.com',
-            phoneNumber: '+1234567890',
-            location: 'New York, NY'
-          },
-          job: {
-            title: 'Senior Frontend Developer',
-            company: 'Tech Corp'
-          },
-          status: 'pending',
-          stage: 'application',
-          priority: 'high',
-          rating: 4,
-          appliedAt: new Date().toISOString(),
-          notes: 'Strong portfolio and relevant experience'
-        },
-        {
-          id: '2',
-          applicant: {
-            firstName: 'Jane',
-            lastName: 'Smith',
-            email: 'jane.smith@example.com',
-            phoneNumber: '+1234567891',
-            location: 'San Francisco, CA'
-          },
-          job: {
-            title: 'UX Designer',
-            company: 'Design Studio'
-          },
-          status: 'reviewed',
-          stage: 'screening',
-          priority: 'normal',
-          rating: 5,
-          appliedAt: new Date(Date.now() - 86400000).toISOString(),
-          notes: 'Excellent design portfolio'
-        }
-      ]);
+      setApplications([]);
     } finally {
       setIsLoading(false);
     }
@@ -128,13 +89,27 @@ export default function ATSDashboard() {
 
   const updateApplicationStatus = async (applicationId, updates) => {
     try {
-      // Mock implementation for now
-      const updatedApplications = applications.map(app =>
-        app.id === applicationId ? { ...app, ...updates } : app
-      );
-      setApplications(updatedApplications);
-      setIsModalOpen(false);
-      setSelectedApplication(null);
+      const response = await fetch('/api/ats/applications', {
+        method: 'PATCH',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          applicationId,
+          ...updates
+        }),
+      });
+
+      if (response.ok) {
+        // Refresh applications after successful update
+        await fetchApplications();
+        setIsModalOpen(false);
+        setSelectedApplication(null);
+      } else {
+        console.error('Failed to update application:', response.statusText);
+        const errorData = await response.json();
+        console.error('Error details:', errorData);
+      }
     } catch (error) {
       console.error('Error updating application:', error);
     }
@@ -208,7 +183,7 @@ export default function ATSDashboard() {
         <div className="max-w-7xl mx-auto">
           {/* Header */}
           <div className={`mb-8 transition-all duration-500 ${animateCards ? 'opacity-100 translate-y-0' : 'opacity-0 translate-y-4'}`}>
-            <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center">
+            <div className="flex flex-col mt-10 sm:flex-row justify-between items-start sm:items-center">
               <div>
                 <h1 className="text-3xl font-bold text-white mb-2 flex items-center gap-3">
                   <Users className="w-8 h-8 text-blue-400" />
@@ -396,6 +371,70 @@ export default function ATSDashboard() {
 
 // Overview Tab Component
 function OverviewTab({ applications }) {
+  const [recentActivities, setRecentActivities] = useState([]);
+  const [isLoadingActivity, setIsLoadingActivity] = useState(true);
+
+  useEffect(() => {
+    fetchRecentActivity();
+  }, []);
+
+  const fetchRecentActivity = async () => {
+    setIsLoadingActivity(true);
+    try {
+      // Fetch recent activity from applications
+      const activities = [];
+      
+      // Add recent applications
+      applications.slice(0, 4).forEach(app => {
+        const daysDiff = Math.floor((new Date() - new Date(app.appliedAt)) / (1000 * 60 * 60 * 24));
+        const timeAgo = daysDiff === 0 ? 'Today' : 
+                       daysDiff === 1 ? '1 day ago' : 
+                       daysDiff < 7 ? `${daysDiff} days ago` : 
+                       `${Math.floor(daysDiff / 7)} week${Math.floor(daysDiff / 7) > 1 ? 's' : ''} ago`;
+        
+        activities.push({
+          action: 'New application received',
+          candidate: `${app.applicant.firstName} ${app.applicant.lastName}`,
+          time: timeAgo,
+          type: 'application'
+        });
+      });
+
+      // Add status change activities based on application status
+      applications.forEach(app => {
+        if (app.status === 'reviewed') {
+          activities.push({
+            action: 'Application reviewed',
+            candidate: `${app.applicant.firstName} ${app.applicant.lastName}`,
+            time: 'Recently',
+            type: 'review'
+          });
+        } else if (app.status === 'interview_scheduled') {
+          activities.push({
+            action: 'Interview scheduled',
+            candidate: `${app.applicant.firstName} ${app.applicant.lastName}`,
+            time: 'Recently',
+            type: 'interview'
+          });
+        } else if (app.status === 'hired') {
+          activities.push({
+            action: 'Candidate hired',
+            candidate: `${app.applicant.firstName} ${app.applicant.lastName}`,
+            time: 'Recently',
+            type: 'hire'
+          });
+        }
+      });
+
+      // Sort and limit to most recent 4 activities
+      setRecentActivities(activities.slice(0, 4));
+    } catch (error) {
+      console.error('Error fetching recent activity:', error);
+    } finally {
+      setIsLoadingActivity(false);
+    }
+  };
+
   const statusCounts = applications.reduce((acc, app) => {
     acc[app.status] = (acc[app.status] || 0) + 1;
     return acc;
@@ -405,6 +444,20 @@ function OverviewTab({ applications }) {
     acc[app.stage] = (acc[app.stage] || 0) + 1;
     return acc;
   }, {});
+
+  // Calculate real metrics from actual data
+  const totalApplications = applications.length;
+  const reviewedApplications = applications.filter(a => a.status === 'reviewed').length;
+  const interviewedApplications = applications.filter(a => a.status === 'interviewed').length;
+  const offeredApplications = applications.filter(a => a.status === 'offered').length;
+  const hiredApplications = applications.filter(a => a.status === 'hired').length;
+
+  const conversionRates = {
+    reviewRate: totalApplications > 0 ? Math.round((reviewedApplications / totalApplications) * 100) : 0,
+    interviewRate: totalApplications > 0 ? Math.round((interviewedApplications / totalApplications) * 100) : 0,
+    offerRate: totalApplications > 0 ? Math.round((offeredApplications / totalApplications) * 100) : 0,
+    hireRate: totalApplications > 0 ? Math.round((hiredApplications / totalApplications) * 100) : 0
+  };
 
   return (
     <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
@@ -416,11 +469,11 @@ function OverviewTab({ applications }) {
         </h3>
         <div className="space-y-4">
           {[
-            { stage: 'Applied', count: applications.length, percentage: 100 },
-            { stage: 'Reviewed', count: applications.filter(a => a.status === 'reviewed').length, percentage: 75 },
-            { stage: 'Interviewed', count: applications.filter(a => a.status === 'interviewed').length, percentage: 40 },
-            { stage: 'Offered', count: applications.filter(a => a.status === 'offered').length, percentage: 20 },
-            { stage: 'Hired', count: applications.filter(a => a.status === 'hired').length, percentage: 15 }
+            { stage: 'Applied', count: totalApplications, percentage: 100 },
+            { stage: 'Reviewed', count: reviewedApplications, percentage: conversionRates.reviewRate },
+            { stage: 'Interviewed', count: interviewedApplications, percentage: conversionRates.interviewRate },
+            { stage: 'Offered', count: offeredApplications, percentage: conversionRates.offerRate },
+            { stage: 'Hired', count: hiredApplications, percentage: conversionRates.hireRate }
           ].map((stage, index) => (
             <div key={stage.stage} className="relative">
               <div className="flex items-center justify-between mb-2">
@@ -452,32 +505,43 @@ function OverviewTab({ applications }) {
           <Activity className="w-5 h-5 text-green-400" />
           Recent Activity
         </h3>
-        <div className="space-y-4">
-          {[
-            { action: 'New application received', candidate: 'John Doe', time: '2 hours ago', type: 'application' },
-            { action: 'Interview scheduled', candidate: 'Jane Smith', time: '4 hours ago', type: 'interview' },
-            { action: 'Application reviewed', candidate: 'Mike Johnson', time: '6 hours ago', type: 'review' },
-            { action: 'Candidate hired', candidate: 'Sarah Wilson', time: '1 day ago', type: 'hire' },
-          ].map((activity, index) => (
-            <div key={index} className="flex items-start space-x-3 p-3 bg-gray-700/30 rounded-lg hover:bg-gray-700/50 transition-colors">
-              <div className={`w-8 h-8 rounded-full flex items-center justify-center text-sm ${
-                activity.type === 'application' ? 'bg-blue-500/20 text-blue-400' :
-                activity.type === 'interview' ? 'bg-purple-500/20 text-purple-400' :
-                activity.type === 'review' ? 'bg-yellow-500/20 text-yellow-400' :
-                'bg-green-500/20 text-green-400'
-              }`}>
-                {activity.type === 'application' && <FileText className="w-4 h-4" />}
-                {activity.type === 'interview' && <Calendar className="w-4 h-4" />}
-                {activity.type === 'review' && <Eye className="w-4 h-4" />}
-                {activity.type === 'hire' && <CheckCircle className="w-4 h-4" />}
+        {isLoadingActivity ? (
+          <div className="space-y-4">
+            {[...Array(4)].map((_, i) => (
+              <div key={i} className="animate-pulse">
+                <div className="h-4 bg-gray-700 rounded w-3/4 mb-2"></div>
+                <div className="h-3 bg-gray-700 rounded w-1/2"></div>
               </div>
-              <div className="flex-1">
-                <p className="text-white font-medium">{activity.action}</p>
-                <p className="text-gray-400 text-sm">{activity.candidate} • {activity.time}</p>
+            ))}
+          </div>
+        ) : recentActivities.length === 0 ? (
+          <div className="text-center py-8">
+            <Activity className="w-12 h-12 text-gray-400 mx-auto mb-3 opacity-50" />
+            <p className="text-gray-400">No recent activity</p>
+          </div>
+        ) : (
+          <div className="space-y-4">
+            {recentActivities.map((activity, index) => (
+              <div key={index} className="flex items-start space-x-3 p-3 bg-gray-700/30 rounded-lg hover:bg-gray-700/50 transition-colors">
+                <div className={`w-8 h-8 rounded-full flex items-center justify-center text-sm ${
+                  activity.type === 'application' ? 'bg-blue-500/20 text-blue-400' :
+                  activity.type === 'interview' ? 'bg-purple-500/20 text-purple-400' :
+                  activity.type === 'review' ? 'bg-yellow-500/20 text-yellow-400' :
+                  'bg-green-500/20 text-green-400'
+                }`}>
+                  {activity.type === 'application' && <FileText className="w-4 h-4" />}
+                  {activity.type === 'interview' && <Calendar className="w-4 h-4" />}
+                  {activity.type === 'review' && <Eye className="w-4 h-4" />}
+                  {activity.type === 'hire' && <CheckCircle className="w-4 h-4" />}
+                </div>
+                <div className="flex-1">
+                  <p className="text-white font-medium">{activity.action}</p>
+                  <p className="text-gray-400 text-sm">{activity.candidate} • {activity.time}</p>
+                </div>
               </div>
-            </div>
-          ))}
-        </div>
+            ))}
+          </div>
+        )}
       </div>
 
       {/* Performance Metrics */}
@@ -488,24 +552,26 @@ function OverviewTab({ applications }) {
         </h3>
         <div className="grid grid-cols-1 md:grid-cols-4 gap-6">
           <div className="text-center">
-            <div className="text-3xl font-bold text-blue-400 mb-2">24</div>
-            <div className="text-gray-400 text-sm">Avg. Time to Hire (days)</div>
-            <div className="text-green-400 text-xs mt-1">↓ 3 days from last month</div>
+            <div className="text-3xl font-bold text-blue-400 mb-2">
+              {totalApplications > 0 ? Math.round(totalApplications / 30) : 0}
+            </div>
+            <div className="text-gray-400 text-sm">Avg. Applications/Month</div>
+            <div className="text-blue-400 text-xs mt-1">Based on current data</div>
           </div>
           <div className="text-center">
-            <div className="text-3xl font-bold text-purple-400 mb-2">85%</div>
-            <div className="text-gray-400 text-sm">Interview Show Rate</div>
-            <div className="text-green-400 text-xs mt-1">↑ 5% from last month</div>
+            <div className="text-3xl font-bold text-purple-400 mb-2">{conversionRates.reviewRate}%</div>
+            <div className="text-gray-400 text-sm">Review Rate</div>
+            <div className="text-purple-400 text-xs mt-1">Applications reviewed</div>
           </div>
           <div className="text-center">
-            <div className="text-3xl font-bold text-yellow-400 mb-2">15%</div>
-            <div className="text-gray-400 text-sm">Offer Acceptance Rate</div>
-            <div className="text-red-400 text-xs mt-1">↓ 2% from last month</div>
+            <div className="text-3xl font-bold text-yellow-400 mb-2">{conversionRates.interviewRate}%</div>
+            <div className="text-gray-400 text-sm">Interview Rate</div>
+            <div className="text-yellow-400 text-xs mt-1">Candidates interviewed</div>
           </div>
           <div className="text-center">
-            <div className="text-3xl font-bold text-green-400 mb-2">4.2</div>
-            <div className="text-gray-400 text-sm">Avg. Candidate Rating</div>
-            <div className="text-green-400 text-xs mt-1">↑ 0.3 from last month</div>
+            <div className="text-3xl font-bold text-green-400 mb-2">{conversionRates.hireRate}%</div>
+            <div className="text-gray-400 text-sm">Hire Rate</div>
+            <div className="text-green-400 text-xs mt-1">Successful hires</div>
           </div>
         </div>
       </div>
@@ -752,30 +818,61 @@ function PipelineTab({ applications }) {
 
 // Interviews Tab Component
 function InterviewsTab() {
-  const mockInterviews = [
-    {
-      id: '1',
-      candidate: 'John Doe',
-      position: 'Senior Frontend Developer',
-      type: 'video',
-      date: '2024-01-25',
-      time: '2:00 PM',
-      status: 'scheduled'
-    },
-    {
-      id: '2',
-      candidate: 'Jane Smith',
-      position: 'UX Designer',
-      type: 'phone',
-      date: '2024-01-26',
-      time: '10:00 AM',
-      status: 'completed'
+  const [interviews, setInterviews] = useState([]);
+  const [isLoading, setIsLoading] = useState(true);
+
+  useEffect(() => {
+    fetchInterviews();
+  }, []);
+
+  const fetchInterviews = async () => {
+    setIsLoading(true);
+    try {
+      const response = await fetch('/api/ats/interviews');
+      if (response.ok) {
+        const data = await response.json();
+        setInterviews(data.interviews || []);
+      } else {
+        console.error('Failed to fetch interviews:', response.statusText);
+        setInterviews([]);
+      }
+    } catch (error) {
+      console.error('Error fetching interviews:', error);
+      setInterviews([]);
+    } finally {
+      setIsLoading(false);
     }
-  ];
+  };
+
+  if (isLoading) {
+    return (
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+        {[...Array(4)].map((_, i) => (
+          <div key={i} className="bg-gray-800/50 backdrop-blur-sm p-6 rounded-xl border border-gray-700/50 animate-pulse">
+            <div className="space-y-3">
+              <div className="h-4 bg-gray-700 rounded w-3/4"></div>
+              <div className="h-3 bg-gray-700 rounded w-1/2"></div>
+              <div className="h-3 bg-gray-700 rounded w-2/3"></div>
+            </div>
+          </div>
+        ))}
+      </div>
+    );
+  }
+
+  if (interviews.length === 0) {
+    return (
+      <div className="bg-gray-800/50 backdrop-blur-sm rounded-xl border border-gray-700/50 p-12 text-center">
+        <Calendar className="w-16 h-16 text-gray-400 mx-auto mb-4 opacity-50" />
+        <h3 className="text-xl font-semibold text-white mb-2">No Interviews Scheduled</h3>
+        <p className="text-gray-400">Interviews will appear here when you schedule them with candidates.</p>
+      </div>
+    );
+  }
 
   return (
     <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-      {mockInterviews.map((interview, index) => (
+      {interviews.map((interview, index) => (
         <div
           key={interview.id}
           className="bg-gray-800/50 backdrop-blur-sm rounded-xl border border-gray-700/50 hover:border-blue-500/30 transition-all duration-300 hover:scale-105"
@@ -785,13 +882,16 @@ function InterviewsTab() {
               <div className="flex items-center space-x-3">
                 {interview.type === 'video' && <Video className="w-5 h-5 text-blue-400" />}
                 {interview.type === 'phone' && <Phone className="w-5 h-5 text-green-400" />}
+                {interview.type === 'in_person' && <User className="w-5 h-5 text-purple-400" />}
                 <h3 className="text-lg font-semibold text-white capitalize">
-                  {interview.type} Interview
+                  {interview.type.replace('_', ' ')} Interview
                 </h3>
               </div>
               <span className={`px-3 py-1 text-xs font-medium rounded-full border ${
                 interview.status === 'scheduled' ? 'bg-blue-500/20 text-blue-400 border-blue-500/30' :
-                'bg-green-500/20 text-green-400 border-green-500/30'
+                interview.status === 'completed' ? 'bg-green-500/20 text-green-400 border-green-500/30' :
+                interview.status === 'cancelled' ? 'bg-red-500/20 text-red-400 border-red-500/30' :
+                'bg-yellow-500/20 text-yellow-400 border-yellow-500/30'
               }`}>
                 {interview.status.toUpperCase()}
               </span>
@@ -814,7 +914,32 @@ function InterviewsTab() {
                 <span className="text-gray-400">Time:</span>
                 <span className="text-white">{interview.time}</span>
               </div>
+              {interview.interviewer && (
+                <div className="flex items-center justify-between">
+                  <span className="text-gray-400">Interviewer:</span>
+                  <span className="text-white">{interview.interviewer.name}</span>
+                </div>
+              )}
+              {interview.meetingLink && (
+                <div className="flex items-center justify-between">
+                  <span className="text-gray-400">Meeting Link:</span>
+                  <a 
+                    href={interview.meetingLink}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="text-blue-400 hover:text-blue-300 transition-colors"
+                  >
+                    Join Meeting
+                  </a>
+                </div>
+              )}
             </div>
+
+            {interview.notes && (
+              <div className="mt-4 p-3 bg-gray-700/30 rounded-lg">
+                <p className="text-gray-300 text-sm">{interview.notes}</p>
+              </div>
+            )}
 
             <div className="flex space-x-2 mt-6">
               <button className="flex-1 px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-lg transition-colors text-sm">
@@ -823,6 +948,11 @@ function InterviewsTab() {
               <button className="px-4 py-2 bg-gray-700 hover:bg-gray-600 text-white rounded-lg transition-colors text-sm">
                 <Edit className="w-4 h-4" />
               </button>
+              {interview.status === 'scheduled' && (
+                <button className="px-4 py-2 bg-green-600 hover:bg-green-700 text-white rounded-lg transition-colors text-sm">
+                  Mark Complete
+                </button>
+              )}
             </div>
           </div>
         </div>
