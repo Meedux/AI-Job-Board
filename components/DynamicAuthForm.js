@@ -113,9 +113,10 @@ export default function DynamicAuthForm() {
         if (response.ok) {
           await login(data.user, data.token);
           
-          // Redirect based on user role - ALWAYS redirect employer_admin to /admin
-          if (data.user.role === USER_ROLES.SUPER_ADMIN || 
-              data.user.role === USER_ROLES.EMPLOYER_ADMIN || 
+          // Redirect based on user role
+          if (data.user.role === USER_ROLES.SUPER_ADMIN || data.user.role === 'super_admin') {
+            router.push('/super-admin');
+          } else if (data.user.role === USER_ROLES.EMPLOYER_ADMIN || 
               data.user.role === USER_ROLES.SUB_USER ||
               data.user.role === 'employer_admin') { // Extra check for string value
             router.push('/admin');
@@ -162,6 +163,8 @@ export default function DynamicAuthForm() {
             // Redirect based on original intent or user type
             if (redirectToJobPost && userType === 'hirer') {
               router.push('/post-job');
+            } else if (data.user.role === USER_ROLES.SUPER_ADMIN || data.user.role === 'super_admin') {
+              router.push('/super-admin');
             } else if (data.user.role === USER_ROLES.EMPLOYER_ADMIN || data.user.role === 'employer_admin') {
               router.push('/admin');
             } else {

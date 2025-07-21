@@ -222,14 +222,15 @@ const Header = ({ onSearch, onFilter }) => {
           ],
           dropdowns: [
             {
-              label: 'Admin Panel',
+              label: 'Super Admin Panel',
               icon: '⚙️',
               items: [
-                { href: '/admin', label: 'Dashboard', icon: '📊' },
-                { href: '/admin/users', label: 'User Management', icon: '👥' },
-                { href: '/admin/reports', label: 'Reports', icon: '📈' },
-                { href: '/admin/analytics', label: 'Analytics', icon: '📊' },
-                { href: '/admin/settings', label: 'System Settings', icon: '🔧' },
+                { href: '/super-admin', label: 'Dashboard', icon: '📊' },
+                { href: '/super-admin/users', label: 'User Management', icon: '👥' },
+                { href: '/super-admin/pricing', label: 'Pricing Tiers', icon: '💎' },
+                { href: '/super-admin/credits', label: 'Credit Packages', icon: '⚡' },
+                { href: '/super-admin/analytics', label: 'Analytics', icon: '�' },
+                { href: '/super-admin/settings', label: 'System Settings', icon: '🔧' },
               ]
             },
             {
@@ -338,8 +339,8 @@ const Header = ({ onSearch, onFilter }) => {
       case 'super_admin':
         return [
           ...baseUserLinks,
-          { href: '/admin', label: 'Admin Panel', icon: '⚙️' },
-          { href: '/profile', label: 'Profile', icon: '👤' },
+          // { href: '/admin', label: 'Admin Panel', icon: '⚙️' },
+          // { href: '/profile', label: 'Profile', icon: '👤' },
         ];
       
       case 'employer_admin':

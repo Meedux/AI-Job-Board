@@ -37,7 +37,23 @@ export const AuthProvider = ({ children }) => {
   }, [adminEmails, adminDomains]);
 
   // Get redirect URL based on user role
-  const getRedirectUrl = useCallback((userEmail, defaultUrl = '/') => {
+  const getRedirectUrl = useCallback((userEmail, user = null, defaultUrl = '/') => {
+    // If we have user object with role, use that for more accurate routing
+    if (user && user.role) {
+      switch (user.role) {
+        case 'super_admin':
+          return '/super-admin';
+        case 'admin':
+        case 'employer_admin':
+          return '/admin';
+        case 'employer':
+          return '/dashboard';
+        default:
+          return defaultUrl;
+      }
+    }
+    
+    // Fallback to email-based admin check for legacy compatibility
     return isAdmin(userEmail) ? '/admin' : defaultUrl;
   }, [isAdmin]);
 
@@ -131,7 +147,7 @@ export const AuthProvider = ({ children }) => {
           setUser(userWithAdminRole);
           console.log('✅ Login successful, user set:', userWithAdminRole);
           
-          const redirectUrl = getRedirectUrl(data.user.email);
+          const redirectUrl = getRedirectUrl(data.user.email, data.user);
           return { success: true, redirectUrl };
         } else {
           console.log('❌ Login failed:', data.error);
@@ -167,7 +183,7 @@ export const AuthProvider = ({ children }) => {
         setUser(userWithAdminRole);
         console.log('✅ Registration successful, user set:', userWithAdminRole);
         
-        const redirectUrl = getRedirectUrl(data.user.email);
+        const redirectUrl = getRedirectUrl(data.user.email, data.user);
         return { success: true, redirectUrl };
       } else {
         console.log('❌ Registration failed:', data.error);
