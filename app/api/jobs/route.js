@@ -77,6 +77,9 @@ export async function GET(request) {
       slug: job.slug,
       title: job.title,
       description: job.description,
+      full_description: job.description, // Provide description as full_description for backward compatibility
+      requirements: job.requirements,
+      benefits: job.benefits,
       content_doc_url: job.contentDocUrl,
       companyId: job.companyId, // Add companyId for review functionality
       salary: {

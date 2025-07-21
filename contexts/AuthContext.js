@@ -191,12 +191,45 @@ export const AuthProvider = ({ children }) => {
     }
   };
 
+  const updateProfile = async (profileData) => {
+    console.log('📝 Starting profile update process...');
+    try {
+      const response = await fetch('/api/user/profile', {
+        method: 'PUT',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify(profileData),
+      });
+
+      const data = await response.json();
+      console.log('📄 Profile update response:', data);
+
+      if (response.ok) {
+        const updatedUserWithAdminRole = {
+          ...data.user,
+          isAdmin: isAdmin(data.user.email)
+        };
+        setUser(updatedUserWithAdminRole);
+        console.log('✅ Profile updated successfully:', updatedUserWithAdminRole);
+        return { success: true, user: updatedUserWithAdminRole, message: data.message };
+      } else {
+        console.log('❌ Profile update failed:', data.error);
+        return { success: false, error: data.error };
+      }
+    } catch (error) {
+      console.error('❌ Profile update network error:', error);
+      return { success: false, error: 'Network error occurred while updating profile' };
+    }
+  };
+
   const value = {
     user,
     loading,
     login,
     register,
     logout,
+    updateProfile,
     isAdmin,
     getRedirectUrl,
   };

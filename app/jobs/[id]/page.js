@@ -48,11 +48,8 @@ export default function JobDetailsPage() {
       return;
     }
 
-    if (job.applyUrl) {
-      window.open(job.applyUrl, '_blank');
-    } else if (job.applyEmail) {
-      window.location.href = `mailto:${job.applyEmail}?subject=Application for ${job.title}`;
-    }
+    // Redirect to our custom application form
+    router.push(`/apply/${id}`);
   };
 
   const formatSalary = (from, to, currency) => {

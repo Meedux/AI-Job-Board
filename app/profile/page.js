@@ -10,9 +10,10 @@ import { maskUserData, canUseContentMasking } from '../../utils/userContentMaski
 import { colors, typography, components, layout, combineClasses } from '../../utils/designSystem';
 
 export default function ProfilePage() {
-  const { user } = useAuth();
+  const { user, updateProfile } = useAuth();
   const { subscription } = useSubscription();
   const [isEditing, setIsEditing] = useState(false);
+  const [loading, setLoading] = useState(false);
   const [formData, setFormData] = useState({
     fullName: user?.fullName || '',
     nickname: user?.nickname || '',
@@ -24,19 +25,58 @@ export default function ProfilePage() {
   const [canUseMasking, setCanUseMasking] = useState(false);
   const [maskingLoading, setMaskingLoading] = useState(false);
   const [message, setMessage] = useState('');
+  const [profileLoading, setProfileLoading] = useState(false);
+
+  // Function to fetch fresh user profile data
+  const fetchUserProfile = async () => {
+    try {
+      setProfileLoading(true);
+      const response = await fetch('/api/user/profile');
+      if (response.ok) {
+        const data = await response.json();
+        if (data.success && data.user) {
+          // Format date for input field
+          const formattedUser = {
+            ...data.user,
+            dateOfBirth: data.user.dateOfBirth ? 
+              new Date(data.user.dateOfBirth).toISOString().split('T')[0] : ''
+          };
+          
+          setFormData({
+            fullName: formattedUser.fullName || '',
+            nickname: formattedUser.nickname || '',
+            email: formattedUser.email || '',
+            dateOfBirth: formattedUser.dateOfBirth || '',
+            fullAddress: formattedUser.fullAddress || '',
+          });
+        }
+      }
+    } catch (error) {
+      console.error('Error fetching user profile:', error);
+    } finally {
+      setProfileLoading(false);
+    }
+  };
 
   useEffect(() => {
     if (user) {
+      // Format date for input field
+      const formattedDateOfBirth = user.dateOfBirth ? 
+        new Date(user.dateOfBirth).toISOString().split('T')[0] : '';
+      
       setFormData({
         fullName: user?.fullName || '',
         nickname: user?.nickname || '',
         email: user?.email || '',
-        dateOfBirth: user?.dateOfBirth || '',
+        dateOfBirth: formattedDateOfBirth,
         fullAddress: user?.fullAddress || '',
       });
       
       // Load content masking settings
       loadContentMaskingSettings();
+      
+      // Also fetch fresh profile data to ensure we have the latest information
+      fetchUserProfile();
     }
   }, [user]);
 
@@ -98,17 +138,53 @@ export default function ProfilePage() {
 
   const handleSave = async (e) => {
     e.preventDefault();
-    // TODO: Implement profile update API
-    console.log('Profile update:', formData);
-    setIsEditing(false);
+    setLoading(true);
+    setMessage('');
+
+    try {
+      // Prepare data for update (exclude email as it shouldn't be changed here)
+      const updateData = {
+        fullName: formData.fullName,
+        nickname: formData.nickname,
+        dateOfBirth: formData.dateOfBirth,
+        fullAddress: formData.fullAddress,
+      };
+
+      // Call the updateProfile method from AuthContext
+      const result = await updateProfile(updateData);
+
+      if (result.success) {
+        setMessage('Profile updated successfully!');
+        setIsEditing(false);
+        
+        // Fetch fresh profile data to ensure form is updated with latest info
+        await fetchUserProfile();
+        
+        // Clear success message after 3 seconds
+        setTimeout(() => {
+          setMessage('');
+        }, 3000);
+      } else {
+        setMessage(result.error || 'Failed to update profile');
+      }
+    } catch (error) {
+      console.error('Error updating profile:', error);
+      setMessage('An unexpected error occurred while updating your profile');
+    } finally {
+      setLoading(false);
+    }
   };
 
   const handleCancel = () => {
+    // Reset form data with properly formatted date
+    const formattedDateOfBirth = user?.dateOfBirth ? 
+      new Date(user.dateOfBirth).toISOString().split('T')[0] : '';
+    
     setFormData({
       fullName: user?.fullName || '',
       nickname: user?.nickname || '',
       email: user?.email || '',
-      dateOfBirth: user?.dateOfBirth || '',
+      dateOfBirth: formattedDateOfBirth,
       fullAddress: user?.fullAddress || '',
     });
     setIsEditing(false);
@@ -143,15 +219,23 @@ export default function ProfilePage() {
                     'w-20 h-20 rounded-full flex items-center justify-center text-white text-2xl font-bold',
                     colors.primary[500]
                   )}>
-                    {user?.nickname ? user.nickname.charAt(0).toUpperCase() : user?.fullName.charAt(0).toUpperCase()}
+                    {(formData.nickname || formData.fullName) ? 
+                      (formData.nickname || formData.fullName).charAt(0).toUpperCase() : 
+                      '?'
+                    }
                   </div>
                   <div>
                     <h3 className={combineClasses(typography.h4, colors.neutral.textPrimary)}>
-                      {user?.fullName}
+                      {formData.fullName || 'No name set'}
                     </h3>
                     <p className={combineClasses(typography.bodyBase, colors.neutral.textSecondary)}>
-                      {user?.email}
+                      {formData.email}
                     </p>
+                    {formData.nickname && (
+                      <p className={combineClasses(typography.bodySmall, colors.neutral.textSecondary)}>
+                        Nickname: {formData.nickname}
+                      </p>
+                    )}
                   </div>
                 </div>
 
@@ -166,10 +250,10 @@ export default function ProfilePage() {
                       name="fullName"
                       value={formData.fullName}
                       onChange={handleChange}
-                      disabled={!isEditing}
+                      disabled={!isEditing || loading}
                       className={combineClasses(
                         components.input.base,
-                        !isEditing && colors.neutral.backgroundSecondary
+                        (!isEditing || loading) && colors.neutral.backgroundSecondary
                       )}
                     />
                   </div>
@@ -183,10 +267,10 @@ export default function ProfilePage() {
                       name="nickname"
                       value={formData.nickname}
                       onChange={handleChange}
-                      disabled={!isEditing}
+                      disabled={!isEditing || loading}
                       className={combineClasses(
                         components.input.base,
-                        !isEditing && colors.neutral.backgroundSecondary
+                        (!isEditing || loading) && colors.neutral.backgroundSecondary
                       )}
                     />
                   </div>
@@ -200,12 +284,15 @@ export default function ProfilePage() {
                       name="email"
                       value={formData.email}
                       onChange={handleChange}
-                      disabled={!isEditing}
+                      disabled={true}
                       className={combineClasses(
                         components.input.base,
-                        !isEditing && colors.neutral.backgroundSecondary
+                        colors.neutral.backgroundSecondary
                       )}
                     />
+                    <p className="text-sm text-gray-400 mt-1">
+                      Email cannot be changed here. Contact support if you need to update your email.
+                    </p>
                   </div>
 
                   <div>
@@ -217,10 +304,10 @@ export default function ProfilePage() {
                       name="dateOfBirth"
                       value={formData.dateOfBirth}
                       onChange={handleChange}
-                      disabled={!isEditing}
+                      disabled={!isEditing || loading}
                       className={combineClasses(
                         components.input.base,
-                        !isEditing && colors.neutral.backgroundSecondary
+                        (!isEditing || loading) && colors.neutral.backgroundSecondary
                       )}
                     />
                   </div>
@@ -235,13 +322,24 @@ export default function ProfilePage() {
                     rows="3"
                     value={formData.fullAddress}
                     onChange={handleChange}
-                    disabled={!isEditing}
+                    disabled={!isEditing || loading}
                     className={combineClasses(
                       components.input.base,
-                      !isEditing && colors.neutral.backgroundSecondary
+                      (!isEditing || loading) && colors.neutral.backgroundSecondary
                     )}
                   />
                 </div>
+
+                {/* Success/Error Message */}
+                {message && (
+                  <div className={`p-4 rounded-lg border ${
+                    message.includes('successfully') 
+                      ? 'bg-green-900 text-green-300 border-green-700' 
+                      : 'bg-red-900 text-red-300 border-red-700'
+                  }`}>
+                    {message}
+                  </div>
+                )}
 
                 {/* Privacy Settings Section */}
                 <div className="mt-8 pt-8 border-t border-gray-700">
@@ -334,21 +432,32 @@ export default function ProfilePage() {
                   <div className="flex space-x-4">
                     <button
                       type="submit"
+                      disabled={loading}
                       className={combineClasses(
                         components.button.base,
                         components.button.primary,
-                        components.button.sizes.medium
+                        components.button.sizes.medium,
+                        loading && 'opacity-50 cursor-not-allowed'
                       )}
                     >
-                      Save Changes
+                      {loading ? (
+                        <div className="flex items-center">
+                          <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white mr-2"></div>
+                          Saving...
+                        </div>
+                      ) : (
+                        'Save Changes'
+                      )}
                     </button>
                     <button
                       type="button"
                       onClick={handleCancel}
+                      disabled={loading}
                       className={combineClasses(
                         components.button.base,
                         components.button.secondary,
-                        components.button.sizes.medium
+                        components.button.sizes.medium,
+                        loading && 'opacity-50 cursor-not-allowed'
                       )}
                     >
                       Cancel

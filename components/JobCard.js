@@ -2,14 +2,10 @@
 
 import { useState, useEffect } from "react";
 import Image from "next/image";
-import Link from "next/link";
 import JobDetailModal from "./JobDetailModal";
 import { useAuth } from "../contexts/AuthContext";
 import { useSubscription } from "../contexts/SubscriptionContext";
-import { processJobContent, hasPremiumAccess, PREMIUM_FEATURES } from "../utils/premiumFeatures";
-import PremiumFeatureButton from "./PremiumFeatureButton";
 import {
-  colors,
   typography,
   components,
   animations,
@@ -61,11 +57,6 @@ const JobCard = ({ job }) => {
     );
   };
   
-  // Apply content masking for free users
-  // Job content is now FREE for all job seekers - only apply content moderation
-  const processedJob = processJobContent(job, user, subscription);
-  const isPremiumUser = hasPremiumAccess(user, subscription);
-  
   const {
     title,
     company,
@@ -82,7 +73,7 @@ const JobCard = ({ job }) => {
     benefits,
     skills,
     is_featured = false,
-  } = processedJob;
+  } = job;
 
   // Format posted date
   const formatDate = (dateString) => {
@@ -262,14 +253,8 @@ const JobCard = ({ job }) => {
         )}
         onClick={handleCardClick}
       >
-        {/* Premium Banner */}
-        <PremiumBanner isPremium={job.is_premium || false} />
-        
         {/* Featured Ribbon */}
         <FeaturedRibbon isFeatured={is_featured} />
-        
-        {/* Premium features teaser */}
-        {renderPremiumFeatureTeaser()}
         
         {/* Subtle gradient overlay on hover */}
         <div className="absolute inset-0 bg-gradient-to-r from-blue-600/0 to-purple-600/0 group-hover:from-blue-600/5 group-hover:to-purple-600/5 transition-all duration-300" />
@@ -380,7 +365,7 @@ const JobCard = ({ job }) => {
               </div>
 
               {/* Benefits/Perks Tags */}
-              {benefits && benefits.length > 0 && (
+              {benefits && Array.isArray(benefits) && benefits.length > 0 && (
                 <div className="mb-3">
                   <div className="flex items-center gap-1 mb-2">
                     <svg className="w-4 h-4 text-emerald-400" fill="currentColor" viewBox="0 0 20 20">
@@ -407,7 +392,7 @@ const JobCard = ({ job }) => {
               )}
 
               {/* Skills Tags */}
-              {skills && skills.length > 0 && (
+              {skills && Array.isArray(skills) && skills.length > 0 && (
                 <div className="mb-3">
                   <div className="flex items-center gap-1 mb-2">
                     <svg className="w-4 h-4 text-orange-400" fill="currentColor" viewBox="0 0 20 20">
@@ -434,7 +419,7 @@ const JobCard = ({ job }) => {
               )}
 
               {/* Categories */}
-              {categories && categories.length > 0 && (
+              {categories && Array.isArray(categories) && categories.length > 0 && (
                 <div className="flex items-center gap-1 flex-wrap">
                   {categories.slice(0, 2).map((category, index) => (
                     <span
@@ -504,17 +489,19 @@ const JobCard = ({ job }) => {
               </button>
 
               {/* View Details Button */}
-              <Link
-                href={`/jobs/${job.id}`}
+              <button
+                onClick={(e) => {
+                  e.stopPropagation();
+                  setIsModalOpen(true);
+                }}
                 className="inline-flex items-center gap-2 px-4 py-2 bg-blue-600/90 hover:bg-blue-600 text-white rounded-lg transition-all duration-200 hover:scale-105 font-medium"
-                onClick={(e) => e.stopPropagation()}
               >
                 <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z" />
                 </svg>
                 View Details
-              </Link>
+              </button>
 
               {/* Apply Button - Now free for all users */}
               {apply_link && (
@@ -534,17 +521,13 @@ const JobCard = ({ job }) => {
             </div>
           </div>
         </div>
-        
-        {/* Upgrade prompt for free users */}
-        {renderUpgradePrompt()}
       </div>
 
       {/* Job Detail Modal */}
       <JobDetailModal
-        job={processedJob}
+        job={job}
         isOpen={isModalOpen}
         onClose={handleCloseModal}
-        isPremiumUser={isPremiumUser}
       />
     </>
   );

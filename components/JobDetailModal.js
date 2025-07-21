@@ -2,14 +2,21 @@
 
 import { useState, useEffect } from 'react';
 import { createPortal } from 'react-dom';
+import { useAuth } from '@/contexts/AuthContext';
+import { useRouter } from 'next/navigation';
 import { colors, typography, components, animations, combineClasses } from '../utils/designSystem';
 import CompanyReviewSystem from './CompanyReviewSystem';
+import JobApplicationForm from './JobApplicationForm';
 
 const JobDetailModal = ({ job, isOpen, onClose }) => {
+  const { user } = useAuth();
+  const router = useRouter();
   const [jobContent, setJobContent] = useState('');
   const [isLoadingContent, setIsLoadingContent] = useState(false);
   const [mounted, setMounted] = useState(false);
   const [showReviewModal, setShowReviewModal] = useState(false);
+  const [showApplicationForm, setShowApplicationForm] = useState(false);
+  const [customForm, setCustomForm] = useState(null);
   const [companyRating, setCompanyRating] = useState(null);
 
   useEffect(() => {
@@ -18,11 +25,14 @@ const JobDetailModal = ({ job, isOpen, onClose }) => {
   }, []);
 
   useEffect(() => {
-    if (isOpen && (job?.content_doc_url || job?.content)) {
+    if (isOpen && (job?.content_doc_url || job?.content || job?.description)) {
       loadJobContent();
     }
     if (isOpen && job?.companyId) {
       fetchCompanyRating();
+    }
+    if (isOpen && job?.id) {
+      fetchCustomForm();
     }
     // Debug log to see job structure
     if (isOpen && job) {
@@ -31,6 +41,66 @@ const JobDetailModal = ({ job, isOpen, onClose }) => {
       console.log('Company object:', job.company);
     }
   }, [isOpen, job]);
+
+  const fetchCustomForm = async () => {
+    try {
+      const response = await fetch(`/api/application-forms?jobId=${job.id}`);
+      if (response.ok) {
+        const result = await response.json();
+        if (result.success && result.form) {
+          setCustomForm(result.form);
+        }
+      }
+    } catch (error) {
+      console.error('Error fetching custom form:', error);
+    }
+  };
+
+  const handleApplyClick = () => {
+    if (!user) {
+      router.push('/login');
+      return;
+    }
+    setShowApplicationForm(true);
+  };
+
+  const handleApplicationSubmit = async (applicationData) => {
+    try {
+      const formData = new FormData();
+      formData.append('jobId', job.id);
+
+      // Add form fields
+      Object.entries(applicationData).forEach(([key, value]) => {
+        if (value instanceof File) {
+          formData.append(`file_${key}`, value);
+        } else if (Array.isArray(value)) {
+          formData.append(key, JSON.stringify(value));
+        } else {
+          formData.append(key, value);
+        }
+      });
+
+      const response = await fetch('/api/applications', {
+        method: 'POST',
+        credentials: 'include',
+        body: formData,
+      });
+
+      const result = await response.json();
+
+      if (result.success) {
+        // Close application form and show success message
+        setShowApplicationForm(false);
+        alert('Application submitted successfully!');
+        onClose(); // Close the entire modal
+      } else {
+        throw new Error(result.error || 'Failed to submit application');
+      }
+    } catch (error) {
+      console.error('Error submitting application:', error);
+      alert(error.message || 'Failed to submit application');
+    }
+  };
 
   // Prevent body scroll when modal is open
   useEffect(() => {
@@ -63,18 +133,21 @@ const JobDetailModal = ({ job, isOpen, onClose }) => {
   }, [isOpen, onClose]);
 
   const loadJobContent = async () => {
-    // Check if we already have processed content
-    if (job?.full_description) {
-      console.log('Using pre-loaded full_description');
-      setJobContent(job.full_description);
+    // Check if we already have formatted description content
+    if (job?.description || job?.full_description) {
+      console.log('Using formatted description content');
+      const content = job.full_description || job.description || '';
+      // Ensure content is properly formatted for display
+      const formattedContent = content.replace(/\n/g, '<br>');
+      setJobContent(formattedContent);
       return;
     }
 
-    // Otherwise try to fetch from Google Docs URL
+    // Legacy support: Try to fetch from Google Docs URL if no formatted content
     const contentUrl = job?.content_doc_url || job?.content;
-    if (!contentUrl) {
-      console.log('No content URL found for job:', job);
-      setJobContent('');
+    if (!contentUrl || contentUrl.trim() === '') {
+      console.log('No content available for job:', job);
+      setJobContent('<p style="color: rgb(156 163 175);">No detailed description available.</p>');
       return;
     }
     
@@ -96,7 +169,7 @@ const JobDetailModal = ({ job, isOpen, onClose }) => {
 
       const data = await response.json();
       console.log('Google Docs content received:', data.content ? 'Content loaded' : 'No content');
-      setJobContent(data.content || '');
+      setJobContent(data.content || '<p style="color: rgb(156 163 175);">No content available.</p>');
     } catch (error) {
       console.error('Error loading job content:', error);
       setJobContent(`
@@ -126,13 +199,15 @@ const JobDetailModal = ({ job, isOpen, onClose }) => {
   const formatDate = (dateString) => {
     if (!dateString) return "Not specified";
     try {
-      return new Date(dateString).toLocaleDateString("en-US", {
+      // Handle case where date might be an object with a date property
+      const dateValue = typeof dateString === 'object' ? dateString.date || dateString.posted_time : dateString;
+      return new Date(dateValue).toLocaleDateString("en-US", {
         year: "numeric",
         month: "short",
         day: "numeric",
       });
     } catch {
-      return dateString;
+      return typeof dateString === 'string' ? dateString : "Not specified";
     }
   };
 
@@ -413,7 +488,9 @@ const JobDetailModal = ({ job, isOpen, onClose }) => {
               <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
                 <div>
                   <p className="text-sm text-gray-400 mb-1">Location</p>
-                  <p className="text-base font-medium text-white">{job.location || "Not specified"}</p>
+                  <p className="text-base font-medium text-white">
+                    {typeof job.location === 'string' ? job.location : job.location?.name || job.location?.location || "Not specified"}
+                  </p>
                 </div>
                 <div>
                   <p className="text-sm text-gray-400 mb-1">Job Type</p>
@@ -450,7 +527,7 @@ const JobDetailModal = ({ job, isOpen, onClose }) => {
                         key={index}
                         className="inline-flex items-center px-2 py-1 rounded text-xs font-medium bg-blue-500/20 text-blue-300 border border-blue-500/30"
                       >
-                        {category}
+                        {typeof category === 'string' ? category : category?.name || category}
                       </span>
                     ))}
                   </div>
@@ -496,23 +573,12 @@ const JobDetailModal = ({ job, isOpen, onClose }) => {
           {/* Footer Actions - Fixed at bottom */}
           <div className="p-6 border-t border-gray-700 bg-gray-800/50 backdrop-blur-sm flex-shrink-0">
             <div className="flex flex-col sm:flex-row gap-3">
-              {job.apply_link ? (
-                <a
-                  href={job.apply_link}
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  className="flex-1 text-center px-6 py-3 bg-green-600 hover:bg-green-700 text-white font-medium rounded-lg transition-colors duration-200"
-                >
-                  Apply Now
-                </a>
-              ) : (
-                <button
-                  disabled
-                  className="flex-1 px-6 py-3 bg-gray-600 text-gray-400 cursor-not-allowed font-medium rounded-lg"
-                >
-                  Application Link Not Available
-                </button>
-              )}
+              <button
+                onClick={handleApplyClick}
+                className="flex-1 text-center px-6 py-3 bg-green-600 hover:bg-green-700 text-white font-medium rounded-lg transition-colors duration-200"
+              >
+                Apply Now
+              </button>
               
               {/* Review Company Button */}
               <button
@@ -558,6 +624,35 @@ const JobDetailModal = ({ job, isOpen, onClose }) => {
   return createPortal(
     <>
       {modalContent}
+      
+      {/* Application Form Modal */}
+      {showApplicationForm && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-[10000] p-4">
+          <div className="bg-gray-900 rounded-lg max-w-4xl max-h-[90vh] overflow-y-auto w-full border border-gray-700">
+            <div className="p-4 border-b border-gray-700 flex items-center justify-between">
+              <h2 className="text-xl font-bold text-white">
+                Apply for {job.title}
+              </h2>
+              <button
+                onClick={() => setShowApplicationForm(false)}
+                className="text-gray-400 hover:text-white"
+              >
+                <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                </svg>
+              </button>
+            </div>
+            <div className="p-6">
+              <JobApplicationForm
+                job={job}
+                customForm={customForm}
+                onSubmit={handleApplicationSubmit}
+                onCancel={() => setShowApplicationForm(false)}
+              />
+            </div>
+          </div>
+        </div>
+      )}
       
       {/* Review Modal */}
       {showReviewModal && (job?.companyId || job?.company?.id) && (

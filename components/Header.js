@@ -204,7 +204,8 @@ const Header = ({ onSearch, onFilter }) => {
     if (!user) {
       return {
         simple: [
-          { href: '/', label: 'Jobs', icon: '💼' },
+          { href: '/', label: 'Home', icon: '🏠' },
+          { href: '/jobs', label: 'Browse Jobs', icon: '💼' },
           { href: '/about', label: 'About', icon: 'ℹ️' },
           { href: '/pricing', label: 'Pricing', icon: '💰' },
         ],
@@ -216,7 +217,8 @@ const Header = ({ onSearch, onFilter }) => {
       case 'super_admin':
         return {
           simple: [
-            { href: '/', label: 'Jobs', icon: '💼' }
+            { href: '/', label: 'Home', icon: '🏠' },
+            { href: '/jobs', label: 'Browse Jobs', icon: '💼' }
           ],
           dropdowns: [
             {
@@ -244,7 +246,8 @@ const Header = ({ onSearch, onFilter }) => {
       case 'employer_admin':
         return {
           simple: [
-            { href: '/', label: 'Jobs', icon: '💼' }
+            { href: '/', label: 'Home', icon: '🏠' },
+            { href: '/jobs', label: 'Browse Jobs', icon: '💼' }
           ],
           dropdowns: [
             {
@@ -274,7 +277,8 @@ const Header = ({ onSearch, onFilter }) => {
       case 'sub_user':
         return {
           simple: [
-            { href: '/', label: 'Jobs', icon: '💼' }
+            { href: '/', label: 'Home', icon: '🏠' },
+            { href: '/jobs', label: 'Browse Jobs', icon: '💼' }
           ],
           dropdowns: [
             {
@@ -299,7 +303,8 @@ const Header = ({ onSearch, onFilter }) => {
       default: // job_seeker
         return {
           simple: [
-            { href: '/', label: 'Jobs', icon: '💼' }
+            { href: '/', label: 'Home', icon: '🏠' },
+            { href: '/jobs', label: 'Browse Jobs', icon: '💼' }
           ],
           dropdowns: [
             {
@@ -353,9 +358,9 @@ const Header = ({ onSearch, onFilter }) => {
       default: // job_seeker
         return [
           ...baseUserLinks,
-          { href: '/my-applications', label: 'My Applications', icon: '📋' },
-          { href: '/resume-analyzer', label: 'Resume Analyzer', icon: '📄' },
-          { href: '/profile', label: 'Profile', icon: '👤' },
+          // { href: '/my-applications', label: 'My Applications', icon: '📋' },
+          // { href: '/resume-analyzer', label: 'Resume Analyzer', icon: '📄' },
+          // { href: '/profile', label: 'Profile', icon: '👤' },
           { href: '/dashboard', label: 'Dashboard', icon: '📊' }
         ];
     }

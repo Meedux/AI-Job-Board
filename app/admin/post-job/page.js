@@ -1,409 +1,368 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState } from 'react';
 import { useAuth } from '@/contexts/AuthContext';
-import { USER_ROLES } from '@/utils/roleSystem';
-import Header from '@/components/Header';
+import { useRouter } from 'next/navigation';
+import JobPostingForm from '@/components/JobPostingForm';
+import FormBuilder from '@/components/FormBuilder';
+import { ArrowLeft, Plus, Settings, Eye, Briefcase } from 'lucide-react';
 
-export default function PostJobPage() {
-  const { user, loading } = useAuth();
-  const [mounted, setMounted] = useState(false);
-  const [formData, setFormData] = useState({
-    title: '',
-    company: '',
-    description: '',
-    requirements: '',
-    location: '',
-    jobType: 'Full-time',
-    experienceLevel: 'Mid-level',
-    category: '',
-    salaryFrom: '',
-    salaryTo: '',
-    salaryCurrency: 'USD',
-    remoteType: 'on-site',
-    applyUrl: '',
-    applyEmail: '',
-    expiresAt: '',
-    tags: '',
-    benefits: ''
-  });
-  const [isSubmitting, setIsSubmitting] = useState(false);
+const PostJobPage = () => {
+  const { user } = useAuth();
+  const router = useRouter();
+  const [currentStep, setCurrentStep] = useState('job-form'); // 'job-form', 'form-builder', 'preview'
+  const [jobData, setJobData] = useState(null);
+  const [customForm, setCustomForm] = useState(null);
+  const [loading, setLoading] = useState(false);
+  const [message, setMessage] = useState('');
 
-  useEffect(() => {
-    setMounted(true);
-  }, []);
+  // Check if user is authenticated and has posting permissions
+  if (!user || !['super_admin', 'employer_admin', 'sub_user'].includes(user.role)) {
+    return (
+      <div className="min-h-screen bg-gray-900 flex items-center justify-center">
+        <div className="text-center">
+          <Briefcase className="mx-auto h-12 w-12 text-gray-400 mb-4" />
+          <h1 className="text-2xl font-bold text-white mb-2">Access Denied</h1>
+          <p className="text-gray-400 mb-4">You need employer privileges to post jobs.</p>
+          <button
+            onClick={() => router.push('/dashboard')}
+            className="px-6 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors"
+          >
+            Go to Dashboard
+          </button>
+        </div>
+      </div>
+    );
+  }
 
-  const handleInputChange = (e) => {
-    const { name, value } = e.target;
-    setFormData(prev => ({
-      ...prev,
-      [name]: value
-    }));
-  };
-
-  const handleSubmit = async (e) => {
-    e.preventDefault();
-    setIsSubmitting(true);
-
+  const handleJobSubmit = async (data) => {
+    setLoading(true);
     try {
-      const response = await fetch('/api/jobs', {
+      const response = await fetch('/api/jobs/post', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
         },
-        body: JSON.stringify({
-          ...formData,
-          tags: formData.tags.split(',').map(tag => tag.trim()).filter(Boolean),
-          salaryFrom: formData.salaryFrom ? parseInt(formData.salaryFrom) : null,
-          salaryTo: formData.salaryTo ? parseInt(formData.salaryTo) : null,
-        }),
+        credentials: 'include',
+        body: JSON.stringify(data),
       });
 
-      if (response.ok) {
-        alert('Job posted successfully!');
-        setFormData({
-          title: '',
-          company: '',
-          description: '',
-          requirements: '',
-          location: '',
-          jobType: 'Full-time',
-          experienceLevel: 'Mid-level',
-          category: '',
-          salaryFrom: '',
-          salaryTo: '',
-          salaryCurrency: 'USD',
-          remoteType: 'on-site',
-          applyUrl: '',
-          applyEmail: '',
-          expiresAt: '',
-          tags: '',
-          benefits: ''
-        });
+      const result = await response.json();
+
+      if (result.success) {
+        setJobData({ ...data, id: result.job.id });
+        setMessage('Job posted successfully! Now create a custom application form.');
+        setCurrentStep('form-builder');
       } else {
-        const error = await response.json();
-        alert(`Error: ${error.message || 'Failed to post job'}`);
+        setMessage(result.error || 'Failed to post job');
       }
     } catch (error) {
       console.error('Error posting job:', error);
-      alert('Error posting job. Please try again.');
+      setMessage('An error occurred while posting the job');
     } finally {
-      setIsSubmitting(false);
+      setLoading(false);
     }
   };
 
-  if (!mounted || loading) {
-    return (
-      <div className="min-h-screen bg-gray-50">
-        <Header />
-        <div className="bg-gray-900 flex items-center justify-center pt-16 min-h-screen">
-          <div className="text-center">
-            <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-indigo-500 mx-auto mb-4"></div>
-            <p className="text-gray-300">Loading...</p>
+  const handleFormSave = async (formData) => {
+    setLoading(true);
+    try {
+      const response = await fetch('/api/application-forms', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        credentials: 'include',
+        body: JSON.stringify(formData),
+      });
+
+      const result = await response.json();
+
+      if (result.success) {
+        setCustomForm(formData);
+        setMessage('Application form created successfully!');
+        setCurrentStep('preview');
+      } else {
+        setMessage(result.error || 'Failed to create application form');
+      }
+    } catch (error) {
+      console.error('Error creating form:', error);
+      setMessage('An error occurred while creating the form');
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleFormPreview = (formData) => {
+    setCustomForm(formData);
+    setCurrentStep('preview');
+  };
+
+  const handleFinish = () => {
+    router.push('/admin/jobs');
+  };
+
+  const handleCancel = () => {
+    router.push('/admin/jobs');
+  };
+
+  const renderStepIndicator = () => (
+    <div className="flex items-center justify-center mb-8">
+      <div className="flex items-center space-x-4">
+        <div className={`flex items-center ${currentStep === 'job-form' ? 'text-blue-400' : 'text-green-400'}`}>
+          <div className={`w-8 h-8 rounded-full flex items-center justify-center border-2 ${
+            currentStep === 'job-form' ? 'border-blue-400 bg-blue-400' : 'border-green-400 bg-green-400'
+          }`}>
+            <span className="text-white font-semibold text-sm">1</span>
           </div>
+          <span className="ml-2 font-medium">Job Details</span>
         </div>
-      </div>
-    );
-  }
-
-  if (!user || !['employer_admin', 'super_admin'].includes(user.role)) {
-    return (
-      <div className="min-h-screen bg-gray-50">
-        <Header />
-        <div className="bg-gray-900 flex items-center justify-center pt-16 min-h-screen">
-          <div className="text-center">
-            <h1 className="text-2xl font-bold text-white mb-4">Access Denied</h1>
-            <p className="text-gray-300">You need employer admin privileges to post jobs.</p>
+        
+        <div className={`w-8 h-px ${currentStep !== 'job-form' ? 'bg-green-400' : 'bg-gray-600'}`} />
+        
+        <div className={`flex items-center ${
+          currentStep === 'job-form' ? 'text-gray-400' : 
+          currentStep === 'form-builder' ? 'text-blue-400' : 'text-green-400'
+        }`}>
+          <div className={`w-8 h-8 rounded-full flex items-center justify-center border-2 ${
+            currentStep === 'job-form' ? 'border-gray-600' : 
+            currentStep === 'form-builder' ? 'border-blue-400 bg-blue-400' : 'border-green-400 bg-green-400'
+          }`}>
+            <span className="text-white font-semibold text-sm">2</span>
           </div>
+          <span className="ml-2 font-medium">Application Form</span>
         </div>
-      </div>
-    );
-  }
-
-  return (
-    <div className="min-h-screen bg-gray-50">
-      <Header />
-      <div className="bg-gray-900 text-white pt-16 min-h-screen">
-        <div className="container mx-auto px-4 py-8">
-          {/* Header */}
-          <div className="mb-8">
-            <h1 className="text-3xl font-bold text-white mb-2">Post a New Job</h1>
-            <p className="text-gray-300">Fill out the form below to post a new job listing</p>
+        
+        <div className={`w-8 h-px ${currentStep === 'preview' ? 'bg-green-400' : 'bg-gray-600'}`} />
+        
+        <div className={`flex items-center ${currentStep === 'preview' ? 'text-blue-400' : 'text-gray-400'}`}>
+          <div className={`w-8 h-8 rounded-full flex items-center justify-center border-2 ${
+            currentStep === 'preview' ? 'border-blue-400 bg-blue-400' : 'border-gray-600'
+          }`}>
+            <span className="text-white font-semibold text-sm">3</span>
           </div>
-
-          {/* Job Posting Form */}
-          <div className="bg-gray-800 rounded-lg p-6 border border-gray-700">
-            <form onSubmit={handleSubmit} className="space-y-6">
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                {/* Job Title */}
-                <div className="md:col-span-2">
-                  <label className="block text-sm font-medium text-gray-300 mb-2">
-                    Job Title *
-                  </label>
-                  <input
-                    type="text"
-                    name="title"
-                    value={formData.title}
-                    onChange={handleInputChange}
-                    required
-                    className="w-full px-3 py-2 bg-gray-700 border border-gray-600 rounded-md text-white placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-blue-500"
-                    placeholder="e.g. Senior Software Engineer"
-                  />
-                </div>
-
-                {/* Company */}
-                <div>
-                  <label className="block text-sm font-medium text-gray-300 mb-2">
-                    Company *
-                  </label>
-                  <input
-                    type="text"
-                    name="company"
-                    value={formData.company}
-                    onChange={handleInputChange}
-                    required
-                    className="w-full px-3 py-2 bg-gray-700 border border-gray-600 rounded-md text-white placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-blue-500"
-                    placeholder="Company name"
-                  />
-                </div>
-
-                {/* Location */}
-                <div>
-                  <label className="block text-sm font-medium text-gray-300 mb-2">
-                    Location *
-                  </label>
-                  <input
-                    type="text"
-                    name="location"
-                    value={formData.location}
-                    onChange={handleInputChange}
-                    required
-                    className="w-full px-3 py-2 bg-gray-700 border border-gray-600 rounded-md text-white placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-blue-500"
-                    placeholder="e.g. San Francisco, CA"
-                  />
-                </div>
-
-                {/* Job Type */}
-                <div>
-                  <label className="block text-sm font-medium text-gray-300 mb-2">
-                    Job Type
-                  </label>
-                  <select
-                    name="jobType"
-                    value={formData.jobType}
-                    onChange={handleInputChange}
-                    className="w-full px-3 py-2 bg-gray-700 border border-gray-600 rounded-md text-white focus:outline-none focus:ring-2 focus:ring-blue-500"
-                  >
-                    <option value="Full-time">Full-time</option>
-                    <option value="Part-time">Part-time</option>
-                    <option value="Contract">Contract</option>
-                    <option value="Freelance">Freelance</option>
-                    <option value="Internship">Internship</option>
-                  </select>
-                </div>
-
-                {/* Experience Level */}
-                <div>
-                  <label className="block text-sm font-medium text-gray-300 mb-2">
-                    Experience Level
-                  </label>
-                  <select
-                    name="experienceLevel"
-                    value={formData.experienceLevel}
-                    onChange={handleInputChange}
-                    className="w-full px-3 py-2 bg-gray-700 border border-gray-600 rounded-md text-white focus:outline-none focus:ring-2 focus:ring-blue-500"
-                  >
-                    <option value="Entry">Entry Level</option>
-                    <option value="Junior">Junior</option>
-                    <option value="Mid-level">Mid-level</option>
-                    <option value="Senior">Senior</option>
-                    <option value="Lead">Lead</option>
-                    <option value="Manager">Manager</option>
-                  </select>
-                </div>
-
-                {/* Remote Type */}
-                <div>
-                  <label className="block text-sm font-medium text-gray-300 mb-2">
-                    Work Type
-                  </label>
-                  <select
-                    name="remoteType"
-                    value={formData.remoteType}
-                    onChange={handleInputChange}
-                    className="w-full px-3 py-2 bg-gray-700 border border-gray-600 rounded-md text-white focus:outline-none focus:ring-2 focus:ring-blue-500"
-                  >
-                    <option value="on-site">On-site</option>
-                    <option value="remote">Remote</option>
-                    <option value="hybrid">Hybrid</option>
-                  </select>
-                </div>
-
-                {/* Category */}
-                <div>
-                  <label className="block text-sm font-medium text-gray-300 mb-2">
-                    Category
-                  </label>
-                  <input
-                    type="text"
-                    name="category"
-                    value={formData.category}
-                    onChange={handleInputChange}
-                    className="w-full px-3 py-2 bg-gray-700 border border-gray-600 rounded-md text-white placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-blue-500"
-                    placeholder="e.g. Engineering, Design, Marketing"
-                  />
-                </div>
-
-                {/* Salary From */}
-                <div>
-                  <label className="block text-sm font-medium text-gray-300 mb-2">
-                    Salary From
-                  </label>
-                  <input
-                    type="number"
-                    name="salaryFrom"
-                    value={formData.salaryFrom}
-                    onChange={handleInputChange}
-                    className="w-full px-3 py-2 bg-gray-700 border border-gray-600 rounded-md text-white placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-blue-500"
-                    placeholder="50000"
-                  />
-                </div>
-
-                {/* Salary To */}
-                <div>
-                  <label className="block text-sm font-medium text-gray-300 mb-2">
-                    Salary To
-                  </label>
-                  <input
-                    type="number"
-                    name="salaryTo"
-                    value={formData.salaryTo}
-                    onChange={handleInputChange}
-                    className="w-full px-3 py-2 bg-gray-700 border border-gray-600 rounded-md text-white placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-blue-500"
-                    placeholder="80000"
-                  />
-                </div>
-
-                {/* Apply URL */}
-                <div>
-                  <label className="block text-sm font-medium text-gray-300 mb-2">
-                    Apply URL
-                  </label>
-                  <input
-                    type="url"
-                    name="applyUrl"
-                    value={formData.applyUrl}
-                    onChange={handleInputChange}
-                    className="w-full px-3 py-2 bg-gray-700 border border-gray-600 rounded-md text-white placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-blue-500"
-                    placeholder="https://company.com/apply"
-                  />
-                </div>
-
-                {/* Apply Email */}
-                <div>
-                  <label className="block text-sm font-medium text-gray-300 mb-2">
-                    Apply Email
-                  </label>
-                  <input
-                    type="email"
-                    name="applyEmail"
-                    value={formData.applyEmail}
-                    onChange={handleInputChange}
-                    className="w-full px-3 py-2 bg-gray-700 border border-gray-600 rounded-md text-white placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-blue-500"
-                    placeholder="hr@company.com"
-                  />
-                </div>
-
-                {/* Expires At */}
-                <div>
-                  <label className="block text-sm font-medium text-gray-300 mb-2">
-                    Expires At
-                  </label>
-                  <input
-                    type="date"
-                    name="expiresAt"
-                    value={formData.expiresAt}
-                    onChange={handleInputChange}
-                    className="w-full px-3 py-2 bg-gray-700 border border-gray-600 rounded-md text-white focus:outline-none focus:ring-2 focus:ring-blue-500"
-                  />
-                </div>
-
-                {/* Tags */}
-                <div>
-                  <label className="block text-sm font-medium text-gray-300 mb-2">
-                    Tags
-                  </label>
-                  <input
-                    type="text"
-                    name="tags"
-                    value={formData.tags}
-                    onChange={handleInputChange}
-                    className="w-full px-3 py-2 bg-gray-700 border border-gray-600 rounded-md text-white placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-blue-500"
-                    placeholder="React, Node.js, Python (comma separated)"
-                  />
-                </div>
-              </div>
-
-              {/* Description */}
-              <div>
-                <label className="block text-sm font-medium text-gray-300 mb-2">
-                  Job Description *
-                </label>
-                <textarea
-                  name="description"
-                  value={formData.description}
-                  onChange={handleInputChange}
-                  required
-                  rows={6}
-                  className="w-full px-3 py-2 bg-gray-700 border border-gray-600 rounded-md text-white placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-blue-500"
-                  placeholder="Detailed job description..."
-                />
-              </div>
-
-              {/* Requirements */}
-              <div>
-                <label className="block text-sm font-medium text-gray-300 mb-2">
-                  Requirements
-                </label>
-                <textarea
-                  name="requirements"
-                  value={formData.requirements}
-                  onChange={handleInputChange}
-                  rows={4}
-                  className="w-full px-3 py-2 bg-gray-700 border border-gray-600 rounded-md text-white placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-blue-500"
-                  placeholder="Required skills and qualifications..."
-                />
-              </div>
-
-              {/* Benefits */}
-              <div>
-                <label className="block text-sm font-medium text-gray-300 mb-2">
-                  Benefits
-                </label>
-                <textarea
-                  name="benefits"
-                  value={formData.benefits}
-                  onChange={handleInputChange}
-                  rows={3}
-                  className="w-full px-3 py-2 bg-gray-700 border border-gray-600 rounded-md text-white placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-blue-500"
-                  placeholder="Benefits and perks..."
-                />
-              </div>
-
-              {/* Submit Button */}
-              <div className="flex justify-end">
-                <button
-                  type="submit"
-                  disabled={isSubmitting}
-                  className="bg-blue-600 hover:bg-blue-700 disabled:bg-blue-800 text-white font-medium py-2 px-6 rounded-lg transition-colors"
-                >
-                  {isSubmitting ? 'Posting...' : 'Post Job'}
-                </button>
-              </div>
-            </form>
-          </div>
+          <span className="ml-2 font-medium">Preview & Publish</span>
         </div>
       </div>
     </div>
   );
-}
+
+  return (
+    <div className="min-h-screen bg-gray-900">
+      {/* Header */}
+      <div className="bg-gray-800 border-b border-gray-700">
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+          <div className="flex items-center justify-between h-16">
+            <div className="flex items-center">
+              <button
+                onClick={() => router.push('/admin/jobs')}
+                className="p-2 text-gray-400 hover:text-white hover:bg-gray-700 rounded-lg transition-colors"
+              >
+                <ArrowLeft size={20} />
+              </button>
+              <h1 className="ml-3 text-xl font-semibold text-white">Post New Job</h1>
+            </div>
+            
+            <div className="flex items-center space-x-4">
+              {currentStep !== 'job-form' && (
+                <button
+                  onClick={() => setCurrentStep('job-form')}
+                  className="px-4 py-2 text-gray-300 hover:text-white hover:bg-gray-700 rounded-lg transition-colors"
+                >
+                  Edit Job Details
+                </button>
+              )}
+              
+              {currentStep === 'preview' && (
+                <button
+                  onClick={() => setCurrentStep('form-builder')}
+                  className="px-4 py-2 text-gray-300 hover:text-white hover:bg-gray-700 rounded-lg transition-colors flex items-center gap-2"
+                >
+                  <Settings size={16} />
+                  Edit Form
+                </button>
+              )}
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+        {renderStepIndicator()}
+
+        {/* Message Display */}
+        {message && (
+          <div className={`mb-6 p-4 rounded-lg ${
+            message.includes('success') || message.includes('Success') 
+              ? 'bg-green-900 border border-green-700 text-green-300' 
+              : 'bg-red-900 border border-red-700 text-red-300'
+          }`}>
+            {message}
+          </div>
+        )}
+
+        {/* Step Content */}
+        {currentStep === 'job-form' && (
+          <JobPostingForm
+            onSubmit={handleJobSubmit}
+            onCancel={handleCancel}
+            initialData={jobData}
+            isEditing={!!jobData}
+          />
+        )}
+
+        {currentStep === 'form-builder' && jobData && (
+          <div>
+            <div className="mb-6 text-center">
+              <h2 className="text-2xl font-bold text-white mb-2">Create Application Form</h2>
+              <p className="text-gray-400">
+                Design a custom application form for <span className="text-blue-400">{jobData.title}</span>
+              </p>
+            </div>
+            
+            <FormBuilder
+              jobId={jobData.id}
+              onSave={handleFormSave}
+              onPreview={handleFormPreview}
+              initialForm={customForm}
+            />
+          </div>
+        )}
+
+        {currentStep === 'preview' && jobData && (
+          <div>
+            <div className="mb-6 text-center">
+              <h2 className="text-2xl font-bold text-white mb-2">Preview & Publish</h2>
+              <p className="text-gray-400">
+                Review your job posting and application form before publishing
+              </p>
+            </div>
+
+            <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
+              {/* Job Preview */}
+              <div className="bg-gray-800 rounded-lg p-6">
+                <h3 className="text-xl font-semibold text-white mb-4 flex items-center gap-2">
+                  <Briefcase size={20} />
+                  Job Posting Preview
+                </h3>
+                
+                <div className="space-y-4">
+                  <div>
+                    <h4 className="text-lg font-bold text-white">{jobData.title}</h4>
+                    <p className="text-gray-300">{jobData.company} • {jobData.location}</p>
+                    <div className="flex flex-wrap gap-2 mt-2">
+                      <span className="px-2 py-1 bg-blue-600 text-white rounded text-sm">{jobData.jobType}</span>
+                      <span className="px-2 py-1 bg-purple-600 text-white rounded text-sm">{jobData.workMode}</span>
+                      <span className="px-2 py-1 bg-green-600 text-white rounded text-sm">{jobData.experienceLevel}</span>
+                    </div>
+                  </div>
+
+                  {(jobData.salaryMin || jobData.salaryMax) && (
+                    <div>
+                      <h5 className="font-medium text-gray-300">Salary Range</h5>
+                      <p className="text-white">
+                        {jobData.salaryMin && jobData.salaryMax 
+                          ? `$${jobData.salaryMin.toLocaleString()} - $${jobData.salaryMax.toLocaleString()}`
+                          : jobData.salaryMin 
+                            ? `From $${jobData.salaryMin.toLocaleString()}`
+                            : `Up to $${jobData.salaryMax.toLocaleString()}`
+                        }
+                      </p>
+                    </div>
+                  )}
+
+                  {jobData.skillsRequired && jobData.skillsRequired.length > 0 && (
+                    <div>
+                      <h5 className="font-medium text-gray-300 mb-2">Required Skills</h5>
+                      <div className="flex flex-wrap gap-2">
+                        {jobData.skillsRequired.map((skill, index) => (
+                          <span key={index} className="px-2 py-1 bg-gray-700 text-gray-300 rounded text-sm">
+                            {skill}
+                          </span>
+                        ))}
+                      </div>
+                    </div>
+                  )}
+
+                  <div>
+                    <h5 className="font-medium text-gray-300 mb-2">Description</h5>
+                    <div 
+                      className="text-gray-400 prose prose-invert max-w-none"
+                      dangerouslySetInnerHTML={{ __html: jobData.description }}
+                    />
+                  </div>
+                </div>
+              </div>
+
+              {/* Form Preview */}
+              <div className="bg-gray-800 rounded-lg p-6">
+                <h3 className="text-xl font-semibold text-white mb-4 flex items-center gap-2">
+                  <Settings size={20} />
+                  Application Form Preview
+                </h3>
+                
+                {customForm ? (
+                  <div className="space-y-4">
+                    <div>
+                      <h4 className="font-bold text-white">{customForm.title}</h4>
+                      {customForm.description && (
+                        <p className="text-gray-300 text-sm mt-1">{customForm.description}</p>
+                      )}
+                    </div>
+                    
+                    <div className="text-sm text-gray-400">
+                      <span className="font-medium">{customForm.fields?.length || 0}</span> fields configured
+                    </div>
+                    
+                    <div className="max-h-64 overflow-y-auto">
+                      {customForm.fields?.map((field, index) => (
+                        <div key={index} className="mb-3 p-3 bg-gray-700 rounded">
+                          <div className="flex items-center justify-between">
+                            <span className="text-white font-medium">{field.label}</span>
+                            {field.required && <span className="text-red-400 text-sm">Required</span>}
+                          </div>
+                          <span className="text-gray-400 text-sm capitalize">{field.type}</span>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                ) : (
+                  <div className="text-center text-gray-400">
+                    <p>Using default application form</p>
+                    <button
+                      onClick={() => setCurrentStep('form-builder')}
+                      className="mt-2 text-blue-400 hover:text-blue-300"
+                    >
+                      Create custom form
+                    </button>
+                  </div>
+                )}
+              </div>
+            </div>
+
+            {/* Action Buttons */}
+            <div className="flex justify-center gap-4 mt-8">
+              <button
+                onClick={handleCancel}
+                className="px-6 py-3 bg-gray-700 text-white rounded-lg hover:bg-gray-600 transition-colors"
+              >
+                Cancel
+              </button>
+              <button
+                onClick={handleFinish}
+                className="px-6 py-3 bg-green-600 text-white rounded-lg hover:bg-green-700 transition-colors flex items-center gap-2"
+              >
+                <Eye size={16} />
+                Publish Job
+              </button>
+            </div>
+          </div>
+        )}
+      </div>
+    </div>
+  );
+};
+
+export default PostJobPage;
+
+
