@@ -1,6 +1,6 @@
 // API route to fetch jobs from PostgreSQL database using Prisma
 import { db, handlePrismaError } from '../../../utils/db';
-import { verifyToken } from '../../../utils/auth';
+import { verifyToken, getUserFromRequest } from '../../../utils/auth';
 
 // Simple in-memory cache for performance
 const cache = new Map();
@@ -20,14 +20,25 @@ export async function GET(request) {
     const includeExpired = searchParams.get('includeExpired') === 'true';
     const sortBy = searchParams.get('sortBy') || 'postedAt';
     const sortOrder = searchParams.get('sortOrder') || 'desc';
+    const employer = searchParams.get('employer') === 'true'; // Filter for employer's own jobs
 
-    // Create cache key from all parameters
+    // Handle employer filtering - get authenticated user if filtering by employer
+    let userFilter = null;
+    if (employer) {
+      const user = await getUserFromRequest(request);
+      if (!user || !['employer_admin', 'super_admin'].includes(user.role)) {
+        return Response.json({ error: 'Unauthorized' }, { status: 401 });
+      }
+      userFilter = user;
+    }
+
+    // Create cache key from all parameters (including employer filter)
     const cacheKey = `jobs-${JSON.stringify({
-      page, search, location, type, level, category, remote, includeExpired, sortBy, sortOrder, limit
+      page, search, location, type, level, category, remote, includeExpired, sortBy, sortOrder, limit, employer, userId: userFilter?.id
     })}`;
 
-    // Check cache first
-    if (cache.has(cacheKey)) {
+    // Check cache first (skip cache for employer-specific requests for real-time data)
+    if (!employer && cache.has(cacheKey)) {
       const { data, timestamp } = cache.get(cacheKey);
       if (Date.now() - timestamp < CACHE_DURATION) {
         return Response.json(data, {
@@ -57,6 +68,30 @@ export async function GET(request) {
       limit,
       offset
     };
+
+    // Add employer filter if specified
+    if (employer && userFilter) {
+      // For employer admin, filter by jobs posted by them or their sub-users
+      if (userFilter.role === 'employer_admin') {
+        const baseUserId = userFilter.parentUserId || userFilter.id;
+        filters.postedByEmployer = {
+          OR: [
+            { postedById: userFilter.id }, // Jobs posted by this user
+            { postedById: baseUserId }, // Jobs posted by parent user (for sub_users)
+            { 
+              postedBy: { 
+                OR: [
+                  { id: userFilter.id },
+                  { id: baseUserId },
+                  { parentUserId: baseUserId }
+                ]
+              }
+            }
+          ]
+        };
+      }
+      // Super admin sees all jobs (no additional filter needed)
+    }
 
     // Remove undefined values from filters
     Object.keys(filters).forEach(key => {
@@ -129,12 +164,14 @@ export async function GET(request) {
       filters: Object.keys(filters).filter(key => filters[key]).length // Return applied filters count
     };
 
-    // Cache the response
-    cache.set(cacheKey, { data: responseData, timestamp: Date.now() });
+    // Cache the response (skip caching for employer-specific requests)
+    if (!employer) {
+      cache.set(cacheKey, { data: responseData, timestamp: Date.now() });
+    }
 
     return Response.json(responseData, {
       headers: {
-        'Cache-Control': 'public, max-age=300, s-maxage=300',
+        'Cache-Control': employer ? 'no-cache, no-store, must-revalidate' : 'public, max-age=300, s-maxage=300',
         'X-Cache': 'MISS'
       }
     });

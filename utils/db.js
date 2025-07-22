@@ -47,6 +47,7 @@ export const db = {
         sortOrder = 'desc',
         limit = 10,
         offset = 0,
+        postedByEmployer, // New employer filter
       } = options;
 
       const where = {
@@ -78,7 +79,8 @@ export const db = {
               }
             }
           }
-        })
+        }),
+        ...(postedByEmployer && postedByEmployer) // Add employer filter
       };
 
       const orderBy = { [sortBy]: sortOrder };
@@ -90,6 +92,13 @@ export const db = {
           categories: {
             include: {
               category: true
+            }
+          },
+          postedBy: {
+            select: {
+              id: true,
+              fullName: true,
+              email: true
             }
           }
         },
@@ -109,6 +118,7 @@ export const db = {
         category,
         remote,
         includeExpired = false,
+        postedByEmployer, // New employer filter
       } = options;
 
       const where = {
@@ -140,7 +150,8 @@ export const db = {
               }
             }
           }
-        })
+        }),
+        ...(postedByEmployer && postedByEmployer) // Add employer filter
       };
 
       return await prisma.job.count({ where });

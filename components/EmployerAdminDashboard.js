@@ -14,6 +14,9 @@ export default function EmployerAdminDashboard() {
   const { user } = useAuth();
   const { subscription } = useSubscription();
   const [subUsers, setSubUsers] = useState([]);
+  const [jobs, setJobs] = useState([]);
+  const [applications, setApplications] = useState([]);
+  const [companies, setCompanies] = useState([]);
   const [loading, setLoading] = useState(true);
   const [showCreateModal, setShowCreateModal] = useState(false);
   const [stats, setStats] = useState({
@@ -23,53 +26,181 @@ export default function EmployerAdminDashboard() {
     vendorUsers: 0,
     customerUsers: 0,
     usedResumeCredits: 0,
-    usedAiCredits: 0
+    usedAiCredits: 0,
+    totalJobs: 0,
+    activeJobs: 0,
+    totalApplications: 0,
+    pendingApplications: 0,
+    totalCompanies: 0
   });
 
   useEffect(() => {
     if (user?.role === USER_ROLES.EMPLOYER_ADMIN) {
-      loadSubUsers();
+      loadDashboardData();
     }
   }, [user]);
 
-  const loadSubUsers = async () => {
+  const loadDashboardData = async () => {
     try {
-      const response = await fetch('/api/admin/users');
-      if (response.ok) {
-        const data = await response.json();
-        setSubUsers(data.users);
-        calculateStats(data.users);
-      }
+      // Load all data in parallel
+      await Promise.all([
+        loadSubUsers(),
+        loadJobs(),
+        loadApplications(),
+        loadCompanies()
+      ]);
     } catch (error) {
-      console.error('Error loading sub-users:', error);
+      console.error('Error loading dashboard data:', error);
     } finally {
       setLoading(false);
     }
   };
 
-  const calculateStats = (userList) => {
+  const loadSubUsers = async () => {
+    try {
+      // Get authentication token for the request
+      const token = localStorage.getItem('token');
+      const headers = {};
+      if (token) {
+        headers['Authorization'] = `Bearer ${token}`;
+      }
+
+      const response = await fetch('/api/admin/users', {
+        headers
+      });
+      if (response.ok) {
+        const data = await response.json();
+        setSubUsers(data.users || []);
+        return data.users || [];
+      }
+    } catch (error) {
+      console.error('Error loading sub-users:', error);
+    }
+    return [];
+  };
+
+  const loadJobs = async () => {
+    try {
+      // Get authentication token for the request
+      const token = localStorage.getItem('token');
+      const headers = {};
+      if (token) {
+        headers['Authorization'] = `Bearer ${token}`;
+      }
+
+      const response = await fetch('/api/jobs?employer=true', {
+        headers
+      });
+      if (response.ok) {
+        const data = await response.json();
+        setJobs(data.jobs || []);
+        return data.jobs || [];
+      } else if (response.status === 401) {
+        console.error('Unauthorized access to employer jobs');
+        // Handle authentication error - perhaps redirect to login
+      }
+    } catch (error) {
+      console.error('Error loading jobs:', error);
+    }
+    return [];
+  };
+
+  const loadApplications = async () => {
+    try {
+      // Get authentication token for the request
+      const token = localStorage.getItem('token');
+      const headers = {};
+      if (token) {
+        headers['Authorization'] = `Bearer ${token}`;
+      }
+
+      const response = await fetch('/api/ats/applications', {
+        headers
+      });
+      if (response.ok) {
+        const data = await response.json();
+        setApplications(data.applications || []);
+        return data.applications || [];
+      }
+    } catch (error) {
+      console.error('Error loading applications:', error);
+    }
+    return [];
+  };
+
+  const loadCompanies = async () => {
+    try {
+      // Get authentication token for the request
+      const token = localStorage.getItem('token');
+      const headers = {};
+      if (token) {
+        headers['Authorization'] = `Bearer ${token}`;
+      }
+
+      const response = await fetch('/api/companies', {
+        headers
+      });
+      if (response.ok) {
+        const data = await response.json();
+        setCompanies(data.companies || []);
+        return data.companies || [];
+      }
+    } catch (error) {
+      console.error('Error loading companies:', error);
+    }
+    return [];
+  };
+
+  const calculateStats = (userData = subUsers, jobsData = jobs, applicationsData = applications, companiesData = companies) => {
     const stats = {
-      totalSubUsers: userList.length,
-      activeSubUsers: userList.filter(u => u.isActive).length,
-      staffUsers: userList.filter(u => u.userType === SUB_USER_TYPES.STAFF).length,
-      vendorUsers: userList.filter(u => u.userType === SUB_USER_TYPES.VENDOR).length,
-      customerUsers: userList.filter(u => u.userType === SUB_USER_TYPES.CUSTOMER).length,
-      usedResumeCredits: userList.reduce((sum, u) => sum + (u.usedResumeCredits || 0), 0),
-      usedAiCredits: userList.reduce((sum, u) => sum + (u.usedAiCredits || 0), 0)
+      // Sub-user stats
+      totalSubUsers: userData.length,
+      activeSubUsers: userData.filter(u => u.isActive).length,
+      staffUsers: userData.filter(u => u.userType === SUB_USER_TYPES.STAFF).length,
+      vendorUsers: userData.filter(u => u.userType === SUB_USER_TYPES.VENDOR).length,
+      customerUsers: userData.filter(u => u.userType === SUB_USER_TYPES.CUSTOMER).length,
+      usedResumeCredits: userData.reduce((sum, u) => sum + (u.usedResumeCredits || 0), 0),
+      usedAiCredits: userData.reduce((sum, u) => sum + (u.usedAiCredits || 0), 0),
+      
+      // Job stats
+      totalJobs: jobsData.length,
+      activeJobs: jobsData.filter(j => j.status === 'active').length,
+      
+      // Application stats
+      totalApplications: applicationsData.length,
+      pendingApplications: applicationsData.filter(a => a.status === 'pending' || a.status === 'under_review').length,
+      
+      // Company stats
+      totalCompanies: companiesData.length
     };
     setStats(stats);
+    return stats;
   };
+
+  // Calculate stats when data changes
+  useEffect(() => {
+    if (!loading) {
+      calculateStats();
+    }
+  }, [subUsers, jobs, applications, companies, loading]);
 
   const handleDeleteSubUser = async (userId) => {
     if (!confirm('Are you sure you want to delete this sub-user?')) return;
 
     try {
+      const token = localStorage.getItem('token');
+      const headers = { 'Content-Type': 'application/json' };
+      if (token) {
+        headers['Authorization'] = `Bearer ${token}`;
+      }
+
       const response = await fetch(`/api/admin/users/${userId}`, {
-        method: 'DELETE'
+        method: 'DELETE',
+        headers
       });
 
       if (response.ok) {
-        loadSubUsers();
+        loadDashboardData();
       } else {
         const data = await response.json();
         alert(data.error || 'Failed to delete sub-user');
@@ -82,11 +213,15 @@ export default function EmployerAdminDashboard() {
 
   const allocateCredits = async (userId, resumeCredits, aiCredits) => {
     try {
+      const token = localStorage.getItem('token');
+      const headers = { 'Content-Type': 'application/json' };
+      if (token) {
+        headers['Authorization'] = `Bearer ${token}`;
+      }
+
       const response = await fetch(`/api/admin/users/${userId}`, {
         method: 'PUT',
-        headers: {
-          'Content-Type': 'application/json'
-        },
+        headers,
         body: JSON.stringify({
           allocatedResumeCredits: resumeCredits,
           allocatedAiCredits: aiCredits
@@ -94,7 +229,7 @@ export default function EmployerAdminDashboard() {
       });
 
       if (response.ok) {
-        loadSubUsers();
+        loadDashboardData();
       } else {
         const data = await response.json();
         alert(data.error || 'Failed to allocate credits');
@@ -153,33 +288,42 @@ export default function EmployerAdminDashboard() {
         </div>
 
         {/* Stats Cards */}
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-6 mb-8">
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-6 gap-6 mb-8">
           <div className="bg-gray-800 rounded-lg p-6 border border-gray-700">
-            <h3 className="text-sm font-medium text-gray-400 mb-2">Total Sub-Users</h3>
-            <div className="text-2xl font-bold text-white">{stats.totalSubUsers}</div>
+            <h3 className="text-sm font-medium text-gray-400 mb-2">Total Jobs</h3>
+            <div className="text-2xl font-bold text-white">{stats.totalJobs}</div>
+            <p className="text-xs text-gray-500 mt-1">{stats.activeJobs} active</p>
           </div>
           <div className="bg-gray-800 rounded-lg p-6 border border-gray-700">
-            <h3 className="text-sm font-medium text-gray-400 mb-2">Active Sub-Users</h3>
-            <div className="text-2xl font-bold text-green-400">{stats.activeSubUsers}</div>
+            <h3 className="text-sm font-medium text-gray-400 mb-2">Applications</h3>
+            <div className="text-2xl font-bold text-blue-400">{stats.totalApplications}</div>
+            <p className="text-xs text-gray-500 mt-1">{stats.pendingApplications} pending</p>
           </div>
           <div className="bg-gray-800 rounded-lg p-6 border border-gray-700">
-            <h3 className="text-sm font-medium text-gray-400 mb-2">Staff</h3>
-            <div className="text-2xl font-bold text-blue-400">{stats.staffUsers}</div>
+            <h3 className="text-sm font-medium text-gray-400 mb-2">Companies</h3>
+            <div className="text-2xl font-bold text-green-400">{stats.totalCompanies}</div>
           </div>
           <div className="bg-gray-800 rounded-lg p-6 border border-gray-700">
-            <h3 className="text-sm font-medium text-gray-400 mb-2">Vendors</h3>
-            <div className="text-2xl font-bold text-yellow-400">{stats.vendorUsers}</div>
+            <h3 className="text-sm font-medium text-gray-400 mb-2">Sub-Users</h3>
+            <div className="text-2xl font-bold text-purple-400">{stats.totalSubUsers}</div>
+            <p className="text-xs text-gray-500 mt-1">{stats.activeSubUsers} active</p>
           </div>
           <div className="bg-gray-800 rounded-lg p-6 border border-gray-700">
-            <h3 className="text-sm font-medium text-gray-400 mb-2">Customers</h3>
-            <div className="text-2xl font-bold text-purple-400">{stats.customerUsers}</div>
+            <h3 className="text-sm font-medium text-gray-400 mb-2">Resume Credits</h3>
+            <div className="text-2xl font-bold text-yellow-400">{getAvailableCredits(user, 'resume')}</div>
+            <p className="text-xs text-gray-500 mt-1">{stats.usedResumeCredits} used</p>
+          </div>
+          <div className="bg-gray-800 rounded-lg p-6 border border-gray-700">
+            <h3 className="text-sm font-medium text-gray-400 mb-2">AI Credits</h3>
+            <div className="text-2xl font-bold text-cyan-400">{getAvailableCredits(user, 'ai')}</div>
+            <p className="text-xs text-gray-500 mt-1">{stats.usedAiCredits} used</p>
           </div>
         </div>
 
         {/* Job Management Section */}
         <div className="bg-gray-800 rounded-lg p-6 mb-8 border border-gray-700">
           <h2 className="text-lg font-semibold text-white mb-4">Job Management</h2>
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mb-6">
             <div className="bg-gray-700 rounded-lg p-4">
               <h3 className="text-white font-medium mb-2">Post a New Job</h3>
               <p className="text-gray-300 text-sm mb-4">
@@ -201,14 +345,48 @@ export default function EmployerAdminDashboard() {
                 View, edit, and manage all your published job listings and applications.
               </p>
               <a
-                href="/jobs"
+                href="/admin/jobs"
                 className="inline-flex items-center px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 transition-colors text-sm font-medium"
               >
                 <svg className="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
                 </svg>
-                Browse All Jobs
+                Manage Jobs
               </a>
+            </div>
+          </div>
+          
+          {/* Recent Jobs */}
+          <div className="bg-gray-700 rounded-lg p-4">
+            <h3 className="text-white font-medium mb-4">Recent Job Postings</h3>
+            <div className="space-y-3">
+              {jobs.slice(0, 5).map((job) => (
+                <div key={job.id} className="flex items-center justify-between p-3 bg-gray-600 rounded-lg">
+                  <div className="flex-1">
+                    <h4 className="text-white font-medium">{job.title}</h4>
+                    <div className="flex items-center gap-4 text-sm text-gray-400 mt-1">
+                      <span>{job.company?.name || 'Unknown Company'}</span>
+                      <span>{job.location || 'Remote'}</span>
+                      <span className={`px-2 py-1 rounded-full text-xs ${
+                        job.status === 'active' ? 'bg-green-900 text-green-200' :
+                        job.status === 'draft' ? 'bg-yellow-900 text-yellow-200' :
+                        'bg-red-900 text-red-200'
+                      }`}>
+                        {job.status}
+                      </span>
+                    </div>
+                  </div>
+                  <div className="text-right text-sm text-gray-400">
+                    <div>{job.applications?.length || 0} applications</div>
+                    <div>{new Date(job.createdAt).toLocaleDateString()}</div>
+                  </div>
+                </div>
+              ))}
+              {jobs.length === 0 && (
+                <div className="text-center text-gray-400 py-8">
+                  <p>No jobs posted yet. Create your first job posting to get started!</p>
+                </div>
+              )}
             </div>
           </div>
         </div>
@@ -233,23 +411,98 @@ export default function EmployerAdminDashboard() {
           )}
         </div>
 
-        {/* ATS Placeholder */}
+        {/* ATS Section */}
         <div className="bg-gray-800 rounded-lg p-6 mb-8 border border-gray-700">
-          <h2 className="text-lg font-semibold text-white mb-4">ATS (Applicant Tracking System)</h2>
-          <div className="bg-gray-700 rounded-lg p-8 text-center border-2 border-dashed border-gray-600">
-            <div className="text-4xl text-gray-500 mb-4">🏗️</div>
-            <h3 className="text-lg font-medium text-gray-300 mb-2">ATS Module Coming Soon</h3>
-            <p className="text-gray-400 mb-4">
-              Complete applicant tracking system with candidate management, 
-              interview scheduling, and resume processing.
-            </p>
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-4 text-sm text-gray-400">
-              <div>✓ Candidate Pipeline Management</div>
-              <div>✓ Resume Parsing & Matching</div>
-              <div>✓ Interview Scheduling</div>
-              <div>✓ Team Collaboration Tools</div>
-              <div>✓ Custom Workflows</div>
-              <div>✓ Analytics & Reporting</div>
+          <div className="flex items-center justify-between mb-4">
+            <h2 className="text-lg font-semibold text-white">ATS (Applicant Tracking System)</h2>
+            <a
+              href="/ats"
+              className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors text-sm font-medium"
+            >
+              Open ATS Dashboard
+            </a>
+          </div>
+          
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+            {/* Applications Overview */}
+            <div className="bg-gray-700 rounded-lg p-4">
+              <div className="flex items-center justify-between mb-3">
+                <h3 className="text-white font-medium">Applications</h3>
+                <div className="text-2xl text-blue-400">{stats.totalApplications}</div>
+              </div>
+              <div className="space-y-2 text-sm">
+                <div className="flex justify-between">
+                  <span className="text-gray-400">Pending Review:</span>
+                  <span className="text-yellow-400">{stats.pendingApplications}</span>
+                </div>
+                <div className="flex justify-between">
+                  <span className="text-gray-400">Under Review:</span>
+                  <span className="text-blue-400">
+                    {applications.filter(a => a.status === 'under_review').length}
+                  </span>
+                </div>
+                <div className="flex justify-between">
+                  <span className="text-gray-400">Shortlisted:</span>
+                  <span className="text-green-400">
+                    {applications.filter(a => a.status === 'shortlisted').length}
+                  </span>
+                </div>
+              </div>
+            </div>
+
+            {/* Recent Applications */}
+            <div className="bg-gray-700 rounded-lg p-4">
+              <h3 className="text-white font-medium mb-3">Recent Applications</h3>
+              <div className="space-y-2">
+                {applications.slice(0, 3).map((app, index) => (
+                  <div key={index} className="flex items-center justify-between text-sm">
+                    <div>
+                      <div className="text-white truncate max-w-32">
+                        {app.applicantName || app.user?.fullName || 'Unknown'}
+                      </div>
+                      <div className="text-gray-400 text-xs">
+                        {app.job?.title || 'Job Title'}
+                      </div>
+                    </div>
+                    <span className={`px-2 py-1 text-xs rounded-full ${
+                      app.status === 'pending' ? 'bg-yellow-900 text-yellow-200' :
+                      app.status === 'under_review' ? 'bg-blue-900 text-blue-200' :
+                      app.status === 'shortlisted' ? 'bg-green-900 text-green-200' :
+                      'bg-gray-800 text-gray-300'
+                    }`}>
+                      {app.status}
+                    </span>
+                  </div>
+                ))}
+                {applications.length === 0 && (
+                  <div className="text-gray-400 text-sm">No applications yet</div>
+                )}
+              </div>
+            </div>
+
+            {/* Quick Actions */}
+            <div className="bg-gray-700 rounded-lg p-4">
+              <h3 className="text-white font-medium mb-3">Quick Actions</h3>
+              <div className="space-y-3">
+                <a
+                  href="/ats?tab=applications"
+                  className="block w-full px-3 py-2 bg-blue-600 text-white rounded text-sm text-center hover:bg-blue-700 transition-colors"
+                >
+                  Review Applications
+                </a>
+                <a
+                  href="/ats?tab=pipeline"
+                  className="block w-full px-3 py-2 bg-green-600 text-white rounded text-sm text-center hover:bg-green-700 transition-colors"
+                >
+                  Manage Pipeline
+                </a>
+                <a
+                  href="/ats?tab=interviews"
+                  className="block w-full px-3 py-2 bg-purple-600 text-white rounded text-sm text-center hover:bg-purple-700 transition-colors"
+                >
+                  Schedule Interviews
+                </a>
+              </div>
             </div>
           </div>
         </div>
@@ -362,7 +615,7 @@ export default function EmployerAdminDashboard() {
       {showCreateModal && (
         <CreateSubUserModal 
           onClose={() => setShowCreateModal(false)} 
-          onSuccess={loadSubUsers}
+          onSuccess={loadDashboardData}
         />
       )}
     </div>
@@ -386,11 +639,15 @@ function CreateSubUserModal({ onClose, onSuccess }) {
     setLoading(true);
 
     try {
+      const token = localStorage.getItem('token');
+      const headers = { 'Content-Type': 'application/json' };
+      if (token) {
+        headers['Authorization'] = `Bearer ${token}`;
+      }
+
       const response = await fetch('/api/admin/users', {
         method: 'POST',
-        headers: {
-          'Content-Type': 'application/json'
-        },
+        headers,
         body: JSON.stringify({
           ...formData,
           role: USER_ROLES.SUB_USER

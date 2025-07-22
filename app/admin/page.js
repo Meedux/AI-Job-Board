@@ -4,7 +4,6 @@ import { useState, useEffect } from 'react';
 import { useAuth } from '@/contexts/AuthContext';
 import { USER_ROLES } from '@/utils/roleSystem';
 import Header from '@/components/Header';
-import SuperAdminDashboard from '@/components/SuperAdminDashboard';
 import EmployerAdminDashboard from '@/components/EmployerAdminDashboard';
 import SubUserDashboard from '@/components/SubUserDashboard';
 
@@ -52,14 +51,6 @@ export default function AdminDashboardPage() {
 
   // Route to appropriate dashboard based on user role
   switch (user.role) {
-    case USER_ROLES.SUPER_ADMIN:
-      return (
-        <div className="min-h-screen bg-gray-50">
-          <Header />
-          <SuperAdminDashboard />
-        </div>
-      );
-    
     case USER_ROLES.EMPLOYER_ADMIN:
       return (
         <div className="min-h-screen bg-gray-50">
@@ -84,15 +75,24 @@ export default function AdminDashboardPage() {
             <div className="text-center">
               <h1 className="text-2xl font-bold text-white mb-4">Access Denied</h1>
               <p className="text-gray-300 mb-6">
-                Your account type ({user.role}) does not have access to admin features.
+                This admin area is for employers only. Super admins should use the dedicated super admin panel.
               </p>
               <div className="space-x-4">
-                <a 
-                  href="/dashboard"
-                  className="bg-indigo-600 hover:bg-indigo-700 text-white font-medium py-2 px-4 rounded-lg transition-colors"
-                >
-                  Go to Dashboard
-                </a>
+                {user.role === USER_ROLES.SUPER_ADMIN ? (
+                  <a 
+                    href="/super-admin"
+                    className="bg-indigo-600 hover:bg-indigo-700 text-white font-medium py-2 px-4 rounded-lg transition-colors"
+                  >
+                    Go to Super Admin Panel
+                  </a>
+                ) : (
+                  <a 
+                    href="/dashboard"
+                    className="bg-indigo-600 hover:bg-indigo-700 text-white font-medium py-2 px-4 rounded-lg transition-colors"
+                  >
+                    Go to Dashboard
+                  </a>
+                )}
                 <a 
                   href="/"
                   className="bg-gray-600 hover:bg-gray-700 text-white font-medium py-2 px-4 rounded-lg transition-colors"

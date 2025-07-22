@@ -231,6 +231,7 @@ const Header = ({ onSearch, onFilter }) => {
               items: [
                 { href: '/super-admin', label: 'Dashboard', icon: '📊' },
                 { href: '/super-admin/users', label: 'User Management', icon: '👥' },
+                { href: '/admin/companies', label: 'Companies', icon: '🏢' },
                 { href: '/super-admin/pricing', label: 'Pricing Tiers', icon: '💎' },
                 { href: '/super-admin/credits', label: 'Credit Packages', icon: '⚡' },
                 { href: '/super-admin/analytics', label: 'Analytics', icon: '�' },
@@ -263,6 +264,7 @@ const Header = ({ onSearch, onFilter }) => {
                 { href: '/ats', label: 'ATS Dashboard', icon: '👥' },
                 { href: '/admin/post-job', label: 'Post Job', icon: '➕' },
                 { href: '/admin/jobs', label: 'Manage Jobs', icon: '📋' },
+                { href: '/admin/companies', label: 'Companies', icon: '🏢' },
                 { href: '/admin/applications', label: 'Applications', icon: '📄' },
                 { href: '/admin/candidates', label: 'Candidates', icon: '👤' },
               ]

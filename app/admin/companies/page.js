@@ -21,9 +21,25 @@ const CompanyManagementPage = () => {
     websiteUrl: ''
   });
   const [message, setMessage] = useState('');
+  const [hasAccess, setHasAccess] = useState(false);
 
-  // Check if user is authenticated and has permissions
-  if (!user || !['super_admin', 'employer_admin', 'sub_user'].includes(user.role)) {
+  // Check access permissions
+  useEffect(() => {
+    if (user && ['super_admin', 'employer_admin', 'sub_user'].includes(user.role)) {
+      setHasAccess(true);
+    } else if (user) {
+      setHasAccess(false);
+    }
+  }, [user]);
+
+  useEffect(() => {
+    if (hasAccess) {
+      fetchCompanies();
+    }
+  }, [hasAccess]);
+
+  // Show access denied if user doesn't have permissions
+  if (user && !hasAccess) {
     return (
       <div className="min-h-screen bg-gray-900 flex items-center justify-center">
         <div className="text-center">
@@ -41,9 +57,17 @@ const CompanyManagementPage = () => {
     );
   }
 
-  useEffect(() => {
-    fetchCompanies();
-  }, []);
+  // Show loading while checking authentication
+  if (!user) {
+    return (
+      <div className="min-h-screen bg-gray-900 flex items-center justify-center">
+        <div className="text-center">
+          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-500 mx-auto mb-4"></div>
+          <p className="text-gray-400">Loading...</p>
+        </div>
+      </div>
+    );
+  }
 
   const fetchCompanies = async () => {
     try {
@@ -241,6 +265,11 @@ const CompanyManagementPage = () => {
                     <div>
                       <h3 className="text-lg font-semibold text-white">{company.name}</h3>
                       <p className="text-sm text-gray-400">{company.industry}</p>
+                      {company.createdBy && (
+                        <p className="text-xs text-gray-500 mt-1">
+                          Created by: {company.createdBy.fullName || company.createdBy.email}
+                        </p>
+                      )}
                     </div>
                   </div>
                   
@@ -287,6 +316,13 @@ const CompanyManagementPage = () => {
                       >
                         {company.websiteUrl.replace(/^https?:\/\//, '')}
                       </a>
+                    </div>
+                  )}
+
+                  {company._count?.jobs !== undefined && (
+                    <div className="flex items-center gap-2 text-gray-400">
+                      <Users size={14} />
+                      <span>{company._count.jobs} job{company._count.jobs !== 1 ? 's' : ''}</span>
                     </div>
                   )}
                 </div>

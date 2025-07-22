@@ -23,6 +23,8 @@ model Company {
   updatedAt   DateTime @updatedAt @map("updated_at")
 
   // Relations
+  createdById String? @map("created_by_id")
+  createdBy   User?   @relation("CreatedCompanies", fields: [createdById], references: [id])
   jobs Job[]
   reviews CompanyReview[]
 
@@ -210,6 +212,7 @@ model User {
   atsActivities    ATSActivity[]
   createdForms     ApplicationForm[] @relation("CreatedForms")
   conductedInterviews ATSInterview[] @relation("InterviewerRelation")
+  createdCompanies Company[] @relation("CreatedCompanies")
 
   @@map("users")
 }

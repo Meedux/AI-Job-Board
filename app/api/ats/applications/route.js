@@ -23,11 +23,42 @@ export async function GET(request) {
 
     // Filter by employer's jobs only (unless super admin)
     if (user.role !== 'super_admin') {
+      // Get jobs posted by this user or their sub-users
+      const baseUserId = user.parentUserId || user.id; // Use parent user ID for sub_users
+      
       const employerJobs = await prisma.job.findMany({
-        where: { employerId: user.id }, // Only employer_admin can access ATS
+        where: { 
+          OR: [
+            { postedById: user.id }, // Jobs posted by this user
+            { postedById: baseUserId }, // Jobs posted by parent user (for sub_users)
+            { 
+              postedBy: { 
+                OR: [
+                  { id: user.id },
+                  { id: baseUserId },
+                  { parentUserId: baseUserId }
+                ]
+              }
+            }
+          ]
+        },
         select: { id: true }
       });
-      whereClause.jobId = { in: employerJobs.map(job => job.id) };
+      
+      if (employerJobs.length > 0) {
+        whereClause.jobId = { in: employerJobs.map(job => job.id) };
+      } else {
+        // No jobs found, return empty result
+        return NextResponse.json({
+          applications: [],
+          pagination: {
+            page,
+            limit,
+            total: 0,
+            pages: 0
+          }
+        });
+      }
     }
 
     if (jobId) whereClause.jobId = jobId;
@@ -41,14 +72,11 @@ export async function GET(request) {
           applicant: {
             select: {
               id: true,
+              fullName: true,
               firstName: true,
               lastName: true,
               email: true,
-              phoneNumber: true,
-              profilePicture: true,
-              location: true,
-              experience: true,
-              skills: true
+              profileVisibility: true
             }
           },
           job: {
@@ -64,6 +92,7 @@ export async function GET(request) {
               interviewer: {
                 select: {
                   id: true,
+                  fullName: true,
                   firstName: true,
                   lastName: true,
                   email: true
@@ -135,7 +164,19 @@ export async function PATCH(request) {
       where: {
         id: applicationId,
         job: user.role === 'super_admin' ? undefined : {
-          employerId: user.id // Only employer_admin can access ATS
+          OR: [
+            { postedById: user.id },
+            { postedById: user.parentUserId || user.id },
+            { 
+              postedBy: { 
+                OR: [
+                  { id: user.id },
+                  { id: user.parentUserId || user.id },
+                  { parentUserId: user.parentUserId || user.id }
+                ]
+              }
+            }
+          ]
         }
       },
       include: {
@@ -174,6 +215,7 @@ export async function PATCH(request) {
         applicant: {
           select: {
             id: true,
+            fullName: true,
             firstName: true,
             lastName: true,
             email: true
