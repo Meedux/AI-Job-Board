@@ -39,7 +39,7 @@ export async function GET(request) {
       prisma.userSubscription.count({
         where: {
           status: 'active',
-          expiresAt: {
+          currentPeriodEnd: {
             gte: new Date()
           }
         }

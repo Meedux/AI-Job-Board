@@ -8,6 +8,9 @@ import { logUserAction, getRequestInfo } from '@/utils/dataLogger';
 
 const prisma = new PrismaClient();
 
+// JWT Secret with fallback with the actual value since i have no clue how JWT works lmao
+const JWT_SECRET = process.env.JWT_SECRET || 'dd9e380d50f8d5365a41e90e664b0237';
+
 export async function POST(request) {
   const startTime = Date.now();
   const { userAgent, ipAddress } = getRequestInfo(request);
@@ -113,7 +116,7 @@ export async function POST(request) {
     // Generate email verification token
     const verificationToken = jwt.sign(
       { email, timestamp: Date.now() },
-      process.env.JWT_SECRET,
+      JWT_SECRET,
       { expiresIn: '24h' }
     );
 
@@ -207,7 +210,7 @@ export async function POST(request) {
         email: newUser.email,
         role: newUser.role 
       },
-      process.env.JWT_SECRET,
+      JWT_SECRET,
       { expiresIn: '7d' }
     );
 

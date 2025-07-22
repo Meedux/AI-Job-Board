@@ -6,6 +6,9 @@ import { logUserAction, getRequestInfo } from '@/utils/dataLogger';
 
 const prisma = new PrismaClient();
 
+// JWT Secret with fallback
+const JWT_SECRET = process.env.JWT_SECRET || 'dd9e380d50f8d5365a41e90e664b0237';
+
 // Track failed login attempts
 const failedAttempts = new Map();
 
@@ -194,7 +197,7 @@ export async function POST(request) {
         role: user.role,
         userType: user.userType
       },
-      process.env.JWT_SECRET,
+      JWT_SECRET,
       { expiresIn: '7d' }
     );
 
