@@ -49,10 +49,12 @@ const JobPostingForm = ({ onSubmit, onCancel, initialData = null, isEditing = fa
         const response = await fetch('/api/companies');
         if (response.ok) {
           const companiesData = await response.json();
-          setCompanies(companiesData);
+          // Extract companies array from the response object
+          setCompanies(companiesData.companies || []);
         }
       } catch (error) {
         console.error('Error loading companies:', error);
+        setCompanies([]); // Set empty array on error
       } finally {
         setLoadingCompanies(false);
       }
@@ -194,7 +196,7 @@ const JobPostingForm = ({ onSubmit, onCancel, initialData = null, isEditing = fa
               <option value="">
                 {loadingCompanies ? 'Loading companies...' : 'Select a company'}
               </option>
-              {companies.map((company) => (
+              {Array.isArray(companies) && companies.map((company) => (
                 <option key={company.id} value={company.id}>
                   {company.name}
                 </option>
@@ -203,7 +205,7 @@ const JobPostingForm = ({ onSubmit, onCancel, initialData = null, isEditing = fa
             {errors.companyId && (
               <p className="mt-1 text-sm text-red-400">{errors.companyId.message}</p>
             )}
-            {!loadingCompanies && companies.length === 0 && (
+            {!loadingCompanies && (!Array.isArray(companies) || companies.length === 0) && (
               <p className="mt-1 text-sm text-yellow-400">
                 No companies found. Please create a company first in the admin panel.
               </p>
