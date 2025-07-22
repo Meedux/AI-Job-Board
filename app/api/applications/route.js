@@ -30,13 +30,27 @@ export async function POST(request) {
     const formData = await request.formData();
     const jobId = formData.get('jobId');
 
+    console.log('📝 Application API - FormData keys:', Array.from(formData.keys()));
+    console.log('📝 Application API - jobId from formData:', jobId);
+    console.log('📝 Application API - jobId type:', typeof jobId);
+
     if (!jobId) {
+      console.error('❌ Application API - No jobId provided in form data');
       return NextResponse.json({ error: 'Job ID is required' }, { status: 400 });
     }
 
+    // Validate jobId as string (cuid/uuid format)
+    const jobIdStr = String(jobId).trim();
+    if (!jobIdStr || jobIdStr.length < 5) {
+      console.error('❌ Application API - Invalid jobId format:', jobId);
+      return NextResponse.json({ error: 'Invalid job ID format' }, { status: 400 });
+    }
+
+    console.log('📝 Application API - Using jobId as string:', jobIdStr);
+
     // Check if job exists
     const job = await prisma.job.findUnique({
-      where: { id: parseInt(jobId) },
+      where: { id: jobIdStr },
       include: {
         company: true,
         postedBy: true
@@ -50,7 +64,7 @@ export async function POST(request) {
     // Check if user already applied for this job
     const existingApplication = await prisma.jobApplication.findFirst({
       where: {
-        jobId: parseInt(jobId),
+        jobId: jobIdStr,
         applicantId: userId
       }
     });
@@ -93,7 +107,7 @@ export async function POST(request) {
     // Create the application
     const application = await prisma.jobApplication.create({
       data: {
-        jobId: parseInt(jobId),
+        jobId: jobIdStr,
         applicantId: userId,
         applicationData: JSON.stringify(applicationData),
         fileData: JSON.stringify(fileData),
@@ -116,7 +130,7 @@ export async function POST(request) {
 
     // Increment application count for the job
     await prisma.job.update({
-      where: { id: parseInt(jobId) },
+      where: { id: jobIdStr },
       data: { 
         applicationsCount: { increment: 1 },
         updatedAt: new Date()
@@ -237,7 +251,7 @@ export async function GET(request) {
       // Get applications for a specific job (for employers)
       const job = await prisma.job.findFirst({
         where: { 
-          id: parseInt(jobId),
+          id: jobId,
           postedById: userId 
         }
       });
@@ -246,7 +260,7 @@ export async function GET(request) {
         return NextResponse.json({ error: 'Job not found or unauthorized' }, { status: 404 });
       }
 
-      where.jobId = parseInt(jobId);
+      where.jobId = jobId;
     } else {
       // Get user's own applications (for job seekers)
       where.applicantId = userId;
@@ -354,7 +368,7 @@ export async function PUT(request) {
 
     // Check if user has permission to update this application
     const application = await prisma.jobApplication.findFirst({
-      where: { id: parseInt(applicationId) },
+      where: { id: applicationId },
       include: {
         job: {
           select: { postedById: true }
@@ -373,7 +387,7 @@ export async function PUT(request) {
 
     // Update the application
     const updatedApplication = await prisma.jobApplication.update({
-      where: { id: parseInt(applicationId) },
+      where: { id: applicationId },
       data: {
         status: updateData.status,
         notes: updateData.notes || null,

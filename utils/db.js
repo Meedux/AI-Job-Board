@@ -100,6 +100,15 @@ export const db = {
               fullName: true,
               email: true
             }
+          },
+          applicationForm: {
+            select: {
+              id: true,
+              title: true,
+              description: true,
+              fields: true,
+              isActive: true
+            }
           }
         },
         orderBy,
@@ -166,6 +175,15 @@ export const db = {
           categories: {
             include: {
               category: true
+            }
+          },
+          applicationForm: {
+            select: {
+              id: true,
+              title: true,
+              description: true,
+              fields: true,
+              isActive: true
             }
           }
         }

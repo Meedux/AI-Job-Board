@@ -32,7 +32,37 @@ const JobDetailModal = ({ job, isOpen, onClose }) => {
       fetchCompanyRating();
     }
     if (isOpen && job?.id) {
-      fetchCustomForm();
+      // Enhanced debugging for custom form detection
+      console.log('🔍 JobDetailModal - Job object received:', job);
+      console.log('🔍 JobDetailModal - Job.customForm value:', job.customForm);
+      console.log('🔍 JobDetailModal - Job.customForm type:', typeof job.customForm);
+      console.log('🔍 JobDetailModal - Job.applicationForm value:', job.applicationForm);
+      
+      // Use custom form directly from job data if available
+      if (job.customForm) {
+        console.log('🎉 CUSTOM FORM FOUND in job data:', job.customForm);
+        console.log('🎉 Custom form fields:', job.customForm.fields);
+        setCustomForm(job.customForm);
+      } else {
+        console.log('⚠️ NO CUSTOM FORM in job data, checking applicationForm...');
+        if (job.applicationForm) {
+          console.log('📋 Found applicationForm in job data:', job.applicationForm);
+          // Convert applicationForm to customForm format
+          const convertedForm = {
+            id: job.applicationForm.id,
+            title: job.applicationForm.title,
+            description: job.applicationForm.description,
+            fields: typeof job.applicationForm.fields === 'string' 
+              ? JSON.parse(job.applicationForm.fields) 
+              : job.applicationForm.fields
+          };
+          console.log('🔄 Converted applicationForm to customForm:', convertedForm);
+          setCustomForm(convertedForm);
+        } else {
+          console.log('❌ No applicationForm found, fetching from API...');
+          fetchCustomForm();
+        }
+      }
     }
     // Debug log to see job structure
     if (isOpen && job) {
@@ -66,27 +96,50 @@ const JobDetailModal = ({ job, isOpen, onClose }) => {
 
   const handleApplicationSubmit = async (applicationData) => {
     try {
-      const formData = new FormData();
-      formData.append('jobId', job.id);
-
-      // Add form fields
-      Object.entries(applicationData).forEach(([key, value]) => {
-        if (value instanceof File) {
-          formData.append(`file_${key}`, value);
-        } else if (Array.isArray(value)) {
-          formData.append(key, JSON.stringify(value));
-        } else {
-          formData.append(key, value);
+      console.log('📨 JobDetailModal - handleApplicationSubmit called');
+      console.log('📨 JobDetailModal - applicationData type:', typeof applicationData);
+      console.log('📨 JobDetailModal - applicationData is FormData:', applicationData instanceof FormData);
+      
+      let formData;
+      
+      // If applicationData is already FormData (from JobApplicationForm), use it directly
+      if (applicationData instanceof FormData) {
+        formData = applicationData;
+        console.log('✅ JobDetailModal - Using existing FormData from JobApplicationForm');
+        
+        // Debug FormData contents
+        console.log('📨 JobDetailModal - FormData contents:');
+        for (let [key, value] of formData.entries()) {
+          console.log(`📨 ${key}:`, value);
         }
-      });
+      } else {
+        // Legacy fallback: create FormData from object (shouldn't happen with current setup)
+        console.log('⚠️ JobDetailModal - Creating new FormData from object data');
+        formData = new FormData();
+        formData.append('jobId', job.id);
 
+        // Add form fields
+        Object.entries(applicationData).forEach(([key, value]) => {
+          if (value instanceof File) {
+            formData.append(`file_${key}`, value);
+          } else if (Array.isArray(value)) {
+            formData.append(key, JSON.stringify(value));
+          } else {
+            formData.append(key, value);
+          }
+        });
+      }
+
+      console.log('📨 JobDetailModal - Sending request to /api/applications');
       const response = await fetch('/api/applications', {
         method: 'POST',
         credentials: 'include',
         body: formData,
       });
 
+      console.log('📨 JobDetailModal - Response status:', response.status);
       const result = await response.json();
+      console.log('📨 JobDetailModal - Response data:', result);
 
       if (result.success) {
         // Close application form and show success message
@@ -575,9 +628,14 @@ const JobDetailModal = ({ job, isOpen, onClose }) => {
             <div className="flex flex-col sm:flex-row gap-3">
               <button
                 onClick={handleApplyClick}
-                className="flex-1 text-center px-6 py-3 bg-green-600 hover:bg-green-700 text-white font-medium rounded-lg transition-colors duration-200"
+                className="flex-1 text-center px-6 py-3 bg-green-600 hover:bg-green-700 text-white font-medium rounded-lg transition-colors duration-200 relative"
               >
                 Apply Now
+                {(job?.customForm || customForm) && (
+                  <span className="absolute -top-1 -right-1 bg-blue-500 text-white text-xs px-1.5 py-0.5 rounded-full">
+                    Custom Form
+                  </span>
+                )}
               </button>
               
               {/* Review Company Button */}

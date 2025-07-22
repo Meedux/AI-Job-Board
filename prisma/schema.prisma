@@ -66,6 +66,7 @@ model Job {
   applyUrl        String?   @map("apply_url")
   applyEmail      String?   @map("apply_email")
   viewsCount      Int       @default(0) @map("views_count")
+  applicationsCount Int     @default(0) @map("applications_count")
   isFeatured      Boolean   @default(false) @map("is_featured")
   status          String    @default("active") // "active", "closed", "draft"
   postedAt        DateTime  @default(now()) @map("posted_at")

@@ -67,23 +67,34 @@ const PostJobPage = () => {
   const handleFormSave = async (formData) => {
     setLoading(true);
     try {
+      const token = localStorage.getItem('token');
+      const headers = {
+        'Content-Type': 'application/json',
+      };
+      
+      if (token) {
+        headers['Authorization'] = `Bearer ${token}`;
+      }
+
       const response = await fetch('/api/application-forms', {
         method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
+        headers,
         credentials: 'include',
         body: JSON.stringify(formData),
       });
 
       const result = await response.json();
 
+      console.log('Form save response:', result);
+      console.log('Response status:', response.status);
+
       if (result.success) {
         setCustomForm(formData);
         setMessage('Application form created successfully!');
         setCurrentStep('preview');
       } else {
-        setMessage(result.error || 'Failed to create application form');
+        console.error('Form save failed:', result);
+        setMessage(`Failed to create application form: ${result.error || 'Unknown error'}`);
       }
     } catch (error) {
       console.error('Error creating form:', error);

@@ -67,10 +67,19 @@ const JobApplicationForm = ({ job, customForm = null, onSubmit, onCancel }) => {
 
   // Get form fields (custom or default)
   const getFormFields = () => {
+    console.log('🔍 JobApplicationForm - getFormFields called');
+    console.log('🔍 JobApplicationForm - customForm prop:', customForm);
+    console.log('🔍 JobApplicationForm - customForm type:', typeof customForm);
+    console.log('🔍 JobApplicationForm - customForm.fields:', customForm?.fields);
+    console.log('🔍 JobApplicationForm - customForm.fields type:', typeof customForm?.fields);
+    
     if (customForm && customForm.fields) {
+      console.log('✅ JobApplicationForm - Using CUSTOM form fields:', customForm.fields);
+      console.log('✅ JobApplicationForm - Custom form field count:', customForm.fields.length);
       return customForm.fields;
     }
     
+    console.log('❌ JobApplicationForm - Using DEFAULT form fields (custom form not available)');
     // Default job application form
     return [
       {
@@ -186,6 +195,11 @@ const JobApplicationForm = ({ job, customForm = null, onSubmit, onCancel }) => {
   const onFormSubmit = async (data) => {
     setLoading(true);
     try {
+      console.log('📤 JobApplicationForm - Starting form submission');
+      console.log('📤 JobApplicationForm - Job object:', job);
+      console.log('📤 JobApplicationForm - Job ID:', job?.id);
+      console.log('📤 JobApplicationForm - Job ID type:', typeof job?.id);
+      
       // Create FormData for file uploads
       const formData = new FormData();
       
@@ -203,7 +217,13 @@ const JobApplicationForm = ({ job, customForm = null, onSubmit, onCancel }) => {
       });
       
       // Add job ID
-      formData.append('jobId', job.id);
+      if (job?.id) {
+        formData.append('jobId', job.id);
+        console.log('✅ JobApplicationForm - Added jobId to FormData:', job.id);
+      } else {
+        console.error('❌ JobApplicationForm - No job.id available!');
+        throw new Error('Job ID is missing');
+      }
       
       // Add uploaded files
       Object.keys(uploadedFiles).forEach(fieldId => {
@@ -211,6 +231,12 @@ const JobApplicationForm = ({ job, customForm = null, onSubmit, onCancel }) => {
           formData.append(`file_${fieldId}`, uploadedFiles[fieldId]);
         }
       });
+      
+      // Debug FormData contents
+      console.log('📤 JobApplicationForm - FormData contents:');
+      for (let [key, value] of formData.entries()) {
+        console.log(`📤 ${key}:`, value);
+      }
       
       await onSubmit(formData);
     } catch (error) {
@@ -344,9 +370,23 @@ const JobApplicationForm = ({ job, customForm = null, onSubmit, onCancel }) => {
         <div className="flex items-center gap-3 mb-2">
           <Briefcase className="text-white" size={24} />
           <h2 className="text-2xl font-bold text-white">Apply for Position</h2>
+          {customForm && customForm.fields && customForm.fields.length > 0 ? (
+            <span className="bg-green-500 text-white text-xs px-2 py-1 rounded-full font-medium">
+              Custom Form ({customForm.fields.length} fields)
+            </span>
+          ) : (
+            <span className="bg-gray-500 text-white text-xs px-2 py-1 rounded-full font-medium">
+              Default Form
+            </span>
+          )}
         </div>
         <h3 className="text-xl text-blue-100">{job?.title}</h3>
         <p className="text-blue-200">{job?.company_name || job?.company?.name || 'Company'} • {typeof job?.location === 'string' ? job?.location : job?.location?.name || job?.location?.location || 'Location'}</p>
+        
+        {/* Debug info */}
+        <div className="mt-2 text-xs text-blue-200 bg-blue-800/30 px-2 py-1 rounded">
+          DEBUG: customForm={customForm ? 'YES' : 'NO'} | fields={customForm?.fields ? customForm.fields.length : 0} | type={getFormFields().length > 10 ? 'DEFAULT' : 'CUSTOM'}
+        </div>
       </div>
 
       {/* Form */}

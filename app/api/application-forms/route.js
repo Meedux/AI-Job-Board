@@ -7,8 +7,16 @@ const prisma = new PrismaClient();
 
 export async function POST(request) {
   try {
+    // Try to get token from cookie first, then from Authorization header
     const cookieStore = await cookies();
-    const token = cookieStore.get('auth-token')?.value;
+    let token = cookieStore.get('auth-token')?.value;
+    
+    if (!token) {
+      const authHeader = request.headers.get('authorization');
+      if (authHeader && authHeader.startsWith('Bearer ')) {
+        token = authHeader.substring(7);
+      }
+    }
 
     if (!token) {
       return NextResponse.json({ error: 'Authentication required' }, { status: 401 });
@@ -23,6 +31,13 @@ export async function POST(request) {
 
     const userId = decoded.id;
     const formData = await request.json();
+
+    console.log('Application form creation attempt:', {
+      userId,
+      jobId: formData.jobId,
+      title: formData.title,
+      fieldsCount: formData.fields?.length || 0
+    });
 
     // Validate required fields
     if (!formData.jobId) {
@@ -46,6 +61,12 @@ export async function POST(request) {
       }
     });
 
+    console.log('Job validation result:', {
+      jobFound: !!job,
+      jobId: formData.jobId,
+      userId: userId
+    });
+
     if (!job) {
       return NextResponse.json({ error: 'Job not found or unauthorized' }, { status: 404 });
     }
@@ -62,6 +83,12 @@ export async function POST(request) {
         createdAt: new Date(),
         updatedAt: new Date()
       }
+    });
+
+    console.log('Application form created successfully:', {
+      formId: applicationForm.id,
+      jobId: applicationForm.jobId,
+      title: applicationForm.title
     });
 
     return NextResponse.json({
@@ -185,7 +212,14 @@ export async function GET(request) {
 
     // Get all forms for authenticated user
     const cookieStore = await cookies();
-    const token = cookieStore.get('auth-token')?.value;
+    let token = cookieStore.get('auth-token')?.value;
+    
+    if (!token) {
+      const authHeader = request.headers.get('authorization');
+      if (authHeader && authHeader.startsWith('Bearer ')) {
+        token = authHeader.substring(7);
+      }
+    }
 
     if (!token) {
       return NextResponse.json({ error: 'Authentication required' }, { status: 401 });

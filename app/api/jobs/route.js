@@ -107,52 +107,68 @@ export async function GET(request) {
     ]);
 
     // Transform database results to match expected format
-    const transformedJobs = jobs.map(job => ({
-      id: job.id,
-      slug: job.slug,
-      title: job.title,
-      description: job.description,
-      full_description: job.description, // Provide description as full_description for backward compatibility
-      requirements: job.requirements,
-      benefits: job.benefits,
-      content_doc_url: job.contentDocUrl,
-      companyId: job.companyId, // Add companyId for review functionality
-      salary: {
-        from: job.salaryFrom,
-        to: job.salaryTo,
-        currency: job.salaryCurrency,
-        range: job.salaryFrom && job.salaryTo 
-          ? `${job.salaryFrom} - ${job.salaryTo}` 
-          : (job.salaryFrom || job.salaryTo || null)
-      },
-      location: job.location,
-      remote: job.remoteType === 'full' ? 'Yes' : 
-              job.remoteType === 'hybrid' ? 'Hybrid' : 'No',
-      remote_type: job.remoteType,
-      type: job.jobType,
-      level: job.experienceLevel,
-      posted_time: job.postedAt,
-      expire_time: job.expiresAt,
-      apply_link: job.applyUrl || job.applyEmail,
-      company: {
-        id: job.company.id,
-        name: job.company.name,
-        logo: job.company.logoUrl,
-        website: job.company.websiteUrl,
-        location: job.company.location
-      },
-      company_name: job.company.name, // Backward compatibility
-      company_logo: job.company.logoUrl, // Backward compatibility
-      categories: job.categories.map(cat => cat.category.name),
-      category_slugs: job.categories.map(cat => cat.category.slug),
-      views_count: job.viewsCount,
-      is_featured: job.isFeatured,
-      status: job.status,
-      required_skills: job.requiredSkills || [],
-      preferred_skills: job.preferredSkills || [],
-      // Additional computed fields
-      postedAt: job.postedAt,
-    }));
+    const transformedJobs = jobs.map(job => {
+      const hasCustomForm = job.applicationForm && job.applicationForm.isActive;
+      
+      console.log(`Job ${job.id} - Custom form available:`, hasCustomForm);
+      if (hasCustomForm) {
+        console.log(`Job ${job.id} - Custom form title:`, job.applicationForm.title);
+      }
+      
+      return {
+        id: job.id,
+        slug: job.slug,
+        title: job.title,
+        description: job.description,
+        full_description: job.description, // Provide description as full_description for backward compatibility
+        requirements: job.requirements,
+        benefits: job.benefits,
+        content_doc_url: job.contentDocUrl,
+        companyId: job.companyId, // Add companyId for review functionality
+        salary: {
+          from: job.salaryFrom,
+          to: job.salaryTo,
+          currency: job.salaryCurrency,
+          range: job.salaryFrom && job.salaryTo 
+            ? `${job.salaryFrom} - ${job.salaryTo}` 
+            : (job.salaryFrom || job.salaryTo || null)
+        },
+        location: job.location,
+        remote: job.remoteType === 'full' ? 'Yes' : 
+                job.remoteType === 'hybrid' ? 'Hybrid' : 'No',
+        remote_type: job.remoteType,
+        type: job.jobType,
+        level: job.experienceLevel,
+        posted_time: job.postedAt,
+        expire_time: job.expiresAt,
+        apply_link: job.applyUrl || job.applyEmail,
+        company: {
+          id: job.company.id,
+          name: job.company.name,
+          logo: job.company.logoUrl,
+          website: job.company.websiteUrl,
+          location: job.company.location
+        },
+        company_name: job.company.name, // Backward compatibility
+        company_logo: job.company.logoUrl, // Backward compatibility
+        categories: job.categories.map(cat => cat.category.name),
+        category_slugs: job.categories.map(cat => cat.category.slug),
+        views_count: job.viewsCount,
+        is_featured: job.isFeatured,
+        status: job.status,
+        required_skills: job.requiredSkills || [],
+        preferred_skills: job.preferredSkills || [],
+        // Custom application form
+        customForm: hasCustomForm ? {
+          id: job.applicationForm.id,
+          title: job.applicationForm.title,
+          description: job.applicationForm.description,
+          fields: JSON.parse(job.applicationForm.fields)
+        } : null,
+        // Additional computed fields
+        postedAt: job.postedAt,
+      };
+    });
 
     const responseData = {
       jobs: transformedJobs,
