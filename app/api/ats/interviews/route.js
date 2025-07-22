@@ -20,9 +20,14 @@ export async function GET(request) {
     let whereClause = {};
     
     if (user.role === 'employer_admin') {
+      // For employer admin, filter by jobs they posted
+      const baseUserId = user.parentUserId || user.id;
       whereClause.application = {
         job: {
-          employerId: user.id
+          OR: [
+            { postedById: user.id },
+            { postedById: baseUserId }
+          ]
         }
       };
     }
@@ -48,8 +53,7 @@ export async function GET(request) {
               select: {
                 id: true,
                 email: true,
-                fullName: true,
-                phone: true
+                fullName: true
               }
             },
             job: {
@@ -95,7 +99,9 @@ export async function GET(request) {
         id: interview.application.applicant.id,
         name: interview.application.applicant.fullName || interview.application.applicant.email,
         email: interview.application.applicant.email,
-        phone: interview.application.applicant.phone
+        // Extract phone from application data if available
+        phone: interview.application.applicationData ? 
+               JSON.parse(interview.application.applicationData).phone || null : null
       },
       position: interview.application.job.title,
       company: interview.application.job.company?.name || 'Unknown Company',
