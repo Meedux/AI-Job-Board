@@ -11,6 +11,7 @@ export default function ManageJobsPage() {
   const [mounted, setMounted] = useState(false);
   const [jobs, setJobs] = useState([]);
   const [isLoading, setIsLoading] = useState(true);
+  const [error, setError] = useState(null);
   const [stats, setStats] = useState({
     totalJobs: 0,
     activeJobs: 0,
@@ -30,13 +31,31 @@ export default function ManageJobsPage() {
 
   const loadJobs = async () => {
     try {
-      const response = await fetch('/api/admin/jobs');
+      setError(null);
+      // Get authentication token for the request
+      const token = localStorage.getItem('token');
+      const headers = {};
+      if (token) {
+        headers['Authorization'] = `Bearer ${token}`;
+      }
+
+      const response = await fetch('/api/jobs?employer=true', {
+        headers
+      });
+      
       if (response.ok) {
         const data = await response.json();
         setJobs(data.jobs || []);
         calculateStats(data.jobs || []);
+      } else if (response.status === 401) {
+        setError('Unauthorized access. Please log in again.');
+        console.error('Unauthorized access to employer jobs');
+      } else {
+        setError('Failed to load jobs. Please try again.');
+        console.error('Failed to load jobs:', response.statusText);
       }
     } catch (error) {
+      setError('Network error. Please check your connection.');
       console.error('Error loading jobs:', error);
     } finally {
       setIsLoading(false);
@@ -47,8 +66,14 @@ export default function ManageJobsPage() {
     const now = new Date();
     const stats = {
       totalJobs: jobList.length,
-      activeJobs: jobList.filter(job => job.status === 'active' && new Date(job.expiresAt) > now).length,
-      expiredJobs: jobList.filter(job => job.status === 'expired' || new Date(job.expiresAt) <= now).length,
+      activeJobs: jobList.filter(job => 
+        job.status === 'active' && 
+        (!job.expiresAt || !job.expire_time || new Date(job.expiresAt || job.expire_time) > now)
+      ).length,
+      expiredJobs: jobList.filter(job => 
+        job.status === 'expired' || 
+        ((job.expiresAt || job.expire_time) && new Date(job.expiresAt || job.expire_time) <= now)
+      ).length,
       totalApplications: jobList.reduce((sum, job) => sum + (job.applicationCount || 0), 0)
     };
     setStats(stats);
@@ -58,8 +83,15 @@ export default function ManageJobsPage() {
     if (!confirm('Are you sure you want to delete this job?')) return;
 
     try {
+      const token = localStorage.getItem('token');
+      const headers = { 'Content-Type': 'application/json' };
+      if (token) {
+        headers['Authorization'] = `Bearer ${token}`;
+      }
+
       const response = await fetch(`/api/admin/jobs/${jobId}`, {
         method: 'DELETE',
+        headers
       });
 
       if (response.ok) {
@@ -78,11 +110,15 @@ export default function ManageJobsPage() {
     const newStatus = currentStatus === 'active' ? 'inactive' : 'active';
     
     try {
+      const token = localStorage.getItem('token');
+      const headers = { 'Content-Type': 'application/json' };
+      if (token) {
+        headers['Authorization'] = `Bearer ${token}`;
+      }
+
       const response = await fetch(`/api/admin/jobs/${jobId}`, {
         method: 'PATCH',
-        headers: {
-          'Content-Type': 'application/json',
-        },
+        headers,
         body: JSON.stringify({ status: newStatus }),
       });
 
@@ -98,7 +134,8 @@ export default function ManageJobsPage() {
   };
 
   const getStatusBadge = (job) => {
-    const isExpired = new Date(job.expiresAt) <= new Date();
+    const expiryDate = job.expiresAt || job.expire_time;
+    const isExpired = expiryDate && new Date(expiryDate) <= new Date();
     
     if (isExpired) {
       return <span className="px-2 py-1 bg-red-900 text-red-300 rounded-full text-xs font-medium">Expired</span>;
@@ -171,6 +208,16 @@ export default function ManageJobsPage() {
               </Link>
             </div>
           </div>
+
+          {/* Error Message */}
+          {error && (
+            <div className="mb-6 bg-red-900 border border-red-700 text-red-300 px-4 py-3 rounded-lg">
+              <p className="flex items-center">
+                <span className="mr-2">⚠️</span>
+                {error}
+              </p>
+            </div>
+          )}
 
           {/* Stats Cards */}
           <div className="grid grid-cols-1 md:grid-cols-4 gap-6 mb-8">
@@ -281,11 +328,13 @@ export default function ManageJobsPage() {
                         <td className="px-6 py-4 whitespace-nowrap">
                           <div>
                             <p className="text-white font-medium">{job.title}</p>
-                            <p className="text-gray-400 text-sm">{job.jobType} • {job.experienceLevel}</p>
+                            <p className="text-gray-400 text-sm">
+                              {job.jobType || job.type} • {job.experienceLevel || job.level}
+                            </p>
                           </div>
                         </td>
                         <td className="px-6 py-4 whitespace-nowrap text-gray-300">
-                          {job.company}
+                          {job.company?.name || job.company_name || 'N/A'}
                         </td>
                         <td className="px-6 py-4 whitespace-nowrap text-gray-300">
                           {job.location}
@@ -297,10 +346,10 @@ export default function ManageJobsPage() {
                           {job.applicationCount || 0}
                         </td>
                         <td className="px-6 py-4 whitespace-nowrap text-gray-300">
-                          {formatDate(job.createdAt)}
+                          {formatDate(job.createdAt || job.postedAt)}
                         </td>
                         <td className="px-6 py-4 whitespace-nowrap text-gray-300">
-                          {job.expiresAt ? formatDate(job.expiresAt) : 'No expiry'}
+                          {(job.expiresAt || job.expire_time) ? formatDate(job.expiresAt || job.expire_time) : 'No expiry'}
                         </td>
                         <td className="px-6 py-4 whitespace-nowrap">
                           <div className="flex items-center space-x-2">
