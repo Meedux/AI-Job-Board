@@ -124,6 +124,11 @@ export default function DynamicAuthForm() {
             router.push('/dashboard');
           }
         } else {
+          // Handle email verification required
+          if (data.errorCode === 'EMAIL_VERIFICATION_REQUIRED') {
+            router.push('/verify-email');
+            return;
+          }
           setError(data.error || 'Login failed');
         }
       } else {
@@ -154,21 +159,29 @@ export default function DynamicAuthForm() {
         const data = await response.json();
 
         if (response.ok) {
-          setSuccess('Registration successful! Please check your email to verify your account.');
-          
-          // Auto-login after registration
-          if (data.token) {
-            await login(data.user, data.token);
+          if (data.requiresVerification) {
+            // Redirect to verification page instead of auto-login
+            setSuccess('Registration successful! Please check your email to verify your account.');
+            setTimeout(() => {
+              router.push('/verify-email');
+            }, 2000);
+          } else {
+            // Auto-login for immediate verification (development mode)
+            setSuccess('Registration successful! Welcome to JobSite.');
             
-            // Redirect based on original intent or user type
-            if (redirectToJobPost && userType === 'hirer') {
-              router.push('/post-job');
-            } else if (data.user.role === USER_ROLES.SUPER_ADMIN || data.user.role === 'super_admin') {
-              router.push('/super-admin');
-            } else if (data.user.role === USER_ROLES.EMPLOYER_ADMIN || data.user.role === 'employer_admin') {
-              router.push('/admin');
-            } else {
-              router.push('/dashboard');
+            if (data.token) {
+              await login(data.user, data.token);
+              
+              // Redirect based on original intent or user type
+              if (redirectToJobPost && userType === 'hirer') {
+                router.push('/post-job');
+              } else if (data.user.role === USER_ROLES.SUPER_ADMIN || data.user.role === 'super_admin') {
+                router.push('/super-admin');
+              } else if (data.user.role === USER_ROLES.EMPLOYER_ADMIN || data.user.role === 'employer_admin') {
+                router.push('/admin');
+              } else {
+                router.push('/dashboard');
+              }
             }
           }
         } else {

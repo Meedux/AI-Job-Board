@@ -3,8 +3,8 @@ import bcrypt from 'bcryptjs';
 import jwt from 'jsonwebtoken';
 import { PrismaClient } from '@prisma/client';
 import { USER_ROLES } from '@/utils/roleSystem';
-import { sendVerificationEmail } from '@/utils/emailService';
-import { logUserAction, getRequestInfo } from '@/utils/dataLogger';
+import { sendVerificationEmail } from '@/utils/externalEmailService';
+import { logUserAction, logEmailNotification, logError, getRequestInfo } from '@/utils/dataLogger';
 
 const prisma = new PrismaClient();
 
@@ -129,10 +129,9 @@ export async function POST(request) {
       password: hashedPassword,
       fullName: fullName || companyName,
       role: userRole,
-      isActive: true, // Activate immediately for demo, in production set to false
-      accountStatus: 'active', // In production: 'pending_verification'
+      isActive: false, // User must verify email first
+      accountStatus: 'pending_verification', // Require email verification
       emailVerificationToken: verificationToken,
-      lastLoginAt: new Date(),
       createdAt: new Date(),
       updatedAt: new Date(),
       // Default permissions based on role
@@ -192,46 +191,82 @@ export async function POST(request) {
       'success'
     );
 
-    // Send verification email (in production)
+    // Send verification email using external service
     try {
-      if (process.env.NODE_ENV === 'production') {
-        await sendVerificationEmail(email, verificationToken, fullName || companyName);
-        console.log('📧 Verification email sent');
+      const emailResult = await sendVerificationEmail(email, verificationToken, fullName || companyName);
+      
+      if (emailResult.success) {
+        console.log('📧 Verification email sent via external service:', emailResult.messageId);
+        
+        // Log successful email sending
+        await logEmailNotification(
+          'email_verification',
+          email,
+          'Email Verification',
+          'sent',
+          'resend',
+          emailResult.messageId
+        );
+      } else {
+        console.error('❌ Failed to send verification email:', emailResult.message);
+        
+        // Log failed email sending but don't fail registration
+        await logEmailNotification(
+          'email_verification',
+          email,
+          'Email Verification',
+          'failed',
+          'resend',
+          null,
+          emailResult.message
+        );
+        
+        await logError(
+          'EMAIL_VERIFICATION_SEND_ERROR',
+          'auth/register-enhanced',
+          emailResult.message,
+          null,
+          newUser.id,
+          { email, service: 'resend' },
+          'warning'
+        );
       }
     } catch (emailError) {
-      console.error('Failed to send verification email:', emailError);
-      // Don't fail registration if email fails
+      console.error('❌ Email service error:', emailError);
+      
+      await logError(
+        'EMAIL_SERVICE_ERROR',
+        'auth/register-enhanced',
+        emailError.message,
+        emailError.stack,
+        newUser.id,
+        { email, service: 'resend' },
+        'error'
+      );
     }
 
-    // Generate JWT token for immediate login
-    const token = jwt.sign(
-      { 
-        id: newUser.id, 
-        email: newUser.email,
-        role: newUser.role 
-      },
-      JWT_SECRET,
-      { expiresIn: '7d' }
-    );
-
-    // Set HTTP-only cookie
+    // Create response without login token (user needs to verify email first)
     const response = NextResponse.json({
       success: true,
-      message: 'Registration successful! Welcome to JobSite.',
-      user: newUser,
-      token,
-      requiresVerification: process.env.NODE_ENV === 'production'
-    });
-
-    response.cookies.set('auth-token', token, {
-      httpOnly: true,
-      secure: process.env.NODE_ENV === 'production',
-      sameSite: 'strict',
-      maxAge: 7 * 24 * 60 * 60 // 7 days
+      message: 'Registration successful! Please check your email to verify your account before logging in.',
+      user: {
+        id: newUser.id,
+        email: newUser.email,
+        fullName: newUser.fullName,
+        companyName: newUser.companyName,
+        role: newUser.role,
+        isActive: newUser.isActive,
+        accountStatus: newUser.accountStatus,
+        permissions: newUser.permissions,
+        allocatedResumeCredits: newUser.allocatedResumeCredits,
+        allocatedAiCredits: newUser.allocatedAiCredits,
+        createdAt: newUser.createdAt
+      },
+      requiresVerification: true
     });
 
     const endTime = Date.now();
-    console.log(`✅ Registration completed in ${endTime - startTime}ms`);
+    console.log(`✅ Registration completed in ${endTime - startTime}ms - user must verify email`);
 
     return response;
 

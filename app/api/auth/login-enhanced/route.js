@@ -118,8 +118,32 @@ export async function POST(request) {
       );
     }
 
-    // Check if account is active
+    // Check if account is active and email is verified
     if (!user.isActive || user.accountStatus === 'suspended') {
+      // Check if it's because email verification is pending
+      if (user.accountStatus === 'pending_verification' && user.emailVerificationToken) {
+        await logUserAction(
+          user.id,
+          email,
+          'LOGIN_BLOCKED',
+          'Email verification required',
+          ipAddress,
+          userAgent,
+          'blocked'
+        );
+
+        return NextResponse.json(
+          { 
+            error: 'Please verify your email address before logging in. Check your inbox for a verification email.',
+            errorCode: 'EMAIL_VERIFICATION_REQUIRED',
+            requiresVerification: true,
+            accountStatus: user.accountStatus 
+          },
+          { status: 401 }
+        );
+      }
+
+      // General inactive/suspended account
       await logUserAction(
         user.id,
         email,

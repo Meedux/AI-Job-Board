@@ -1,9 +1,12 @@
 import { NextResponse } from 'next/server';
 import { db } from '../../../../utils/db';
 import { hashPassword, generateToken, generateUID, isValidEmail, isValidPassword, calculateAge, sanitizeInput } from '../../../../utils/auth';
-import { emailService } from '../../../../utils/emailService';
+import { sendVerificationEmail } from '../../../../utils/externalEmailService';
 import { logUserAction, logSystemEvent, logAPIRequest, logEmailNotification, logError, getRequestInfo } from '../../../../utils/dataLogger';
 import { notifyUserRegistration } from '../../../../utils/notificationService';
+import jwt from 'jsonwebtoken';
+
+const JWT_SECRET = process.env.JWT_SECRET || 'your-secret-key';
 
 export async function POST(request) {
   console.log('🚀 Registration API called');
@@ -100,6 +103,15 @@ export async function POST(request) {
     const hashedPassword = await hashPassword(password);
     console.log('✅ Password hashed successfully');
 
+    console.log('🎫 Generating email verification token...');
+    // Generate email verification token
+    const verificationToken = jwt.sign(
+      { email, timestamp: Date.now() },
+      JWT_SECRET,
+      { expiresIn: '24h' }
+    );
+    console.log('✅ Verification token generated');
+
     console.log('🧹 Sanitizing inputs...');
     // Sanitize inputs and prepare user data
     const userData = {
@@ -112,9 +124,11 @@ export async function POST(request) {
       dateOfBirth: new Date(dateOfBirth),
       fullAddress: sanitizeInput(fullAddress || ''),
       role: 'user',
-      isActive: true
+      isActive: false, // User must verify email first
+      accountStatus: 'pending_verification',
+      emailVerificationToken: verificationToken
     };
-    console.log('✅ User data prepared:', { ...userData, password: '[HIDDEN]' });
+    console.log('✅ User data prepared:', { ...userData, password: '[HIDDEN]', emailVerificationToken: '[HIDDEN]' });
 
     console.log('� Creating user in database...');
     // Create user in database
@@ -141,18 +155,68 @@ export async function POST(request) {
       { uid: newUser.uid, id: newUser.id, age: newUser.age }
     );
 
-    console.log('🎫 Generating JWT token...');
-    // Generate JWT token
-    const token = generateToken(newUser);
-    console.log('✅ Token generated successfully');
-
     // Store user ID for logging
     userId = newUser.uid || newUser.id;
 
-    // Create response with token
+    console.log('📧 Sending email verification...');
+    // Send email verification using external service
+    try {
+      const emailResult = await sendVerificationEmail(newUser.email, verificationToken, newUser.fullName);
+      
+      if (emailResult.success) {
+        console.log('✅ Verification email sent successfully via external service');
+        
+        // Log successful email sending
+        await logEmailNotification(
+          'email_verification',
+          newUser.email,
+          'Email Verification',
+          'sent',
+          'resend',
+          emailResult.messageId
+        );
+      } else {
+        console.error('❌ Failed to send verification email:', emailResult.message);
+        
+        // Log failed email sending but don't fail registration
+        await logEmailNotification(
+          'email_verification',
+          newUser.email,
+          'Email Verification',
+          'failed',
+          'resend',
+          null,
+          emailResult.message
+        );
+        
+        await logError(
+          'EMAIL_VERIFICATION_SEND_ERROR',
+          'auth/register',
+          emailResult.message,
+          null,
+          userId,
+          { email: newUser.email, service: 'resend' },
+          'warning'
+        );
+      }
+    } catch (emailError) {
+      console.error('❌ Email service error:', emailError);
+      
+      await logError(
+        'EMAIL_SERVICE_ERROR',
+        'auth/register',
+        emailError.message,
+        emailError.stack,
+        userId,
+        { email: newUser.email, service: 'resend' },
+        'error'
+      );
+    }
+
+    // Create response without token (user needs to verify email first)
     const response = NextResponse.json(
       { 
-        message: 'User registered successfully',
+        message: 'Registration successful! Please check your email to verify your account before logging in.',
         user: {
           id: newUser.id,
           uid: newUser.uid,
@@ -162,21 +226,16 @@ export async function POST(request) {
           age: newUser.age,
           dateOfBirth: newUser.dateOfBirth,
           fullAddress: newUser.fullAddress,
-          role: newUser.role
-        }
+          role: newUser.role,
+          isActive: newUser.isActive,
+          accountStatus: newUser.accountStatus
+        },
+        requiresVerification: true
       },
       { status: 201 }
     );
 
-    console.log('🍪 Setting authentication cookie...');
-    // Set HTTP-only cookie with token
-    response.cookies.set('auth-token', token, {
-      httpOnly: true,
-      secure: process.env.NODE_ENV === 'production',
-      sameSite: 'strict',      maxAge: 7 * 24 * 60 * 60 // 7 days
-    });
-
-    console.log('✅ Registration completed successfully');
+    console.log('✅ Registration completed - user must verify email before login');
     
     // Send registration notification using the new notification service
     try {

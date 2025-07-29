@@ -60,9 +60,33 @@ export async function POST(request) {
 
     console.log('👤 User found:', { ...user, password: '[HIDDEN]' });
     
-    // Check if user is active
+    // Check if user is active and email is verified
     if (!user.isActive) {
       console.log('❌ User account is inactive');
+      
+      // Check if it's because email verification is pending
+      if (user.accountStatus === 'pending_verification' && user.emailVerificationToken) {
+        console.log('📧 Account requires email verification');
+        await logUserAction(
+          user.uid || user.id,
+          email,
+          'LOGIN_FAILED',
+          'Email verification required',
+          ipAddress,
+          userAgent,
+          'failed'
+        );
+        return NextResponse.json(
+          { 
+            error: 'Please verify your email address before logging in. Check your inbox for a verification email.',
+            errorCode: 'EMAIL_VERIFICATION_REQUIRED',
+            requiresVerification: true
+          },
+          { status: 401 }
+        );
+      }
+      
+      // General inactive account
       await logUserAction(
         user.uid || user.id,
         email,
