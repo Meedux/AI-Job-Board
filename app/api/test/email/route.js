@@ -11,28 +11,28 @@ export async function GET(request) {
     const result = await testEmailConnection();
     
     if (result.success) {
-      console.log('✅ External email service is working correctly');
+      console.log('✅ SendGrid email service is working correctly');
       return NextResponse.json({
         success: true,
-        message: 'External email service is configured correctly',
+        message: 'SendGrid email service is configured correctly',
         messageId: result.messageId,
-        service: 'resend'
+        service: 'sendgrid'
       });
     } else {
-      console.error('❌ External email service test failed:', result.message);
+      console.error('❌ SendGrid email service test failed:', result.message);
       return NextResponse.json({
         success: false,
         error: result.message,
-        service: 'resend'
+        service: 'sendgrid'
       }, { status: 500 });
     }
-  } catch (error) {
+    } catch (error) {
     console.error('❌ Email service test error:', error);
     return NextResponse.json({
       success: false,
       error: 'Failed to test email service',
       details: error.message,
-      service: 'resend'
+      service: 'sendgrid'
     }, { status: 500 });
   }
 }

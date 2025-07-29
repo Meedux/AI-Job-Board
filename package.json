@@ -16,6 +16,7 @@
     "@dnd-kit/utilities": "^3.2.2",
     "@hookform/resolvers": "^5.1.1",
     "@prisma/client": "^6.11.1",
+    "@sendgrid/mail": "^8.1.5",
     "@tiptap/extension-image": "^3.0.7",
     "@tiptap/extension-link": "^3.0.7",
     "@tiptap/extension-table": "^3.0.7",
@@ -43,7 +44,6 @@
     "react-dom": "^19.0.0",
     "react-hook-form": "^7.60.0",
     "react-hot-toast": "^2.5.2",
-    "resend": "^4.7.0",
     "uuid": "^11.1.0",
     "yup": "^1.6.1"
   },
