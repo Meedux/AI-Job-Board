@@ -172,7 +172,7 @@ export async function POST(request) {
           newUser.email,
           'Email Verification',
           'sent',
-          'sendgrid',
+          'mailgun',
           emailResult.messageId
         );
       } else {
@@ -184,7 +184,7 @@ export async function POST(request) {
           newUser.email,
           'Email Verification',
           'failed',
-          'sendgrid',
+          'mailgun',
           null,
           emailResult.message
         );
@@ -195,7 +195,7 @@ export async function POST(request) {
           emailResult.message,
           null,
           userId,
-          { email: newUser.email, service: 'sendgrid' },
+          { email: newUser.email, service: 'mailgun' },
           'warning'
         );
       }
@@ -208,7 +208,7 @@ export async function POST(request) {
         emailError.message,
         emailError.stack,
         userId,
-        { email: newUser.email, service: 'sendgrid' },
+        { email: newUser.email, service: 'mailgun' },
         'error'
       );
     }

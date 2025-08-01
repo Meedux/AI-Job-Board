@@ -11,19 +11,19 @@ export async function GET(request) {
     const result = await testEmailConnection();
     
     if (result.success) {
-      console.log('✅ SendGrid email service is working correctly');
+      console.log('✅ Mailgun email service is working correctly');
       return NextResponse.json({
         success: true,
-        message: 'SendGrid email service is configured correctly',
+        message: 'Mailgun email service is configured correctly',
         messageId: result.messageId,
-        service: 'sendgrid'
+        service: 'mailgun'
       });
     } else {
-      console.error('❌ SendGrid email service test failed:', result.message);
+      console.error('❌ Mailgun email service test failed:', result.message);
       return NextResponse.json({
         success: false,
         error: result.message,
-        service: 'sendgrid'
+        service: 'mailgun'
       }, { status: 500 });
     }
     } catch (error) {
@@ -32,7 +32,7 @@ export async function GET(request) {
       success: false,
       error: 'Failed to test email service',
       details: error.message,
-      service: 'sendgrid'
+      service: 'mailgun'
     }, { status: 500 });
   }
 }

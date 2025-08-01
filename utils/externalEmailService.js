@@ -1,68 +1,71 @@
-// External Email Verification Service using SendGrid API
-// Simple, reliable, and no SMTP configuration needed!
+// External Email Verification Service using Mailgun API
+// Super reliable, easy setup, and great for production!
 
-import sgMail from '@sendgrid/mail';
+import formData from 'form-data';
+import Mailgun from 'mailgun.js';
 import { logEmailNotification, logError } from './dataLogger';
 
 class ExternalEmailService {
   constructor() {
-    this.apiKey = process.env.SENDGRID_API_KEY;
-    this.enabled = !!this.apiKey;
+    this.apiKey = process.env.MAILGUN_API_KEY;
+    this.domain = process.env.MAILGUN_DOMAIN;
+    this.enabled = !!(this.apiKey && this.domain);
     this.fromEmail = process.env.FROM_EMAIL || 'noreply@yourdomain.com';
     this.companyName = process.env.COMPANY_NAME || 'JobSite';
     
-    // Initialize SendGrid
+    // Initialize Mailgun
     if (this.enabled) {
-      sgMail.setApiKey(this.apiKey);
+      const mailgun = new Mailgun(formData);
+      this.mg = mailgun.client({
+        username: 'api',
+        key: this.apiKey,
+        url: 'https://api.mailgun.net' // or 'https://api.eu.mailgun.net' for EU
+      });
     }
   }
 
   // Send email verification
   async sendVerificationEmail(email, token, name) {
     if (!this.enabled) {
-      console.log('⚠️ External email service disabled - missing SENDGRID_API_KEY');
+      console.log('⚠️ Mailgun email service disabled - missing MAILGUN_API_KEY or MAILGUN_DOMAIN');
       return { success: false, message: 'Email service not configured' };
     }
 
     try {
       const verificationUrl = `${process.env.NEXT_PUBLIC_BASE_URL || 'http://localhost:3000'}/api/auth/verify-email?token=${token}`;
       
-      const msg = {
+      const messageData = {
+        from: `${this.companyName} <${this.fromEmail}>`,
         to: email,
-        from: {
-          email: this.fromEmail,
-          name: this.companyName
-        },
         subject: `Verify your email - ${this.companyName}`,
         html: this.getVerificationEmailTemplate(name, verificationUrl),
       };
 
-      const result = await sgMail.send(msg);
-      const messageId = result[0]?.headers?.['x-message-id'] || 'unknown';
-
-      console.log('✅ Verification email sent via SendGrid:', messageId);
+      const result = await this.mg.messages.create(this.domain, messageData);
+      
+      console.log('✅ Verification email sent via Mailgun:', result.id);
       await logEmailNotification(
         'email_verification',
         email,
         'Email Verification',
         'sent',
-        'sendgrid',
-        messageId
+        'mailgun',
+        result.id
       );
 
-      return { success: true, messageId };
+      return { success: true, messageId: result.id };
     } catch (error) {
-      console.error('❌ SendGrid API error:', error);
+      console.error('❌ Mailgun API error:', error);
       
       // Extract meaningful error message
-      const errorMessage = error.response?.body?.errors?.[0]?.message || error.message;
+      const errorMessage = error.message || 'Failed to send email';
       
       await logEmailNotification(
         'email_verification',
         email,
         'Email Verification',
         'failed',
-        'sendgrid',
+        'mailgun',
         null,
         errorMessage
       );
@@ -73,7 +76,7 @@ class ExternalEmailService {
         errorMessage,
         error.stack,
         null,
-        { email, service: 'sendgrid' },
+        { email, service: 'mailgun' },
         'error'
       );
       
@@ -84,31 +87,27 @@ class ExternalEmailService {
   // Send password reset email
   async sendPasswordResetEmail(email, token, name) {
     if (!this.enabled) {
-      console.log('⚠️ External email service disabled - missing SENDGRID_API_KEY');
+      console.log('⚠️ Mailgun email service disabled - missing MAILGUN_API_KEY or MAILGUN_DOMAIN');
       return { success: false, message: 'Email service not configured' };
     }
 
     try {
       const resetUrl = `${process.env.NEXT_PUBLIC_BASE_URL || 'http://localhost:3000'}/reset-password?token=${token}`;
       
-      const msg = {
+      const messageData = {
+        from: `${this.companyName} <${this.fromEmail}>`,
         to: email,
-        from: {
-          email: this.fromEmail,
-          name: this.companyName
-        },
         subject: `Reset your password - ${this.companyName}`,
         html: this.getPasswordResetEmailTemplate(name, resetUrl),
       };
 
-      const result = await sgMail.send(msg);
-      const messageId = result[0]?.headers?.['x-message-id'] || 'unknown';
+      const result = await this.mg.messages.create(this.domain, messageData);
 
-      console.log('✅ Password reset email sent via SendGrid:', messageId);
-      return { success: true, messageId };
+      console.log('✅ Password reset email sent via Mailgun:', result.id);
+      return { success: true, messageId: result.id };
     } catch (error) {
-      console.error('❌ SendGrid API error:', error);
-      const errorMessage = error.response?.body?.errors?.[0]?.message || error.message;
+      console.error('❌ Mailgun API error:', error);
+      const errorMessage = error.message || 'Failed to send email';
       return { success: false, message: errorMessage };
     }
   }
@@ -314,27 +313,23 @@ class ExternalEmailService {
   // Test email service connection
   async testConnection() {
     if (!this.enabled) {
-      return { success: false, message: 'SENDGRID_API_KEY not provided' };
+      return { success: false, message: 'MAILGUN_API_KEY or MAILGUN_DOMAIN not provided' };
     }
 
     try {
       // Send a test email to verify the service works
-      const msg = {
+      const messageData = {
+        from: `${this.companyName} <${this.fromEmail}>`,
         to: this.fromEmail, // Send to self for testing
-        from: {
-          email: this.fromEmail,
-          name: this.companyName
-        },
-        subject: 'SendGrid Email Service Test',
-        html: '<p>🎉 This is a test email to verify the SendGrid email service is working correctly!</p>',
+        subject: 'Mailgun Email Service Test',
+        html: '<p>🎉 This is a test email to verify the Mailgun email service is working correctly!</p>',
       };
 
-      const result = await sgMail.send(msg);
-      const messageId = result[0]?.headers?.['x-message-id'] || 'unknown';
+      const result = await this.mg.messages.create(this.domain, messageData);
 
-      return { success: true, messageId };
+      return { success: true, messageId: result.id };
     } catch (error) {
-      const errorMessage = error.response?.body?.errors?.[0]?.message || error.message;
+      const errorMessage = error.message || 'Failed to test email service';
       return { success: false, message: errorMessage };
     }
   }

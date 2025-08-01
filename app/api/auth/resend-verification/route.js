@@ -120,7 +120,7 @@ export async function POST(request) {
           user.email,
           'Email Verification Resend',
           'sent',
-          'sendgrid',
+          'mailgun',
           emailResult.messageId
         );
         
@@ -143,7 +143,7 @@ export async function POST(request) {
           user.email,
           'Email Verification Resend',
           'failed',
-          'sendgrid',
+          'mailgun',
           null,
           emailResult.message
         );
@@ -154,7 +154,7 @@ export async function POST(request) {
           emailResult.message,
           null,
           userId,
-          { email: user.email, service: 'sendgrid' },
+          { email: user.email, service: 'mailgun' },
           'error'
         );
         
@@ -172,7 +172,7 @@ export async function POST(request) {
         emailError.message,
         emailError.stack,
         userId,
-        { email: user.email, service: 'sendgrid' },
+        { email: user.email, service: 'mailgun' },
         'error'
       );
       
