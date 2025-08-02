@@ -3,14 +3,16 @@
 import { useState } from 'react';
 import { useAuth } from '@/contexts/AuthContext';
 import { useRouter } from 'next/navigation';
-import JobPostingForm from '@/components/JobPostingForm';
+import ComprehensiveJobPostingForm from '@/components/ComprehensiveJobPostingForm';
+import JobPreview from '@/components/JobPreview';
 import FormBuilder from '@/components/FormBuilder';
-import { ArrowLeft, Plus, Settings, Eye, Briefcase } from 'lucide-react';
+import { ArrowLeft, Plus, Settings, Eye, Briefcase, Zap, FileText } from 'lucide-react';
 
 const PostJobPage = () => {
   const { user } = useAuth();
   const router = useRouter();
   const [currentStep, setCurrentStep] = useState('job-form'); // 'job-form', 'form-builder', 'preview'
+  const [mode, setMode] = useState('manual'); // 'manual' or 'ai'
   const [jobData, setJobData] = useState(null);
   const [customForm, setCustomForm] = useState(null);
   const [loading, setLoading] = useState(false);
@@ -38,7 +40,7 @@ const PostJobPage = () => {
   const handleJobSubmit = async (data) => {
     setLoading(true);
     try {
-      const response = await fetch('/api/jobs/post', {
+      const response = await fetch('/api/jobs/comprehensive-post', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -51,7 +53,7 @@ const PostJobPage = () => {
 
       if (result.success) {
         setJobData({ ...data, id: result.job.id });
-        setMessage('Job posted successfully! Now create a custom application form.');
+        setMessage('Job posted successfully! You can now create a custom application form or proceed to publish.');
         setCurrentStep('form-builder');
       } else {
         setMessage(result.error || 'Failed to post job');
@@ -109,8 +111,29 @@ const PostJobPage = () => {
     setCurrentStep('preview');
   };
 
-  const handleFinish = () => {
-    router.push('/admin/jobs');
+  const handleFinish = async () => {
+    if (jobData?.id) {
+      try {
+        const response = await fetch(`/api/jobs/${jobData.id}/publish`, {
+          method: 'POST',
+          credentials: 'include',
+        });
+        
+        const result = await response.json();
+        
+        if (result.success) {
+          setMessage('Job published successfully!');
+          setTimeout(() => router.push('/admin/jobs'), 1500);
+        } else {
+          setMessage('Failed to publish job');
+        }
+      } catch (error) {
+        console.error('Error publishing job:', error);
+        setMessage('An error occurred while publishing the job');
+      }
+    } else {
+      router.push('/admin/jobs');
+    }
   };
 
   const handleCancel = () => {
@@ -175,6 +198,34 @@ const PostJobPage = () => {
             </div>
             
             <div className="flex items-center space-x-4">
+              {/* Mode Toggle - Only show on job form step */}
+              {currentStep === 'job-form' && (
+                <div className="flex bg-gray-700 rounded-lg p-1">
+                  <button
+                    onClick={() => setMode('manual')}
+                    className={`px-3 py-1.5 rounded text-sm transition-colors flex items-center gap-2 ${
+                      mode === 'manual' 
+                        ? 'bg-blue-600 text-white' 
+                        : 'text-gray-400 hover:text-white'
+                    }`}
+                  >
+                    <FileText size={14} />
+                    Manual
+                  </button>
+                  <button
+                    onClick={() => setMode('ai')}
+                    className={`px-3 py-1.5 rounded text-sm transition-colors flex items-center gap-2 ${
+                      mode === 'ai' 
+                        ? 'bg-purple-600 text-white' 
+                        : 'text-gray-400 hover:text-white'
+                    }`}
+                  >
+                    <Zap size={14} />
+                    AI Mode
+                  </button>
+                </div>
+              )}
+              
               {currentStep !== 'job-form' && (
                 <button
                   onClick={() => setCurrentStep('job-form')}
@@ -214,12 +265,27 @@ const PostJobPage = () => {
 
         {/* Step Content */}
         {currentStep === 'job-form' && (
-          <JobPostingForm
-            onSubmit={handleJobSubmit}
-            onCancel={handleCancel}
-            initialData={jobData}
-            isEditing={!!jobData}
-          />
+          <div>
+            <div className="mb-6 text-center">
+              <h2 className="text-2xl font-bold text-white mb-2">
+                {mode === 'ai' ? 'AI-Powered Job Posting' : 'Manual Job Posting'}
+              </h2>
+              <p className="text-gray-400">
+                {mode === 'ai' 
+                  ? 'Let AI help you create a comprehensive job posting with smart suggestions'
+                  : 'Fill out the detailed job posting form step by step'
+                }
+              </p>
+            </div>
+            
+            <ComprehensiveJobPostingForm
+              mode={mode}
+              onSubmit={handleJobSubmit}
+              onCancel={handleCancel}
+              initialData={jobData}
+              isEditing={!!jobData}
+            />
+          </div>
         )}
 
         {currentStep === 'form-builder' && jobData && (
@@ -227,7 +293,7 @@ const PostJobPage = () => {
             <div className="mb-6 text-center">
               <h2 className="text-2xl font-bold text-white mb-2">Create Application Form</h2>
               <p className="text-gray-400">
-                Design a custom application form for <span className="text-blue-400">{jobData.title}</span>
+                Design a custom application form for <span className="text-blue-400">{jobData.title || jobData.jobTitle}</span>
               </p>
             </div>
             
@@ -245,128 +311,21 @@ const PostJobPage = () => {
             <div className="mb-6 text-center">
               <h2 className="text-2xl font-bold text-white mb-2">Preview & Publish</h2>
               <p className="text-gray-400">
-                Review your job posting and application form before publishing
+                Review your comprehensive job posting before publishing
               </p>
             </div>
 
-            <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
-              {/* Job Preview */}
-              <div className="bg-gray-800 rounded-lg p-6">
-                <h3 className="text-xl font-semibold text-white mb-4 flex items-center gap-2">
-                  <Briefcase size={20} />
-                  Job Posting Preview
-                </h3>
-                
-                <div className="space-y-4">
-                  <div>
-                    <h4 className="text-lg font-bold text-white">{jobData.title}</h4>
-                    <p className="text-gray-300">{jobData.company} • {jobData.location}</p>
-                    <div className="flex flex-wrap gap-2 mt-2">
-                      <span className="px-2 py-1 bg-blue-600 text-white rounded text-sm">{jobData.jobType}</span>
-                      <span className="px-2 py-1 bg-purple-600 text-white rounded text-sm">{jobData.workMode}</span>
-                      <span className="px-2 py-1 bg-green-600 text-white rounded text-sm">{jobData.experienceLevel}</span>
-                    </div>
-                  </div>
-
-                  {(jobData.salaryMin || jobData.salaryMax) && (
-                    <div>
-                      <h5 className="font-medium text-gray-300">Salary Range</h5>
-                      <p className="text-white">
-                        {jobData.salaryMin && jobData.salaryMax 
-                          ? `$${jobData.salaryMin.toLocaleString()} - $${jobData.salaryMax.toLocaleString()}`
-                          : jobData.salaryMin 
-                            ? `From $${jobData.salaryMin.toLocaleString()}`
-                            : `Up to $${jobData.salaryMax.toLocaleString()}`
-                        }
-                      </p>
-                    </div>
-                  )}
-
-                  {jobData.skillsRequired && jobData.skillsRequired.length > 0 && (
-                    <div>
-                      <h5 className="font-medium text-gray-300 mb-2">Required Skills</h5>
-                      <div className="flex flex-wrap gap-2">
-                        {jobData.skillsRequired.map((skill, index) => (
-                          <span key={index} className="px-2 py-1 bg-gray-700 text-gray-300 rounded text-sm">
-                            {skill}
-                          </span>
-                        ))}
-                      </div>
-                    </div>
-                  )}
-
-                  <div>
-                    <h5 className="font-medium text-gray-300 mb-2">Description</h5>
-                    <div 
-                      className="text-gray-400 prose prose-invert max-w-none"
-                      dangerouslySetInnerHTML={{ __html: jobData.description }}
-                    />
-                  </div>
-                </div>
-              </div>
-
-              {/* Form Preview */}
-              <div className="bg-gray-800 rounded-lg p-6">
-                <h3 className="text-xl font-semibold text-white mb-4 flex items-center gap-2">
-                  <Settings size={20} />
-                  Application Form Preview
-                </h3>
-                
-                {customForm ? (
-                  <div className="space-y-4">
-                    <div>
-                      <h4 className="font-bold text-white">{customForm.title}</h4>
-                      {customForm.description && (
-                        <p className="text-gray-300 text-sm mt-1">{customForm.description}</p>
-                      )}
-                    </div>
-                    
-                    <div className="text-sm text-gray-400">
-                      <span className="font-medium">{customForm.fields?.length || 0}</span> fields configured
-                    </div>
-                    
-                    <div className="max-h-64 overflow-y-auto">
-                      {customForm.fields?.map((field, index) => (
-                        <div key={index} className="mb-3 p-3 bg-gray-700 rounded">
-                          <div className="flex items-center justify-between">
-                            <span className="text-white font-medium">{field.label}</span>
-                            {field.required && <span className="text-red-400 text-sm">Required</span>}
-                          </div>
-                          <span className="text-gray-400 text-sm capitalize">{field.type}</span>
-                        </div>
-                      ))}
-                    </div>
-                  </div>
-                ) : (
-                  <div className="text-center text-gray-400">
-                    <p>Using default application form</p>
-                    <button
-                      onClick={() => setCurrentStep('form-builder')}
-                      className="mt-2 text-blue-400 hover:text-blue-300"
-                    >
-                      Create custom form
-                    </button>
-                  </div>
-                )}
-              </div>
-            </div>
-
-            {/* Action Buttons */}
-            <div className="flex justify-center gap-4 mt-8">
-              <button
-                onClick={handleCancel}
-                className="px-6 py-3 bg-gray-700 text-white rounded-lg hover:bg-gray-600 transition-colors"
-              >
-                Cancel
-              </button>
-              <button
-                onClick={handleFinish}
-                className="px-6 py-3 bg-green-600 text-white rounded-lg hover:bg-green-700 transition-colors flex items-center gap-2"
-              >
-                <Eye size={16} />
-                Publish Job
-              </button>
-            </div>
+            {/* Use our comprehensive job preview component */}
+            <JobPreview
+              jobData={jobData}
+              customForm={customForm}
+              onClose={() => setCurrentStep('form-builder')}
+              onPublish={handleFinish}
+              showCloseButton={false}
+              showEditButtons={true}
+              onEditJob={() => setCurrentStep('job-form')}
+              onEditForm={() => setCurrentStep('form-builder')}
+            />
           </div>
         )}
       </div>

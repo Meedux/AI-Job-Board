@@ -74,6 +74,48 @@ model Job {
   createdAt       DateTime  @default(now()) @map("created_at")
   updatedAt       DateTime  @updatedAt @map("updated_at")
 
+  // New comprehensive job posting fields
+  numberOfOpenings        Int?      @default(1) @map("number_of_openings")
+  educationAttainment     String?   @map("education_attainment")
+  employmentType          String?   @map("employment_type")
+  industry                String?   @map("industry")
+  subIndustry             String?   @map("sub_industry")
+  
+  // Location details
+  city                    String?   @map("city")
+  state                   String?   @map("state")
+  postalCode              String?   @map("postal_code")
+  country                 String?   @default("Philippines") @map("country")
+  
+  // Salary details
+  salaryPeriod            String?   @map("salary_period") // "hourly", "daily", "monthly", "annually"
+  salaryRange             String?   @map("salary_range") // Predefined ranges
+  showCompensation        Boolean   @default(true) @map("show_compensation")
+  
+  // Application settings
+  applicationMethod       String?   @default("internal") @map("application_method") // "internal", "external", "email"
+  externalApplicationUrl  String?   @map("external_application_url")
+  applicationEmail        String?   @map("application_email")
+  applicationDeadline     DateTime? @map("application_deadline")
+  
+  // Contact settings
+  showContactOnPosting    Boolean   @default(false) @map("show_contact_on_posting")
+  protectEmailAddress     Boolean   @default(false) @map("protect_email_address")
+  
+  // Employer-specific fields
+  licenseNumber           String?   @map("license_number")
+  licenseExpirationDate   DateTime? @map("license_expiration_date")
+  overseasStatement       String?   @map("overseas_statement")
+  
+  // Additional features
+  allowPreview            Boolean   @default(true) @map("allow_preview")
+  generateQRCode          Boolean   @default(false) @map("generate_qr_code")
+  generateSocialTemplate  Boolean   @default(false) @map("generate_social_template")
+  
+  // Mode and employer type tracking
+  mode                    String?   @map("mode") // "manual", "ai"
+  employerType            String?   @map("employer_type")
+
   // Relations
   companyId  String  @map("company_id")
   company    Company @relation(fields: [companyId], references: [id], onDelete: Cascade)

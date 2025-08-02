@@ -262,6 +262,51 @@ export default function EmployerAdminDashboard() {
           <p className="text-gray-300">Manage your sub-users and team access</p>
         </div>
 
+        {/* New Features Showcase */}
+        <div className="bg-gradient-to-r from-blue-600 to-purple-600 rounded-lg p-6 mb-8">
+          <div className="flex items-center justify-between mb-4">
+            <div>
+              <h2 className="text-xl font-bold text-white mb-2">🚀 New: Comprehensive Job Posting System</h2>
+              <p className="text-blue-100">
+                Experience our enhanced job posting with 5-step wizard, AI assistance, and employer type adaptation
+              </p>
+            </div>
+            <div className="flex gap-3">
+              <a
+                href="/admin/post-job"
+                className="px-4 py-2 bg-white text-blue-600 rounded-lg hover:bg-gray-100 transition-colors font-medium"
+              >
+                Post Job
+              </a>
+              <a
+                href="/demo/comprehensive-job-posting"
+                className="px-4 py-2 bg-blue-700 text-white rounded-lg hover:bg-blue-800 transition-colors font-medium"
+              >
+                Try Demo
+              </a>
+            </div>
+          </div>
+          
+          <div className="grid grid-cols-2 md:grid-cols-4 gap-4 text-sm">
+            <div className="flex items-center gap-2 text-blue-100">
+              <span className="w-2 h-2 bg-green-400 rounded-full"></span>
+              Manual & AI Modes
+            </div>
+            <div className="flex items-center gap-2 text-blue-100">
+              <span className="w-2 h-2 bg-green-400 rounded-full"></span>
+              Employer Type Adaptation
+            </div>
+            <div className="flex items-center gap-2 text-blue-100">
+              <span className="w-2 h-2 bg-green-400 rounded-full"></span>
+              Philippine Compliance
+            </div>
+            <div className="flex items-center gap-2 text-blue-100">
+              <span className="w-2 h-2 bg-green-400 rounded-full"></span>
+              Advanced Preview
+            </div>
+          </div>
+        </div>
+
         {/* Subscription Info */}
         <div className="bg-gray-800 rounded-lg p-6 mb-8 border border-gray-700">
           <h2 className="text-lg font-semibold text-white mb-4">Subscription Status</h2>
