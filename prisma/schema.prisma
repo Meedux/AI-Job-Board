@@ -168,6 +168,7 @@ model User {
   uid          String?   @unique // Legacy UID from Google Sheets
   email        String    @unique
   fullName     String?   @map("full_name")
+  name         String?   // Alias for fullName for compatibility
   companyName  String?   @map("company_name") // For hirers/employers
   nickname     String?
   firstName    String?   @map("first_name")
@@ -176,16 +177,24 @@ model User {
   age          Int?
   dateOfBirth  DateTime? @map("date_of_birth")
   fullAddress  String?   @map("full_address")
+  location     String?   // Current location
+  phone        String?   // Phone number
+  
+  // Professional Profile
+  profilePicture String? @map("profile_picture")
+  resumeUrl      String? @map("resume_url")
+  skills         String[] @default([])
   
   // Enhanced Role System
   role         String    @default("job_seeker") // "super_admin", "employer_admin", "sub_user", "job_seeker"
-  userType     String?   @map("user_type") // For sub-users: "staff", "vendor", "customer"
+  userType     String?   @map("user_type") // For sub-users: "staff", "hiring_manager", "vendor", "customer"
   employerType String?   @map("employer_type") // "local_direct", "local_pea", "local_do174", "local_psa", "local_government", "abroad_recruitment", "abroad_manning", "abroad_dmw"
   
   // Account Hierarchy
   parentUserId String?   @map("parent_user_id") // Reference to main employer account
   parentUser   User?     @relation("UserHierarchy", fields: [parentUserId], references: [id])
   subUsers     User[]    @relation("UserHierarchy")
+  companyId    String?   @map("company_id") // Reference to company for sub-users
   
   // Access Control
   isActive     Boolean   @default(true) @map("is_active")
@@ -270,12 +279,22 @@ model JobApplication {
   coverLetter    String?   @map("cover_letter")
   resumeUrl      String?   @map("resume_url")
   status         String    @default("pending") // "pending", "reviewed", "shortlisted", "interview_scheduled", "interviewed", "offered", "hired", "rejected", "withdrawn"
-  stage          String    @default("application") // "application", "screening", "interview", "offer", "onboarding"
+  stage          String    @default("new") // ATS workflow stages: "new", "reviewing", "shortlisted", "interview_scheduled", "interview_completed", "final_review", "offered", "hired", "rejected", "on_hold", "watchlist"
   priority       String    @default("normal") // "low", "normal", "high", "urgent"
   rating         Int?      // 1-5 star rating
   notes          String?   // Employer notes
+  tags           String[]  @default([]) // Custom tags
   feedback       Json?     // Structured feedback data
   scheduledInterviews Json? @map("scheduled_interviews") // Interview scheduling data
+  
+  // ATS-specific fields
+  isFavorite     Boolean   @default(false) @map("is_favorite")
+  contactVisible Boolean   @default(true) @map("contact_visible") // Whether contact details are visible
+  source         String?   @default("direct") // "direct", "referral", "job_board", "social", "agency"
+  experienceYears Int?     @map("experience_years")
+  salaryExpectation Decimal? @map("salary_expectation")
+  availability   String?   // "immediate", "2_weeks", "1_month", "negotiable"
+  
   appliedAt      DateTime  @default(now()) @map("applied_at")
   reviewedAt     DateTime? @map("reviewed_at")
   interviewedAt  DateTime? @map("interviewed_at")
@@ -782,6 +801,21 @@ model ATSActivity {
   user         User     @relation(fields: [userId], references: [id], onDelete: Cascade)
 
   @@map("ats_activities")
+}
+
+// Activity Log for detailed ATS tracking
+model ActivityLog {
+  id           String   @id @default(cuid())
+  userId       String   @map("user_id")
+  action       String   // "candidate_updated", "bulk_move_stage", "interview_scheduled", etc.
+  entityType   String   @map("entity_type") // "application", "candidate", "job", "interview"
+  entityId     Int?     @map("entity_id") // ID of the affected entity
+  details      Json?    // Detailed information about the action
+  ipAddress    String?  @map("ip_address")
+  userAgent    String?  @map("user_agent")
+  createdAt    DateTime @default(now()) @map("created_at")
+
+  @@map("activity_logs")
 }
 
 // Enhanced Subscription Plans for new user types
