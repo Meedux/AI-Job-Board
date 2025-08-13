@@ -116,6 +116,17 @@ model Job {
   mode                    String?   @map("mode") // "manual", "ai"
   employerType            String?   @map("employer_type")
 
+  // Resume scanning criteria (embedded for quick access)
+  skillsWeight            Int?      @default(30) @map("skills_weight")
+  experienceWeight        Int?      @default(25) @map("experience_weight")
+  educationWeight         Int?      @default(20) @map("education_weight")
+  keywordWeight           Int?      @default(15) @map("keyword_weight")
+  locationWeight          Int?      @default(10) @map("location_weight")
+  minExperienceYears      Int?      @map("min_experience_years")
+  requiredEducation       String?   @map("required_education")
+  dealBreakers            String[]  @default([]) @map("deal_breakers")
+  enableAIScanning        Boolean   @default(true) @map("enable_ai_scanning")
+
   // Relations
   companyId  String  @map("company_id")
   company    Company @relation(fields: [companyId], references: [id], onDelete: Cascade)
@@ -125,6 +136,11 @@ model Job {
   categories   JobCategoryAssignment[]
   applications JobApplication[]
   applicationForm ApplicationForm?
+  
+  // Resume scanning relations
+  scanResults    ResumeScanResult[]
+  jobMatches     ResumeJobMatch[]
+  scanCriteria   JobScanCriteria?
 
   @@map("jobs")
 }
@@ -265,6 +281,9 @@ model User {
   createdForms     ApplicationForm[] @relation("CreatedForms")
   conductedInterviews ATSInterview[] @relation("InterviewerRelation")
   createdCompanies Company[] @relation("CreatedCompanies")
+  
+  // Resume scanning relations
+  parsedResumes    ParsedResume[]
 
   @@map("users")
 }
@@ -307,6 +326,9 @@ model JobApplication {
   applicant User             @relation(fields: [applicantId], references: [id], onDelete: Cascade)
   form      ApplicationForm? @relation(fields: [formId], references: [id])
   interviews ATSInterview[]
+  
+  // Resume scanning relations
+  parsedResumes ParsedResume[]
 
   @@unique([jobId, applicantId])
   @@map("job_applications")
@@ -852,4 +874,164 @@ model SubscriptionAddonPurchase {
   addon          SubscriptionAddon @relation(fields: [addonId], references: [id])
 
   @@map("subscription_addon_purchases")
+}
+
+// Resume Scanning and Parsing Models
+model ParsedResume {
+  id                String    @id @default(cuid())
+  userId            String    @map("user_id")
+  applicationId     String?   @map("application_id") // Optional: linked to job application
+  originalFileName  String    @map("original_file_name")
+  fileUrl           String    @map("file_url")
+  fileSize          Int       @map("file_size")
+  fileType          String    @map("file_type") // "pdf", "doc", "docx", "txt"
+  
+  // Parsing service details
+  parsingService    String    @default("resumeparser") @map("parsing_service") // "resumeparser", "sovren", "textkernel"
+  parsingJobId      String?   @map("parsing_job_id") // External service job ID
+  parsingStatus     String    @default("pending") @map("parsing_status") // "pending", "processing", "completed", "failed"
+  parsingError      String?   @map("parsing_error")
+  
+  // Parsed data
+  rawParsedData     Json?     @map("raw_parsed_data") // Full response from parsing service
+  structuredData    Json?     @map("structured_data") // Cleaned and structured data
+  
+  // Extracted information
+  personalInfo      Json?     @map("personal_info") // Name, email, phone, address
+  summary           String?   @map("summary")
+  experience        Json?     @map("experience") // Work experience array
+  education         Json?     @map("education") // Education array
+  skills            String[]  @map("skills")
+  certifications    Json?     @map("certifications")
+  languages         Json?     @map("languages")
+  projects          Json?     @map("projects")
+  awards            Json?     @map("awards")
+  references        Json?     @map("references")
+  
+  // Calculated metrics
+  totalExperienceYears Int?   @map("total_experience_years")
+  experienceLevel      String? @map("experience_level") // "entry", "junior", "mid", "senior", "executive"
+  
+  // Quality scores
+  resumeQualityScore   Int?    @map("resume_quality_score") // 0-100
+  completenessScore    Int?    @map("completeness_score") // 0-100
+  
+  createdAt         DateTime  @default(now()) @map("created_at")
+  updatedAt         DateTime  @updatedAt @map("updated_at")
+
+  // Relations
+  user              User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  application       JobApplication? @relation(fields: [applicationId], references: [id])
+  scanResults       ResumeScanResult[]
+  jobMatches        ResumeJobMatch[]
+
+  @@map("parsed_resumes")
+}
+
+model ResumeScanResult {
+  id                String    @id @default(cuid())
+  resumeId          String    @map("resume_id")
+  jobId             String    @map("job_id")
+  scanType          String    @map("scan_type") // "manual", "ai", "quick"
+  
+  // Matching scores
+  overallMatch      Int       @map("overall_match") // 0-100
+  skillsMatch       Int       @map("skills_match") // 0-100
+  experienceMatch   Int       @map("experience_match") // 0-100
+  educationMatch    Int       @map("education_match") // 0-100
+  keywordMatch      Int       @map("keyword_match") // 0-100
+  
+  // Detailed analysis
+  matchedSkills     String[]  @map("matched_skills")
+  missingSkills     String[]  @map("missing_skills")
+  experienceGap     Int?      @map("experience_gap") // Years difference from requirement
+  salaryFit         String?   @map("salary_fit") // "below", "within", "above"
+  locationFit       Boolean?  @map("location_fit")
+  
+  // AI analysis
+  aiRecommendation  String?   @map("ai_recommendation") // "recommend", "maybe", "reject"
+  aiReasoning       String?   @map("ai_reasoning")
+  aiKeyPoints       String[]  @map("ai_key_points")
+  
+  // Custom criteria scores
+  customCriteria    Json?     @map("custom_criteria")
+  
+  scanDate          DateTime  @default(now()) @map("scan_date")
+  scanSettings      Json?     @map("scan_settings") // Criteria weights, etc.
+
+  // Relations
+  resume            ParsedResume @relation(fields: [resumeId], references: [id], onDelete: Cascade)
+  job               Job       @relation(fields: [jobId], references: [id], onDelete: Cascade)
+
+  @@unique([resumeId, jobId])
+  @@map("resume_scan_results")
+}
+
+model ResumeJobMatch {
+  id                String    @id @default(cuid())
+  resumeId          String    @map("resume_id")
+  jobId             String    @map("job_id")
+  matchScore        Int       @map("match_score") // 0-100
+  matchRanking      Int       @map("match_ranking") // Position in ranked list
+  isRecommended     Boolean   @default(false) @map("is_recommended")
+  
+  // Match breakdown
+  skillCompatibility    Int   @map("skill_compatibility") // 0-100
+  experienceCompatibility Int @map("experience_compatibility") // 0-100
+  educationCompatibility  Int @map("education_compatibility") // 0-100
+  locationCompatibility   Int @map("location_compatibility") // 0-100
+  salaryCompatibility     Int @map("salary_compatibility") // 0-100
+  
+  // Details
+  matchedRequirements   String[] @map("matched_requirements")
+  missingRequirements   String[] @map("missing_requirements")
+  additionalSkills      String[] @map("additional_skills")
+  
+  calculatedAt      DateTime  @default(now()) @map("calculated_at")
+  isActive          Boolean   @default(true) @map("is_active")
+
+  // Relations
+  resume            ParsedResume @relation(fields: [resumeId], references: [id], onDelete: Cascade)
+  job               Job       @relation(fields: [jobId], references: [id], onDelete: Cascade)
+
+  @@unique([resumeId, jobId])
+  @@map("resume_job_matches")
+}
+
+model JobScanCriteria {
+  id                String    @id @default(cuid())
+  jobId             String    @map("job_id")
+  
+  // Scanning weights and criteria
+  skillsWeight      Int       @default(30) @map("skills_weight") // 0-100%
+  experienceWeight  Int       @default(25) @map("experience_weight")
+  educationWeight   Int       @default(20) @map("education_weight")
+  keywordWeight     Int       @default(15) @map("keyword_weight")
+  locationWeight    Int       @default(10) @map("location_weight")
+  
+  // Minimum requirements
+  minExperienceYears Int?     @map("min_experience_years")
+  requiredEducation  String?  @map("required_education")
+  mustHaveSkills     String[] @map("must_have_skills")
+  niceToHaveSkills   String[] @map("nice_to_have_skills")
+  dealBreakers       String[] @map("deal_breakers")
+  
+  // Custom keywords for scanning
+  keywordPhrases     String[] @map("keyword_phrases")
+  excludeKeywords    String[] @map("exclude_keywords")
+  
+  // AI settings
+  enableAIScanning   Boolean  @default(true) @map("enable_ai_scanning")
+  aiModel            String?  @default("gpt-4") @map("ai_model")
+  customPrompt       String?  @map("custom_prompt")
+  
+  isActive           Boolean  @default(true) @map("is_active")
+  createdAt          DateTime @default(now()) @map("created_at")
+  updatedAt          DateTime @updatedAt @map("updated_at")
+
+  // Relations
+  job                Job      @relation(fields: [jobId], references: [id], onDelete: Cascade)
+
+  @@unique([jobId])
+  @@map("job_scan_criteria")
 }

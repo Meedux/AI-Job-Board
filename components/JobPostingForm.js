@@ -6,7 +6,7 @@ import { yupResolver } from '@hookform/resolvers/yup';
 import * as yup from 'yup';
 import { useAuth } from '@/contexts/AuthContext';
 import RichTextEditor from './RichTextEditor';
-import { Save, X, MapPin, DollarSign, Clock, Users, Building } from 'lucide-react';
+import { Save, X, MapPin, DollarSign, Clock, Users, Building, Brain } from 'lucide-react';
 
 // Validation schema
 const jobSchema = yup.object({
@@ -33,6 +33,16 @@ const jobSchema = yup.object({
   ),
   skillsRequired: yup.array().of(yup.string()),
   category: yup.string().required('Category is required'),
+  // Resume scanning criteria
+  skillsWeight: yup.number().min(0).max(50).default(30),
+  experienceWeight: yup.number().min(0).max(50).default(25),
+  educationWeight: yup.number().min(0).max(50).default(20),
+  keywordWeight: yup.number().min(0).max(50).default(15),
+  locationWeight: yup.number().min(0).max(50).default(10),
+  minExperienceYears: yup.number().nullable().min(0).max(20),
+  requiredEducation: yup.string(),
+  dealBreakers: yup.array().of(yup.string()),
+  enableAIScanning: yup.boolean().default(true),
 });
 
 const JobPostingForm = ({ onSubmit, onCancel, initialData = null, isEditing = false }) => {
@@ -462,6 +472,205 @@ const JobPostingForm = ({ onSubmit, onCancel, initialData = null, isEditing = fa
           {errors.benefits && (
             <p className="mt-1 text-sm text-red-400">{errors.benefits.message}</p>
           )}
+        </div>
+
+        {/* Resume Scanning Criteria */}
+        <div className="bg-gray-800 p-6 rounded-lg border border-gray-700">
+          <h3 className="text-lg font-semibold text-white mb-4 flex items-center gap-2">
+            <Brain className="text-purple-400" size={20} />
+            Resume Scanning Criteria
+          </h3>
+          <p className="text-gray-400 text-sm mb-6">
+            Configure how resumes will be automatically scored and ranked for this position. These criteria help the AI understand what's most important for this role.
+          </p>
+
+          {/* Criteria Weights */}
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 mb-6">
+            <div>
+              <label className="block text-sm font-medium text-gray-300 mb-2">
+                Skills Weight ({watch('skillsWeight') || 30}%)
+              </label>
+              <input
+                {...register('skillsWeight')}
+                type="range"
+                min="0"
+                max="50"
+                defaultValue="30"
+                className="w-full h-2 bg-gray-700 rounded-lg appearance-none cursor-pointer"
+              />
+              <div className="flex justify-between text-xs text-gray-500 mt-1">
+                <span>Not Important</span>
+                <span>Critical</span>
+              </div>
+            </div>
+
+            <div>
+              <label className="block text-sm font-medium text-gray-300 mb-2">
+                Experience Weight ({watch('experienceWeight') || 25}%)
+              </label>
+              <input
+                {...register('experienceWeight')}
+                type="range"
+                min="0"
+                max="50"
+                defaultValue="25"
+                className="w-full h-2 bg-gray-700 rounded-lg appearance-none cursor-pointer"
+              />
+              <div className="flex justify-between text-xs text-gray-500 mt-1">
+                <span>Not Important</span>
+                <span>Critical</span>
+              </div>
+            </div>
+
+            <div>
+              <label className="block text-sm font-medium text-gray-300 mb-2">
+                Education Weight ({watch('educationWeight') || 20}%)
+              </label>
+              <input
+                {...register('educationWeight')}
+                type="range"
+                min="0"
+                max="50"
+                defaultValue="20"
+                className="w-full h-2 bg-gray-700 rounded-lg appearance-none cursor-pointer"
+              />
+              <div className="flex justify-between text-xs text-gray-500 mt-1">
+                <span>Not Important</span>
+                <span>Critical</span>
+              </div>
+            </div>
+
+            <div>
+              <label className="block text-sm font-medium text-gray-300 mb-2">
+                Keyword Weight ({watch('keywordWeight') || 15}%)
+              </label>
+              <input
+                {...register('keywordWeight')}
+                type="range"
+                min="0"
+                max="50"
+                defaultValue="15"
+                className="w-full h-2 bg-gray-700 rounded-lg appearance-none cursor-pointer"
+              />
+              <div className="flex justify-between text-xs text-gray-500 mt-1">
+                <span>Not Important</span>
+                <span>Critical</span>
+              </div>
+            </div>
+
+            <div>
+              <label className="block text-sm font-medium text-gray-300 mb-2">
+                Location Weight ({watch('locationWeight') || 10}%)
+              </label>
+              <input
+                {...register('locationWeight')}
+                type="range"
+                min="0"
+                max="50"
+                defaultValue="10"
+                className="w-full h-2 bg-gray-700 rounded-lg appearance-none cursor-pointer"
+              />
+              <div className="flex justify-between text-xs text-gray-500 mt-1">
+                <span>Not Important</span>
+                <span>Critical</span>
+              </div>
+            </div>
+          </div>
+
+          {/* Minimum Requirements */}
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mb-6">
+            <div>
+              <label className="block text-sm font-medium text-gray-300 mb-2">
+                Minimum Years of Experience
+              </label>
+              <input
+                {...register('minExperienceYears')}
+                type="number"
+                min="0"
+                max="20"
+                className="w-full px-3 py-2 bg-gray-700 border border-gray-600 rounded-lg text-white placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-purple-500"
+                placeholder="e.g. 3"
+              />
+            </div>
+
+            <div>
+              <label className="block text-sm font-medium text-gray-300 mb-2">
+                Required Education Level
+              </label>
+              <select
+                {...register('requiredEducation')}
+                className="w-full px-3 py-2 bg-gray-700 border border-gray-600 rounded-lg text-white focus:outline-none focus:ring-2 focus:ring-purple-500"
+              >
+                <option value="">No specific requirement</option>
+                <option value="high school">High School</option>
+                <option value="bachelor">Bachelor's Degree</option>
+                <option value="master">Master's Degree</option>
+                <option value="phd">PhD</option>
+                <option value="certification">Professional Certification</option>
+              </select>
+            </div>
+          </div>
+
+          {/* Deal Breakers */}
+          <div className="mb-6">
+            <label className="block text-sm font-medium text-gray-300 mb-2">
+              Deal Breakers (Skills/keywords that automatically disqualify candidates)
+            </label>
+            <div className="flex flex-wrap gap-2 mb-2">
+              {(watch('dealBreakers') || []).map((breaker, index) => (
+                <span
+                  key={index}
+                  className="px-3 py-1 bg-red-500/20 text-red-300 rounded-full text-sm flex items-center gap-2"
+                >
+                  {breaker}
+                  <button
+                    type="button"
+                    onClick={() => {
+                      const current = getValues('dealBreakers') || [];
+                      setValue('dealBreakers', current.filter((_, i) => i !== index));
+                    }}
+                    className="text-red-400 hover:text-red-300"
+                  >
+                    <X size={14} />
+                  </button>
+                </span>
+              ))}
+            </div>
+            <div className="flex gap-2">
+              <input
+                type="text"
+                placeholder="Add deal breaker (e.g., 'no remote work')"
+                className="flex-1 px-3 py-2 bg-gray-700 border border-gray-600 rounded-lg text-white placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-purple-500"
+                onKeyPress={(e) => {
+                  if (e.key === 'Enter') {
+                    e.preventDefault();
+                    const value = e.target.value.trim();
+                    if (value && !(watch('dealBreakers') || []).includes(value)) {
+                      setValue('dealBreakers', [...(watch('dealBreakers') || []), value]);
+                      e.target.value = '';
+                    }
+                  }
+                }}
+              />
+            </div>
+          </div>
+
+          {/* AI Settings */}
+          <div className="flex items-center justify-between p-4 bg-gray-700/50 rounded-lg">
+            <div>
+              <h4 className="text-white font-medium">Enable AI-Powered Resume Scanning</h4>
+              <p className="text-gray-400 text-sm">Use advanced AI to provide intelligent ranking and recommendations</p>
+            </div>
+            <label className="relative inline-flex items-center cursor-pointer">
+              <input
+                {...register('enableAIScanning')}
+                type="checkbox"
+                defaultChecked={true}
+                className="sr-only peer"
+              />
+              <div className="w-11 h-6 bg-gray-600 peer-focus:outline-none peer-focus:ring-4 peer-focus:ring-purple-300 rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-purple-600"></div>
+            </label>
+          </div>
         </div>
 
         {/* Form Actions */}

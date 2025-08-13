@@ -1,7 +1,7 @@
 import { NextResponse } from 'next/server';
 import jwt from 'jsonwebtoken';
 import { PrismaClient } from '@prisma/client';
-import { sendPasswordResetEmail } from '@/utils/emailService';
+import emailItService from '@/utils/emailItService';
 import { logUserAction, getRequestInfo } from '@/utils/dataLogger';
 
 const prisma = new PrismaClient();
@@ -102,7 +102,7 @@ export async function POST(request) {
 
     // Send password reset email
     try {
-      await sendPasswordResetEmail(user.email, resetToken, user.fullName);
+      await emailItService.sendPasswordResetEmail(user.email, resetToken, user.fullName);
       console.log('📧 Password reset email sent to:', user.email);
     } catch (emailError) {
       console.error('Failed to send password reset email:', emailError);

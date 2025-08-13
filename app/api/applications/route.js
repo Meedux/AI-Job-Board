@@ -3,10 +3,10 @@ import { PrismaClient } from '@prisma/client';
 import { cookies } from 'next/headers';
 import jwt from 'jsonwebtoken';
 import { createNotification } from '@/utils/notificationService';
-import { EmailNotificationService } from '@/utils/emailService';
+import emailItService from '@/utils/emailItService';
 
 const prisma = new PrismaClient();
-const emailService = new EmailNotificationService();
+// Using EmailIt service for notifications
 
 export async function POST(request) {
   try {
@@ -156,35 +156,13 @@ export async function POST(request) {
         }
       });
 
-      // Send email notification to employer
-      await emailService.sendEmail({
-        to: job.postedBy.email,
-        subject: `New Application for ${job.title}`,
-        html: `
-          <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto; background: #111827; color: #e5e7eb; padding: 20px; border-radius: 8px;">
-            <h2 style="color: #10b981; margin-bottom: 20px;">🎉 New Job Application</h2>
-            <p>Good news! You have received a new application for your job posting.</p>
-            
-            <div style="background: #1f2937; padding: 15px; border-radius: 6px; margin: 15px 0;">
-              <p><strong>Job:</strong> ${job.title}</p>
-              <p><strong>Applicant:</strong> ${application.applicant.fullName || application.applicant.firstName + ' ' + application.applicant.lastName}</p>
-              <p><strong>Applied:</strong> ${new Date().toLocaleString()}</p>
-              <p><strong>Company:</strong> ${job.company?.name || 'Your Company'}</p>
-            </div>
-            
-            <p>
-              <a href="${process.env.NEXT_PUBLIC_BASE_URL || 'http://localhost:3000'}/admin/candidates" 
-                 style="background: #10b981; color: white; padding: 12px 24px; text-decoration: none; border-radius: 5px; display: inline-block; margin-top: 20px;">
-                View Application
-              </a>
-            </p>
-            
-            <p style="margin-top: 30px; color: #9ca3af; font-size: 14px;">
-              Log in to your dashboard to review the application details and contact the candidate.
-            </p>
-          </div>
-        `
-      });
+      // Send email notification to employer using EmailIt
+      const applicantName = application.applicant.fullName || application.applicant.firstName + ' ' + application.applicant.lastName;
+      await emailItService.sendApplicationNotification(
+        job.postedBy.email, 
+        job.title, 
+        applicantName
+      );
 
       console.log('Employer notifications sent successfully');
     } catch (notificationError) {

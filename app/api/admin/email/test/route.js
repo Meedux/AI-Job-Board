@@ -1,6 +1,6 @@
 import { NextResponse } from 'next/server';
 import { verifyToken } from '../../../../../utils/auth';
-import { emailService } from '../../../../../utils/emailService';
+import emailItService from '../../../../../utils/emailItService';
 
 // Admin email list (should match AuthContext)
 const adminEmails = [
@@ -55,7 +55,13 @@ export async function POST(request) {
 
     switch (testType) {
       case 'connection':
-        result = await emailService.verifyConnection();
+        // Test EmailIt connection by sending a simple test
+        result = await emailItService.sendEmail(
+          'test@example.com',
+          'Connection Test',
+          '<p>EmailIt connection test</p>',
+          'connection_test'
+        );
         break;
 
       case 'test_email':
@@ -65,17 +71,20 @@ export async function POST(request) {
             { status: 400 }
           );
         }
-        result = await emailService.sendTestEmail(testEmail);
+        result = await emailItService.sendEmail(
+          testEmail,
+          'Test Email from GetGetHired',
+          '<h1>Test Email</h1><p>This is a test email sent from the admin panel using EmailIt service.</p>',
+          'test_email'
+        );
         break;
 
       case 'admin_notification':
-        result = await emailService.notifySystemEvent(
-          'Email Test', 
-          'This is a test notification from the admin panel',
-          { 
-            testedBy: user.email,
-            timestamp: new Date().toISOString()
-          }
+        result = await emailItService.sendEmail(
+          user.email,
+          'Admin Notification Test',
+          `<h1>Email Test</h1><p>This is a test notification from the admin panel</p><p>Tested by: ${user.email}</p><p>Timestamp: ${new Date().toISOString()}</p>`,
+          'admin_notification'
         );
         break;
 

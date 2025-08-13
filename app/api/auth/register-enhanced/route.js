@@ -3,7 +3,7 @@ import bcrypt from 'bcryptjs';
 import jwt from 'jsonwebtoken';
 import { PrismaClient } from '@prisma/client';
 import { USER_ROLES } from '@/utils/roleSystem';
-import { sendVerificationEmail } from '@/utils/externalEmailService';
+import emailItService from '@/utils/emailItService';
 import { logUserAction, logEmailNotification, logError, getRequestInfo } from '@/utils/dataLogger';
 
 const prisma = new PrismaClient();
@@ -193,7 +193,7 @@ export async function POST(request) {
 
     // Send verification email using external service
     try {
-      const emailResult = await sendVerificationEmail(email, verificationToken, fullName || companyName);
+      const emailResult = await emailItService.sendVerificationEmail(email, verificationToken, fullName || companyName);
       
       if (emailResult.success) {
         console.log('📧 Verification email sent via external service:', emailResult.messageId);

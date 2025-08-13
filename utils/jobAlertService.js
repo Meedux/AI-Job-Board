@@ -2,7 +2,7 @@
 // Manages job notifications, email alerts, and user preferences
 
 import { PrismaClient } from '@prisma/client';
-import { emailService } from './emailService';
+import emailItService from './emailItService';
 import { logSystemEvent, logError } from './dataLogger';
 import { createNotification, NOTIFICATION_TYPES, CATEGORIES, PRIORITY } from './notificationService';
 
@@ -10,7 +10,7 @@ const prisma = new PrismaClient();
 
 export class JobAlertService {
   constructor() {
-    this.emailService = emailService;
+    this.emailService = emailItService;
   }
 
   /**
@@ -46,16 +46,12 @@ export class JobAlertService {
           // Get user stats for email
           const stats = await this.getUserJobStats(user.id);
           
-          // Send job alert email
-          const result = await this.emailService.sendJobAlert({
-            user: {
-              ...user,
-              subscription: user.subscriptions?.[0] || null
-            },
-            jobs: relevantJobs,
-            alertType,
-            stats
-          });
+          // Send job alert email using EmailIt
+          const result = await this.emailService.sendJobAlert(
+            user.email,
+            user.fullName || user.firstName,
+            relevantJobs
+          );
 
           results.push({
             userId: user.id,
@@ -278,12 +274,12 @@ export class JobAlertService {
             continue;
           }
 
-          // Send resume alert email
-          const result = await this.emailService.sendResumeAlert({
-            user: employer,
-            candidates: relevantCandidates,
-            job
-          });
+          // Send resume alert email using EmailIt
+          const result = await this.emailService.sendResumeAlert(
+            employer.email,
+            employer.fullName || employer.companyName,
+            relevantCandidates[0] // Send first candidate as example
+          );
 
           results.push({
             userId: employer.id,
@@ -501,14 +497,13 @@ export class JobAlertService {
         try {
           const reminderContent = this.getReminderContent(type, user);
           
-          const result = await this.emailService.sendNotification({
-            user,
-            type: 'reminder',
-            title: reminderContent.title,
-            message: reminderContent.message,
-            actionUrl: reminderContent.actionUrl,
-            actionText: reminderContent.actionText
-          });
+          // Send reminder email using EmailIt
+          const result = await this.emailService.sendEmail(
+            user.email,
+            reminderContent.title,
+            `<h1>${reminderContent.title}</h1><p>${reminderContent.message}</p><p><a href="${reminderContent.actionUrl}">${reminderContent.actionText}</a></p>`,
+            'reminder'
+          );
 
           results.push({
             userId: user.id,

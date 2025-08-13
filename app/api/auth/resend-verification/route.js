@@ -1,6 +1,6 @@
 import { NextResponse } from 'next/server';
 import { db } from '../../../../utils/db';
-import { sendVerificationEmail } from '../../../../utils/externalEmailService';
+import emailItService from '../../../../utils/emailItService';
 import { logUserAction, logAPIRequest, logEmailNotification, logError, getRequestInfo } from '../../../../utils/dataLogger';
 import { isValidEmail } from '../../../../utils/auth';
 import jwt from 'jsonwebtoken';
@@ -109,7 +109,7 @@ export async function POST(request) {
     console.log('📧 Sending new verification email...');
     // Send verification email using external service
     try {
-      const emailResult = await sendVerificationEmail(user.email, verificationToken, user.fullName);
+      const emailResult = await emailItService.sendVerificationEmail(user.email, verificationToken, user.fullName);
       
       if (emailResult.success) {
         console.log('✅ Verification email sent successfully via external service:', emailResult.messageId);

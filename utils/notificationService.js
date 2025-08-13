@@ -1,6 +1,6 @@
 // Centralized Notification Service with Data Logging
 import { logSystemEvent, logUserAction, logError } from './dataLogger';
-import { emailService } from './emailService';
+import emailItService from './emailItService';
 
 // Notification types
 export const NOTIFICATION_TYPES = {
@@ -245,32 +245,34 @@ export const createNotification = async (config) => {
     if (routing.emailToAdmins) {
       for (const adminEmail of adminEmails) {
         try {
-          await emailService.sendEmail({
-            to: adminEmail,
-            subject: `[Admin Alert] ${title}`,
-            text: `${message}\n\nCategory: ${category}\nPriority: ${priority}\nTime: ${notification.timestamp.toISOString()}\n\nMetadata: ${JSON.stringify(metadata, null, 2)}`,
-            html: `
-              <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">
-                <h2 style="color: #dc2626;">Admin Alert</h2>
-                <h3>${title}</h3>
-                <p>${message}</p>
-                <div style="background: #f3f4f6; padding: 15px; border-radius: 5px; margin: 20px 0;">
-                  <strong>Details:</strong><br>
-                  Category: ${category}<br>
-                  Priority: ${priority}<br>
-                  Time: ${notification.timestamp.toLocaleString()}<br>
-                  ${userId ? `User ID: ${userId}<br>` : ''}
-                  ${userEmail ? `User Email: ${userEmail}<br>` : ''}
-                </div>
-                ${Object.keys(metadata).length > 0 ? `
-                <div style="background: #f9fafb; padding: 15px; border-radius: 5px;">
-                  <strong>Additional Data:</strong><br>
-                  <pre style="background: #ffffff; padding: 10px; border-radius: 3px; overflow-x: auto; font-size: 12px;">${JSON.stringify(metadata, null, 2)}</pre>
-                </div>
-                ` : ''}
+          const htmlContent = `
+            <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">
+              <h2 style="color: #dc2626;">Admin Alert</h2>
+              <h3>${title}</h3>
+              <p>${message}</p>
+              <div style="background: #f3f4f6; padding: 15px; border-radius: 5px; margin: 20px 0;">
+                <strong>Details:</strong><br>
+                Category: ${category}<br>
+                Priority: ${priority}<br>
+                Time: ${notification.timestamp.toLocaleString()}<br>
+                ${userId ? `User ID: ${userId}<br>` : ''}
+                ${userEmail ? `User Email: ${userEmail}<br>` : ''}
               </div>
-            `
-          });
+              ${Object.keys(metadata).length > 0 ? `
+              <div style="background: #f9fafb; padding: 15px; border-radius: 5px;">
+                <strong>Additional Data:</strong><br>
+                <pre style="background: #ffffff; padding: 10px; border-radius: 3px; overflow-x: auto; font-size: 12px;">${JSON.stringify(metadata, null, 2)}</pre>
+              </div>
+              ` : ''}
+            </div>
+          `;
+          
+          await emailItService.sendEmail(
+            adminEmail,
+            `[Admin Alert] ${title}`,
+            htmlContent,
+            'admin_alert'
+          );
         } catch (emailError) {
           console.error(`Failed to send admin email to ${adminEmail}:`, emailError);
           await logError(
@@ -289,21 +291,23 @@ export const createNotification = async (config) => {
     // Send email to user if required and email is provided
     if (routing.emailToUser && userEmail) {
       try {
-        await emailService.sendEmail({
-          to: userEmail,
-          subject: title,
-          text: message,
-          html: `
-            <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">
-              <h2 style="color: #059669;">Notification</h2>
-              <h3>${title}</h3>
-              <p>${message}</p>
-              <div style="background: #f3f4f6; padding: 15px; border-radius: 5px; margin: 20px 0;">
-                <strong>Time:</strong> ${notification.timestamp.toLocaleString()}
-              </div>
+        const htmlContent = `
+          <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">
+            <h2 style="color: #059669;">Notification</h2>
+            <h3>${title}</h3>
+            <p>${message}</p>
+            <div style="background: #f3f4f6; padding: 15px; border-radius: 5px; margin: 20px 0;">
+              <strong>Time:</strong> ${notification.timestamp.toLocaleString()}
             </div>
-          `
-        });
+          </div>
+        `;
+        
+        await emailItService.sendEmail(
+          userEmail,
+          title,
+          htmlContent,
+          'user_notification'
+        );
       } catch (emailError) {
         console.error(`Failed to send user email to ${userEmail}:`, emailError);
         await logError(
