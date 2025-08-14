@@ -284,6 +284,11 @@ model User {
   
   // Resume scanning relations
   parsedResumes    ParsedResume[]
+  
+  // Email system relations
+  emailTemplates   EmailTemplate[]
+  sentEmails       EmailLog[]
+  statusChanges    ApplicationStatusHistory[]
 
   @@map("users")
 }
@@ -329,6 +334,10 @@ model JobApplication {
   
   // Resume scanning relations
   parsedResumes ParsedResume[]
+  
+  // Email system relations
+  emailLogs     EmailLog[]
+  statusHistory ApplicationStatusHistory[]
 
   @@unique([jobId, applicantId])
   @@map("job_applications")
@@ -1034,4 +1043,62 @@ model JobScanCriteria {
 
   @@unique([jobId])
   @@map("job_scan_criteria")
+}
+
+// Email template management
+model EmailTemplate {
+  id          String   @id @default(cuid())
+  userId      String   @map("user_id") // User who customized this template
+  templateId  String   @map("template_id") // Built-in template identifier
+  subject     String?  // Custom subject line
+  content     String   // Custom HTML content
+  enabled     Boolean  @default(true)
+  createdAt   DateTime @default(now()) @map("created_at")
+  updatedAt   DateTime @updatedAt @map("updated_at")
+
+  // Relations
+  user        User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, templateId])
+  @@map("email_templates")
+}
+
+// Email logging for tracking and compliance
+model EmailLog {
+  id              String    @id @default(cuid())
+  templateId      String    @map("template_id")
+  recipientEmail  String    @map("recipient_email")
+  subject         String
+  content         String
+  sentBy          String    @map("sent_by")
+  applicationId   String?   @map("application_id")
+  status          String    @default("pending") // "pending", "sent", "failed", "bounced"
+  errorMessage    String?   @map("error_message")
+  sentAt          DateTime? @map("sent_at")
+  deliveredAt     DateTime? @map("delivered_at")
+  openedAt        DateTime? @map("opened_at")
+  clickedAt       DateTime? @map("clicked_at")
+  createdAt       DateTime  @default(now()) @map("created_at")
+
+  // Relations
+  sender          User             @relation(fields: [sentBy], references: [id])
+  application     JobApplication?  @relation(fields: [applicationId], references: [id])
+
+  @@map("email_logs")
+}
+
+// Application status history for tracking changes
+model ApplicationStatusHistory {
+  id            String   @id @default(cuid())
+  applicationId String   @map("application_id")
+  status        String   // New status
+  changedBy     String   @map("changed_by")
+  notes         String?  // Optional notes about the change
+  createdAt     DateTime @default(now()) @map("created_at")
+
+  // Relations
+  application   JobApplication @relation(fields: [applicationId], references: [id], onDelete: Cascade)
+  changedByUser User           @relation(fields: [changedBy], references: [id])
+
+  @@map("application_status_history")
 }

@@ -56,24 +56,23 @@ export async function POST(request) {
     let parsingError = null;
 
     try {
-      // Parse based on file type
+      // Parse based on file type using simple text extraction
       if (file.type === 'application/pdf') {
-        // Dynamic import to avoid build-time issues
-        const pdfParse = (await import('pdf-parse')).default;
-        const pdfData = await pdfParse(buffer);
-        textContent = pdfData.text;
-        parsedData = { text: textContent };
+        // For now, we'll inform users that PDF parsing requires manual text entry
+        // This can be enhanced later with proper PDF libraries
+        textContent = "PDF parsing temporarily unavailable. Please convert to text or Word format.";
+        parsedData = { text: textContent, requiresManualEntry: true };
         
       } else if (file.type.includes('word') || file.name.endsWith('.docx')) {
-        // Dynamic import to avoid build-time issues
-        const mammoth = await import('mammoth');
-        const docxData = await mammoth.extractRawText({buffer: buffer});
-        textContent = docxData.value;
-        parsedData = { text: textContent };
+        // For Word docs, we'll also require manual entry for now
+        textContent = "Word document parsing temporarily unavailable. Please convert to text format.";
+        parsedData = { text: textContent, requiresManualEntry: true };
         
       } else if (file.type === 'text/plain') {
         textContent = buffer.toString('utf-8');
         parsedData = { text: textContent };
+      } else {
+        throw new Error('Unsupported file type. Please use text files for now.');
       }
 
       // Extract structured information from parsed data or text
