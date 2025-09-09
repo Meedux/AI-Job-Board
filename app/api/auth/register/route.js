@@ -123,7 +123,7 @@ export async function POST(request) {
       age: age,
       dateOfBirth: new Date(dateOfBirth),
       fullAddress: sanitizeInput(fullAddress || ''),
-      role: 'user',
+      role: 'job_seeker', // Default role for new registrations
       isActive: false, // User must verify email first
       accountStatus: 'pending_verification',
       emailVerificationToken: verificationToken

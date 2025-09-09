@@ -49,7 +49,13 @@ export default function RoleBasedNavigation() {
     }
 
     // Common items
-    items.push({ name: 'Profile', href: '/profile', icon: '👤' });
+    if (user.role === USER_ROLES.JOB_SEEKER) {
+      items.push({ name: 'Profile', href: '/profile/job-seeker', icon: '👤' });
+    } else if (user.role === USER_ROLES.EMPLOYER_ADMIN || user.role === USER_ROLES.SUB_USER) {
+      items.push({ name: 'Profile', href: '/profile/employer', icon: '👤' });
+    } else {
+      items.push({ name: 'Profile', href: '/profile', icon: '👤' });
+    }
 
     return items;
   };

@@ -347,20 +347,20 @@ const Header = ({ onSearch, onFilter }) => {
         return [
           ...baseUserLinks,
           // { href: '/admin', label: 'Admin Panel', icon: '⚙️' },
-          // { href: '/profile', label: 'Profile', icon: '👤' },
+          // { href: '/profile/admin', label: 'Profile', icon: '👤' },
         ];
       
       case 'employer_admin':
         return [
           ...baseUserLinks,
-          { href: '/profile', label: 'Profile', icon: '👤' },
+          { href: '/profile/employer', label: 'Profile', icon: '👤' },
         ];
       
       case 'sub_user':
         return [
           ...baseUserLinks,
           { href: '/admin', label: 'Workspace', icon: '👤' },
-          { href: '/profile', label: 'Profile', icon: '👤' },
+          { href: '/profile/employer', label: 'Profile', icon: '👤' },
         ];
       
       default: // job_seeker
@@ -368,7 +368,7 @@ const Header = ({ onSearch, onFilter }) => {
           ...baseUserLinks,
           // { href: '/my-applications', label: 'My Applications', icon: '📋' },
           // { href: '/resume-analyzer', label: 'Resume Analyzer', icon: '📄' },
-          // { href: '/profile', label: 'Profile', icon: '👤' },
+          // { href: '/profile/job-seeker', label: 'Profile', icon: '👤' },
           { href: '/dashboard', label: 'Dashboard', icon: '📊' }
         ];
     }
@@ -551,7 +551,11 @@ const Header = ({ onSearch, onFilter }) => {
                               </div>
                               
                               <Link 
-                                href="/profile" 
+                                href={
+                                  user.role === 'job_seeker' ? '/profile/job-seeker' :
+                                  user.role === 'employer_admin' || user.role === 'sub_user' ? '/profile/employer' :
+                                  '/profile'
+                                } 
                                 className="block px-4 py-2 text-gray-300 hover:bg-gray-700 transition-colors text-sm"
                                 onClick={() => setIsUserMenuOpen(false)}
                               >

@@ -14,10 +14,10 @@ export async function PUT(request, { params }) {
     const { role } = await request.json();
     
     // Validate role
-    const validRoles = ['user', 'employer', 'admin', 'super_admin'];
+    const validRoles = ['job_seeker', 'employer', 'employer_admin', 'sub_user', 'admin', 'super_admin'];
     if (!validRoles.includes(role)) {
       return NextResponse.json({ 
-        error: 'Invalid role. Must be one of: user, employer, admin, super_admin' 
+        error: 'Invalid role. Must be one of: job_seeker, employer, employer_admin, sub_user, admin, super_admin' 
       }, { status: 400 });
     }
 

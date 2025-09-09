@@ -48,6 +48,10 @@ export const AuthProvider = ({ children }) => {
           return '/admin';
         case 'employer':
           return '/dashboard';
+        case 'job_seeker':
+          return '/profile/job-seeker';
+        case 'sub_user':
+          return '/dashboard'; // Sub-users go to employer dashboard
         default:
           return defaultUrl;
       }

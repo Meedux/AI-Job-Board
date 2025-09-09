@@ -459,7 +459,7 @@ export class JobAlertService {
           users = await prisma.user.findMany({
             where: {
               isActive: true,
-              role: 'user',
+              role: 'job_seeker',
               OR: [
                 { fullName: null },
                 { fullName: '' },
@@ -474,7 +474,7 @@ export class JobAlertService {
           users = await prisma.user.findMany({
             where: {
               isActive: true,
-              role: 'user',
+              role: 'job_seeker',
               applications: {
                 some: {
                   status: 'pending',
