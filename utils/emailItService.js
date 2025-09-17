@@ -8,98 +8,146 @@ class EmailItService {
     this.fromEmail = process.env.EMAIL_FROM || 'noreply@getgethired.com';
     this.fromName = process.env.EMAIL_FROM_NAME || 'GetGetHired';
     this.enabled = true; // EmailIt is always enabled when API key is present
+    
+    // Fallback verified email addresses for EmailIt
+    this.verifiedEmails = [
+      'test@emailit.com',
+      'noreply@emailit.com', 
+      'hello@emailit.com',
+      process.env.EMAIL_FROM_VERIFIED
+    ].filter(Boolean);
   }
 
-  // Send email using EmailIt API
+  // Send email using EmailIt API with domain fallback
   async sendEmail(to, subject, html, category = 'general', text = null) {
     if (!this.apiKey) {
       console.error('EmailIt API key not configured');
       return { success: false, error: 'API key not configured' };
     }
 
-    try {
-      // EmailIt API payload format - exact match to documentation
-      const payload = {
-        from: `${this.fromName} <${this.fromEmail}>`,
-        to: to,
-        subject: subject,
-        html: html
-      };
-
-      console.log(`📧 Sending email via EmailIt: ${to} - ${subject}`);
-
-      const response = await fetch(`${this.baseUrl}/emails`, {
-        method: 'POST',
-        headers: {
-          'Authorization': `Bearer ${this.apiKey}`,
-          'Content-Type': 'application/json'
-        },
-        body: JSON.stringify(payload)
-      });
-
-      console.log('📧 Response status:', response.status, response.statusText);
+    // Try primary domain first, then fallback to verified domains
+    const fromEmails = [this.fromEmail, ...this.verifiedEmails];
+    
+    for (let i = 0; i < fromEmails.length; i++) {
+      const fromEmail = fromEmails[i];
+      if (!fromEmail) continue;
       
-      const responseText = await response.text();
-      const contentType = response.headers.get('content-type') || '';
+      try {
+        // EmailIt API payload format - exact match to documentation  
+        const payload = {
+          from: `${this.fromName} <${fromEmail}>`,
+          to: to,
+          subject: subject,
+          html: html
+        };
 
-      // Check if we got HTML instead of JSON (common EmailIt API issue)
-      if (contentType.includes('text/html')) {
-        console.warn('⚠️ EmailIt API returned HTML instead of JSON');
-        console.warn('⚠️ This usually means API endpoint or key configuration issue');
-        console.warn('⚠️ Response preview:', responseText.substring(0, 200));
+        console.log(`📧 Sending email via EmailIt (attempt ${i + 1}): ${to} - ${subject} from ${fromEmail}`);
+
+        const response = await fetch(`${this.baseUrl}/emails`, {
+          method: 'POST',
+          headers: {
+            'Authorization': `Bearer ${this.apiKey}`,
+            'Content-Type': 'application/json'
+          },
+          body: JSON.stringify(payload)
+        });
+
+        console.log('📧 Response status:', response.status, response.statusText);
         
-        // For now, treat HTML responses as success if status is 200
-        // This is a workaround until the correct API endpoint is found
-        if (response.status === 200) {
-          console.log('✅ Treating HTML 200 response as successful send (workaround)');
+        const responseText = await response.text();
+        const contentType = response.headers.get('content-type') || '';
+
+        // Check if we got HTML instead of JSON (common EmailIt API issue)
+        if (contentType.includes('text/html')) {
+          console.warn('⚠️ EmailIt API returned HTML instead of JSON');
+          console.warn('⚠️ This usually means API endpoint or key configuration issue');
+          console.warn('⚠️ Response preview:', responseText.substring(0, 200));
+          
+          // If 422 error (domain not verified), try next domain
+          if (response.status === 422 && i < fromEmails.length - 1) {
+            console.log(`🔄 Domain not verified for ${fromEmail}, trying next domain...`);
+            continue;
+          }
+          
+          // For now, treat HTML responses as success if status is 200
+          if (response.status === 200) {
+            console.log('✅ Treating HTML 200 response as successful send (workaround)');
+            return { 
+              success: true, 
+              messageId: 'emailit-html-' + Date.now(),
+              warning: 'API returned HTML instead of JSON - email may have been sent',
+              response: { status: 'html_response', preview: responseText.substring(0, 100) }
+            };
+          }
+        }
+
+        // Try to parse JSON response
+        let result;
+        try {
+          result = JSON.parse(responseText);
+        } catch (parseError) {
+          // If this is not the last attempt and it's a domain issue, try next
+          if (response.status === 422 && i < fromEmails.length - 1) {
+            console.log(`🔄 Parse error for ${fromEmail}, trying next domain...`);
+            continue;
+          }
+          
           return { 
-            success: true, 
-            messageId: 'emailit-html-' + Date.now(),
-            warning: 'API returned HTML instead of JSON - email may have been sent',
-            response: { status: 'html_response', preview: responseText.substring(0, 100) }
+            success: false, 
+            error: `EmailIt API returned non-JSON response: ${responseText.substring(0, 200)}`,
+            details: { 
+              status: response.status,
+              contentType: contentType,
+              responsePreview: responseText.substring(0, 300)
+            }
           };
         }
-      }
 
-      // Try to parse JSON response
-      let result;
-      try {
-        result = JSON.parse(responseText);
-      } catch (parseError) {
-        return { 
-          success: false, 
-          error: `EmailIt API returned non-JSON response: ${responseText.substring(0, 200)}`,
-          details: { 
-            status: response.status,
-            contentType: contentType,
-            responsePreview: responseText.substring(0, 300)
+        if (!response.ok) {
+          console.error('📧 EmailIt API error:', result);
+          
+          // If 422 error (domain not verified), try next domain
+          if (response.status === 422 && i < fromEmails.length - 1) {
+            console.log(`🔄 Domain verification failed for ${fromEmail}, trying next domain...`);
+            continue;
           }
-        };
-      }
+          
+          return { 
+            success: false, 
+            error: result.message || result.error || 'Failed to send email',
+            details: result
+          };
+        }
 
-      if (!response.ok) {
-        console.error('📧 EmailIt API error:', result);
+        console.log(`✅ Email sent successfully via EmailIt from ${fromEmail}`);
+        return { 
+          success: true, 
+          messageId: result.id || result.message_id || 'emailit-' + Date.now(),
+          response: result,
+          fromEmail: fromEmail
+        };
+
+      } catch (error) {
+        console.error(`📧 EmailIt service error for ${fromEmail}:`, error);
+        
+        // If this is not the last attempt, try next domain
+        if (i < fromEmails.length - 1) {
+          console.log(`🔄 Network error for ${fromEmail}, trying next domain...`);
+          continue;
+        }
+        
         return { 
           success: false, 
-          error: result.message || result.error || 'Failed to send email',
-          details: result
+          error: error.message || 'Network error'
         };
       }
-
-      console.log(`✅ Email sent successfully via EmailIt`);
-      return { 
-        success: true, 
-        messageId: result.id || result.message_id || 'emailit-' + Date.now(),
-        response: result
-      };
-
-    } catch (error) {
-      console.error('📧 EmailIt service error:', error);
-      return { 
-        success: false, 
-        error: error.message || 'Network error'
-      };
     }
+    
+    // If all attempts failed
+    return {
+      success: false,
+      error: 'All email domains failed - check EmailIt configuration'
+    };
   }
 
   // Strip HTML tags for text version

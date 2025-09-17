@@ -366,9 +366,9 @@ const Header = ({ onSearch, onFilter }) => {
       default: // job_seeker
         return [
           ...baseUserLinks,
-          // { href: '/my-applications', label: 'My Applications', icon: '📋' },
-          // { href: '/resume-analyzer', label: 'Resume Analyzer', icon: '📄' },
-          // { href: '/profile/job-seeker', label: 'Profile', icon: '👤' },
+          { href: '/profile/job-seeker', label: 'Profile', icon: '�' },
+          { href: '/my-applications', label: 'My Applications', icon: '�' },
+          { href: '/resume-analyzer', label: 'Resume Analyzer', icon: '�' },
           { href: '/dashboard', label: 'Dashboard', icon: '📊' }
         ];
     }
