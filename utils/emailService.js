@@ -4,6 +4,7 @@
 import nodemailer from 'nodemailer';
 import { logEmailNotification, logError, logSystemEvent } from './dataLogger';
 import { createNotification, NOTIFICATION_TYPES, CATEGORIES, PRIORITY } from './notificationService';
+import { getVerificationUrl, getPasswordResetUrl } from './domainConfig';
 import { 
   jobAlertTemplate, 
   resumeAlertTemplate, 
@@ -812,13 +813,15 @@ Check the admin dashboard: ${process.env.NEXT_PUBLIC_SITE_URL || 'http://localho
   }
 
   // Send email verification
-  async sendVerificationEmail(email, token, name) {
+  async sendVerificationEmail(email, token, name, request = null) {
     if (!this.enabled) {
       console.log('Email notifications disabled, skipping verification email');
       return { success: true, message: 'Email service disabled' };
     }
 
-    const verificationUrl = `${process.env.NEXT_PUBLIC_BASE_URL || 'http://localhost:3000'}/api/auth/verify-email?token=${token}`;
+    // Use dynamic URL generation instead of hardcoded localhost
+    const verificationUrl = getVerificationUrl(token, request);
+    console.log(`🔗 Generated verification URL: ${verificationUrl}`);
     
     const subject = 'Verify Your Email - JobSite';
     const html = verificationTemplate(name, verificationUrl);
@@ -827,13 +830,15 @@ Check the admin dashboard: ${process.env.NEXT_PUBLIC_SITE_URL || 'http://localho
   }
 
   // Send password reset email
-  async sendPasswordResetEmail(email, token, name) {
+  async sendPasswordResetEmail(email, token, name, request = null) {
     if (!this.enabled) {
       console.log('Email notifications disabled, skipping password reset email');
       return { success: true, message: 'Email service disabled' };
     }
 
-    const resetUrl = `${process.env.NEXT_PUBLIC_BASE_URL || 'http://localhost:3000'}/reset-password?token=${token}`;
+    // Use dynamic URL generation instead of hardcoded localhost
+    const resetUrl = getPasswordResetUrl(token, request);
+    console.log(`🔗 Generated password reset URL: ${resetUrl}`);
     
     const subject = 'Reset Your Password - JobSite';
     const html = passwordResetTemplate(name, resetUrl);

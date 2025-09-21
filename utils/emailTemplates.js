@@ -1,5 +1,6 @@
 // Email Templates for Job Alerts and Notifications
 // Modern, dark-themed HTML templates with consistent branding
+import { getBaseUrl } from './domainConfig';
 
 // Base email template styles (dark theme)
 const BASE_STYLES = `
@@ -771,9 +772,9 @@ export function verificationTemplate(name, verificationUrl) {
         <!-- Footer -->
         <div class="footer">
           <p>
-            <a href="${process.env.NEXT_PUBLIC_BASE_URL || 'https://jobsite.com'}">JobSite</a> | 
-            <a href="${process.env.NEXT_PUBLIC_BASE_URL || 'https://jobsite.com'}/help">Help</a> | 
-            <a href="${process.env.NEXT_PUBLIC_BASE_URL || 'https://jobsite.com'}/unsubscribe">Unsubscribe</a>
+            <a href="${getBaseUrl()}">JobSite</a> | 
+            <a href="${getBaseUrl()}/help">Help</a> | 
+            <a href="${getBaseUrl()}/unsubscribe">Unsubscribe</a>
           </p>
         </div>
       </div>
@@ -846,9 +847,9 @@ export function passwordResetTemplate(name, resetUrl) {
         <!-- Footer -->
         <div class="footer">
           <p>
-            <a href="${process.env.NEXT_PUBLIC_BASE_URL || 'https://jobsite.com'}">JobSite</a> | 
-            <a href="${process.env.NEXT_PUBLIC_BASE_URL || 'https://jobsite.com'}/help">Help</a> | 
-            <a href="${process.env.NEXT_PUBLIC_BASE_URL || 'https://jobsite.com'}/contact">Contact Support</a>
+            <a href="${getBaseUrl()}">JobSite</a> | 
+            <a href="${getBaseUrl()}/help">Help</a> | 
+            <a href="${getBaseUrl()}/contact">Contact Support</a>
           </p>
         </div>
       </div>

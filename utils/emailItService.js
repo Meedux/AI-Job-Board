@@ -1,5 +1,6 @@
 // EmailIt API Service
 // Replaces Nodemailer with EmailIt API for all email functionality
+import { getBaseUrl, getVerificationUrl, getPasswordResetUrl } from './domainConfig';
 
 class EmailItService {
   constructor() {
@@ -163,7 +164,7 @@ class EmailItService {
   }
 
   // Send verification email
-  async sendVerificationEmail(email, token, name) {
+  async sendVerificationEmail(email, token, name, request = null) {
     console.log(`📧 Attempting to send verification email to: ${email}`);
     
     if (!this.enabled) {
@@ -171,7 +172,9 @@ class EmailItService {
       return { success: false, error: 'Service disabled' };
     }
 
-    const verificationUrl = `${process.env.NEXT_PUBLIC_BASE_URL || 'http://localhost:3000'}/api/auth/verify-email?token=${token}`;
+    // Use dynamic URL generation instead of hardcoded localhost
+    const verificationUrl = getVerificationUrl(token, request);
+    console.log(`🔗 Generated verification URL: ${verificationUrl}`);
     
     const subject = 'Verify Your Email - GetGetHired';
     const html = this.getVerificationEmailTemplate(name, verificationUrl);
@@ -180,7 +183,7 @@ class EmailItService {
   }
 
   // Send password reset email
-  async sendPasswordResetEmail(email, token, name) {
+  async sendPasswordResetEmail(email, token, name, request = null) {
     console.log(`📧 Attempting to send password reset email to: ${email}`);
     
     if (!this.enabled) {
@@ -188,7 +191,9 @@ class EmailItService {
       return { success: false, error: 'Service disabled' };
     }
 
-    const resetUrl = `${process.env.NEXT_PUBLIC_BASE_URL || 'http://localhost:3000'}/reset-password?token=${token}`;
+    // Use dynamic URL generation instead of hardcoded localhost
+    const resetUrl = getPasswordResetUrl(token, request);
+    console.log(`🔗 Generated password reset URL: ${resetUrl}`);
     
     const subject = 'Reset Your Password - GetGetHired';
     const html = this.getPasswordResetEmailTemplate(name, resetUrl);

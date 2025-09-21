@@ -4,6 +4,7 @@
 import formData from 'form-data';
 import Mailgun from 'mailgun.js';
 import { logEmailNotification, logError } from './dataLogger';
+import { getVerificationUrl, getPasswordResetUrl } from './domainConfig';
 
 class ExternalEmailService {
   constructor() {
@@ -25,14 +26,16 @@ class ExternalEmailService {
   }
 
   // Send email verification
-  async sendVerificationEmail(email, token, name) {
+  async sendVerificationEmail(email, token, name, request = null) {
     if (!this.enabled) {
       console.log('⚠️ Mailgun email service disabled - missing MAILGUN_API_KEY or MAILGUN_DOMAIN');
       return { success: false, message: 'Email service not configured' };
     }
 
     try {
-      const verificationUrl = `${process.env.NEXT_PUBLIC_BASE_URL || 'http://localhost:3000'}/api/auth/verify-email?token=${token}`;
+      // Use dynamic URL generation instead of hardcoded localhost
+      const verificationUrl = getVerificationUrl(token, request);
+      console.log(`🔗 Generated verification URL: ${verificationUrl}`);
       
       const messageData = {
         from: `${this.companyName} <${this.fromEmail}>`,
@@ -85,14 +88,16 @@ class ExternalEmailService {
   }
 
   // Send password reset email
-  async sendPasswordResetEmail(email, token, name) {
+  async sendPasswordResetEmail(email, token, name, request = null) {
     if (!this.enabled) {
       console.log('⚠️ Mailgun email service disabled - missing MAILGUN_API_KEY or MAILGUN_DOMAIN');
       return { success: false, message: 'Email service not configured' };
     }
 
     try {
-      const resetUrl = `${process.env.NEXT_PUBLIC_BASE_URL || 'http://localhost:3000'}/reset-password?token=${token}`;
+      // Use dynamic URL generation instead of hardcoded localhost
+      const resetUrl = getPasswordResetUrl(token, request);
+      console.log(`🔗 Generated password reset URL: ${resetUrl}`);
       
       const messageData = {
         from: `${this.companyName} <${this.fromEmail}>`,

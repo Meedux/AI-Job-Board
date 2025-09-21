@@ -4,6 +4,7 @@ import { hashPassword, generateToken, generateUID, isValidEmail, isValidPassword
 import emailItService from '../../../../utils/emailItService';
 import { logUserAction, logSystemEvent, logAPIRequest, logEmailNotification, logError, getRequestInfo } from '../../../../utils/dataLogger';
 import { notifyUserRegistration } from '../../../../utils/notificationService';
+import { getVerificationUrl } from '../../../../utils/domainConfig';
 import jwt from 'jsonwebtoken';
 
 const JWT_SECRET = process.env.JWT_SECRET || 'your-secret-key';
@@ -159,9 +160,9 @@ export async function POST(request) {
     userId = newUser.uid || newUser.id;
 
     console.log('📧 Sending email verification...');
-    // Send email verification using external service
+    // Send email verification using external service with dynamic URL
     try {
-      const emailResult = await emailItService.sendVerificationEmail(newUser.email, verificationToken, newUser.fullName);
+      const emailResult = await emailItService.sendVerificationEmail(newUser.email, verificationToken, newUser.fullName, request);
       
       if (emailResult.success) {
         console.log('✅ Verification email sent successfully via external service');
