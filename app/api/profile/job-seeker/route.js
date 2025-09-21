@@ -1,5 +1,6 @@
 import { verifyToken, getUserFromRequest } from '@/utils/auth';
 import { PrismaClient } from '@prisma/client';
+import { NextResponse } from 'next/server';
 
 const prisma = new PrismaClient();
 
@@ -7,124 +8,122 @@ export async function GET(request) {
   try {
     const user = await getUserFromRequest(request);
     if (!user) {
-      return Response.json({ error: 'Unauthorized' }, { status: 401 });
+      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
 
     if (user.role !== 'job_seeker') {
-      return Response.json({ error: 'Access denied' }, { status: 403 });
+      return NextResponse.json({ error: 'Access denied' }, { status: 403 });
     }
 
-    // Get job seeker profile
-    const jobSeekerProfile = await prisma.jobSeeker.findUnique({
-      where: { userId: user.id },
-      include: {
-        user: {
-          select: {
-            fullName: true,
-            email: true,
-            createdAt: true
-          }
-        },
-        applications: {
-          include: {
-            job: {
-              select: {
-                title: true,
-                company: true,
-                status: true
-              }
-            }
-          }
-        },
-        resumeScans: {
-          orderBy: {
-            createdAt: 'desc'
-          },
-          take: 1
-        }
+    // Get job seeker profile - User table contains all the profile info
+    const jobSeekerProfile = await prisma.user.findUnique({
+      where: { id: user.id },
+      select: {
+        id: true,
+        fullName: true,
+        email: true,
+        nickname: true,
+        firstName: true,
+        lastName: true,
+        age: true,
+        dateOfBirth: true,
+        fullAddress: true,
+        location: true,
+        phone: true,
+        profilePicture: true,
+        resumeUrl: true,
+        skills: true,
+        role: true,
+        profileVisibility: true,
+        hideProfile: true,
+        emailNotifications: true,
+        jobAlerts: true,
+        marketingEmails: true,
+        createdAt: true,
+        updatedAt: true
       }
     });
 
-    // Calculate statistics
-    const totalApplications = jobSeekerProfile?.applications?.length || 0;
-    const interviewsScheduled = jobSeekerProfile?.applications?.filter(
+    // Get related data separately since the User model might not have all relations
+    let applications = [];
+    let resumeScans = [];
+    
+    try {
+      // Try to get applications if the table exists
+      applications = await prisma.jobApplication?.findMany({
+        where: { userId: user.id },
+        include: {
+          job: {
+            select: {
+              title: true,
+              status: true
+            }
+          }
+        },
+        orderBy: {
+          createdAt: 'desc'
+        }
+      }) || [];
+    } catch (error) {
+      console.log('Applications table not found or accessible');
+    }
+
+    // Calculate statistics using the separate applications array
+    const totalApplications = applications?.length || 0;
+    const interviewsScheduled = applications?.filter(
       app => app.status === 'interview_scheduled'
     ).length || 0;
 
     // Get profile views (you might want to create a separate ProfileView model)
     const profileViews = Math.floor(Math.random() * 50) + 10; // Placeholder
 
-    // Prepare response data
+    // Prepare response data using the User model fields
     const profileData = {
-      // Basic user info
-      fullName: jobSeekerProfile?.user?.fullName || user.fullName || '',
-      email: user.email || '',
-      memberSince: jobSeekerProfile?.user?.createdAt || user.createdAt,
+      // Basic user info from User table
+      fullName: jobSeekerProfile?.fullName || '',
+      email: jobSeekerProfile?.email || '',
+      memberSince: jobSeekerProfile?.createdAt,
       
-      // Job seeker specific data
+      // Job seeker specific data from User table
       phone: jobSeekerProfile?.phone || '',
-      address: jobSeekerProfile?.address || '',
-      city: jobSeekerProfile?.city || '',
-      state: jobSeekerProfile?.state || '',
-      country: jobSeekerProfile?.country || 'Philippines',
-      postalCode: jobSeekerProfile?.postalCode || '',
+      location: jobSeekerProfile?.location || '',
+      fullAddress: jobSeekerProfile?.fullAddress || '',
       dateOfBirth: jobSeekerProfile?.dateOfBirth || null,
       profilePicture: jobSeekerProfile?.profilePicture || '',
       
-      // Professional information
-      currentPosition: jobSeekerProfile?.currentPosition || '',
-      yearsOfExperience: jobSeekerProfile?.yearsOfExperience || 0,
-      expectedSalary: jobSeekerProfile?.expectedSalary || '',
-      salaryPeriod: jobSeekerProfile?.salaryPeriod || 'monthly',
-      currency: jobSeekerProfile?.currency || 'PHP',
-      availability: jobSeekerProfile?.availability || 'immediate',
-      employmentType: jobSeekerProfile?.employmentType || 'full-time',
-      workMode: jobSeekerProfile?.workMode || 'office',
-      
-      // Skills and qualifications
-      skills: jobSeekerProfile?.skills ? JSON.parse(jobSeekerProfile.skills) : [],
-      education: jobSeekerProfile?.education ? JSON.parse(jobSeekerProfile.education) : [],
-      certifications: jobSeekerProfile?.certifications ? JSON.parse(jobSeekerProfile.certifications) : [],
-      languages: jobSeekerProfile?.languages ? JSON.parse(jobSeekerProfile.languages) : [],
-      
-      // Social and portfolio links
-      linkedinUrl: jobSeekerProfile?.linkedinUrl || '',
-      portfolioUrl: jobSeekerProfile?.portfolioUrl || '',
-      githubUrl: jobSeekerProfile?.githubUrl || '',
+      // Skills and other data
+      skills: jobSeekerProfile?.skills ? (typeof jobSeekerProfile.skills === 'string' ? JSON.parse(jobSeekerProfile.skills) : jobSeekerProfile.skills) : [],
+      resumeUrl: jobSeekerProfile?.resumeUrl || '',
       
       // Privacy settings
-      hideContactInfo: jobSeekerProfile?.hideContactInfo ?? true,
-      hideEmail: jobSeekerProfile?.hideEmail ?? true,
-      hidePhone: jobSeekerProfile?.hidePhone ?? true,
-      hideAddress: jobSeekerProfile?.hideAddress ?? true,
       profileVisibility: jobSeekerProfile?.profileVisibility || 'public',
-      allowDirectContact: jobSeekerProfile?.allowDirectContact ?? false,
-      showSalaryExpectation: jobSeekerProfile?.showSalaryExpectation ?? false,
-      
-      // Resume information
-      resumeUrl: jobSeekerProfile?.resumeScans?.[0]?.resumeUrl || '',
-      resumeFileName: jobSeekerProfile?.resumeScans?.[0]?.fileName || '',
-      resumeUploadedAt: jobSeekerProfile?.resumeScans?.[0]?.createdAt || null,
+      hideProfile: jobSeekerProfile?.hideProfile ?? false,
+      emailNotifications: jobSeekerProfile?.emailNotifications ?? true,
+      jobAlerts: jobSeekerProfile?.jobAlerts ?? true,
+      marketingEmails: jobSeekerProfile?.marketingEmails ?? false,
       
       // Statistics
       profileViews,
       applicationsSent: totalApplications,
       interviewsScheduled,
       
+      // Related data
+      applications: applications,
+      resumeScans: resumeScans,
+      
       // Recent activity
-      recentApplications: jobSeekerProfile?.applications?.slice(0, 5)?.map(app => ({
-        jobTitle: app.job.title,
-        company: app.job.company,
+      recentApplications: applications?.slice(0, 5)?.map(app => ({
+        jobTitle: app.job?.title || 'Unknown',
         status: app.status,
         appliedAt: app.createdAt
       })) || []
     };
 
-    return Response.json(profileData);
+    return NextResponse.json(profileData);
 
   } catch (error) {
     console.error('Error fetching job seeker profile:', error);
-    return Response.json(
+    return NextResponse.json(
       { error: 'Failed to fetch profile' },
       { status: 500 }
     );
