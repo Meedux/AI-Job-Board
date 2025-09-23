@@ -3,7 +3,7 @@
 import { useState, useEffect } from 'react';
 import { useAuth } from '@/contexts/AuthContext';
 import { useRouter } from 'next/navigation';
-import ATSKanbanDashboard from '@/components/ATSKanbanDashboard';
+import Header from '@/components/Header';
 import ResumeScanner from '@/components/ResumeScanner';
 import ResumeDatabaseSearch from '@/components/ResumeDatabaseSearch';
 import EnhancedATSWorkspace from '@/components/EnhancedATSWorkspace';
@@ -26,16 +26,10 @@ export default function ATSPage() {
   const tabs = [
     {
       id: 'dashboard',
-      label: 'Kanban Board',
+      label: 'ATS Dashboard',
       icon: LayoutDashboard,
-      description: 'Traditional ATS Kanban Dashboard'
-    },
-    {
-      id: 'workspace',
-      label: 'Enhanced Workspace',
-      icon: Workflow,
-      description: 'Advanced workspace with analytics and collaboration',
-      badge: 'New'
+      description: 'Advanced Kanban workspace with analytics and collaboration',
+      badge: 'Enhanced'
     },
     {
       id: 'resume-scanner',
@@ -62,8 +56,6 @@ export default function ATSPage() {
   const renderActiveComponent = () => {
     switch (activeTab) {
       case 'dashboard':
-        return <ATSKanbanDashboard />;
-      case 'workspace':
         return <EnhancedATSWorkspace />;
       case 'resume-scanner':
         return <ResumeScanner />;
@@ -72,7 +64,7 @@ export default function ATSPage() {
       case 'tag-management':
         return <TagManagementSystem />;
       default:
-        return <ATSKanbanDashboard />;
+        return <EnhancedATSWorkspace />;
     }
   };
 
@@ -114,9 +106,11 @@ export default function ATSPage() {
   }
 
   return (
-    <div className="min-h-screen bg-gray-900">
-      {/* Enhanced Header with Tab Navigation */}
-      <div className="bg-gray-800 border-b border-gray-700 sticky top-0 z-40">
+    <>
+      <Header />
+      <div className="min-h-screen bg-gray-900 mt-16">
+        {/* Enhanced Header with Tab Navigation */}
+        <div className="bg-gray-800 border-b border-gray-700 sticky top-0 z-40">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           <div className="py-4">
             <div className="flex items-center justify-between mb-4">
@@ -195,6 +189,7 @@ export default function ATSPage() {
           {renderActiveComponent()}
         </motion.div>
       </AnimatePresence>
-    </div>
+      </div>
+    </>
   );
 }

@@ -18,25 +18,46 @@ export const verifyPassword = async (password, hash) => {
 
 // Generate JWT token
 export const generateToken = (user) => {
-  return jwt.sign(
-    { 
-      uid: user.uid,
-      id: user.id,
-      email: user.email,
-      fullName: user.fullName,
-      nickname: user.nickname,
-      role: user.role
-    },
-    JWT_SECRET,
-    { expiresIn: '7d' }
-  );
+  if (!user) {
+    console.error('❌ generateToken: user parameter is null or undefined');
+    throw new Error('User object is required for token generation');
+  }
+  
+  const payload = { 
+    uid: user.uid,
+    id: user.id,
+    email: user.email,
+    fullName: user.fullName,
+    nickname: user.nickname,
+    role: user.role
+  };
+  
+  // Validate payload is not null
+  if (!payload || Object.keys(payload).length === 0) {
+    console.error('❌ generateToken: payload is empty or invalid');
+    throw new Error('Invalid payload for token generation');
+  }
+  
+  return jwt.sign(payload, JWT_SECRET, { expiresIn: '7d' });
 };
 
 // Verify JWT token
 export const verifyToken = (token) => {
   try {
-    return jwt.verify(token, JWT_SECRET);
+    if (!token) {
+      console.error('❌ verifyToken: token is null or undefined');
+      return null;
+    }
+    
+    const decoded = jwt.verify(token, JWT_SECRET);
+    if (!decoded) {
+      console.error('❌ verifyToken: decoded payload is null');
+      return null;
+    }
+    
+    return decoded;
   } catch (error) {
+    console.error('❌ verifyToken error:', error.message);
     return null;
   }
 };

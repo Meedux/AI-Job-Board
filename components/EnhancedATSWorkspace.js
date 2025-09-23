@@ -83,6 +83,7 @@ const DEFAULT_COLUMNS = [
 export default function EnhancedATSWorkspace({ workspaceId }) {
   const [columns, setColumns] = useState(DEFAULT_COLUMNS);
   const [applications, setApplications] = useState([]);
+  const [loading, setLoading] = useState(true);
   const [viewMode, setViewMode] = useState('kanban'); // 'kanban', 'list'
   const [isManagingColumns, setIsManagingColumns] = useState(false);
   const [searchTerm, setSearchTerm] = useState('');
@@ -97,6 +98,28 @@ export default function EnhancedATSWorkspace({ workspaceId }) {
     maxCollaborators: 5,
     currentCollaborators: 3
   });
+
+  // Fetch applications on component mount
+  useEffect(() => {
+    const fetchApplications = async () => {
+      try {
+        setLoading(true);
+        const response = await fetch('/api/ats/applications');
+        if (response.ok) {
+          const data = await response.json();
+          setApplications(data.applications || []);
+        } else {
+          console.error('Failed to fetch applications:', response.statusText);
+        }
+      } catch (error) {
+        console.error('Error fetching applications:', error);
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    fetchApplications();
+  }, []);
 
   // Column management functions
   const addNewColumn = () => {
@@ -166,6 +189,17 @@ export default function EnhancedATSWorkspace({ workspaceId }) {
       overdue: apps.filter(app => app.isOverdue).length
     };
   };
+
+  if (loading) {
+    return (
+      <div className="min-h-screen bg-gradient-to-br from-gray-900 via-gray-800 to-gray-900 flex items-center justify-center">
+        <div className="text-center">
+          <div className="animate-spin rounded-full h-16 w-16 border-4 border-purple-500 border-t-transparent mx-auto mb-4"></div>
+          <p className="text-gray-300 text-lg">Loading applications...</p>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-gray-900 via-gray-800 to-gray-900">

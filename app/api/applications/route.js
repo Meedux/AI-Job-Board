@@ -4,6 +4,7 @@ import { cookies } from 'next/headers';
 import jwt from 'jsonwebtoken';
 import { createNotification } from '@/utils/notificationService';
 import emailItService from '@/utils/emailItService';
+import { uploadFile } from '@/utils/fileUpload';
 
 const prisma = new PrismaClient();
 // Using EmailIt service for notifications
@@ -78,19 +79,38 @@ export async function POST(request) {
     // Extract form fields
     const applicationData = {};
     const fileData = {};
+    let resumeUrl = null;
 
     for (const [key, value] of formData.entries()) {
       if (key.startsWith('file_')) {
         // Handle file uploads
         const fieldName = key.replace('file_', '');
         if (value instanceof File && value.size > 0) {
-          // In a real application, you would upload files to cloud storage
-          // For now, we'll just store the filename
-          fileData[fieldName] = {
-            filename: value.name,
-            size: value.size,
-            type: value.type
-          };
+          try {
+            // Convert File to Buffer
+            const arrayBuffer = await value.arrayBuffer();
+            const buffer = Buffer.from(arrayBuffer);
+            
+            // Upload file using the utility
+            const uploadResult = await uploadFile(buffer, value.name, 'resume');
+            
+            // Store file metadata
+            fileData[fieldName] = {
+              filename: value.name,
+              size: value.size,
+              type: value.type,
+              url: uploadResult.url,
+              path: uploadResult.path
+            };
+            
+            // For resume field, store the URL
+            if (fieldName === 'resume') {
+              resumeUrl = uploadResult.url;
+            }
+          } catch (uploadError) {
+            console.error(`Error uploading file ${value.name}:`, uploadError);
+            // Continue with other files even if one fails
+          }
         }
       } else if (key !== 'jobId') {
         // Handle regular form fields
@@ -111,6 +131,8 @@ export async function POST(request) {
         applicantId: userId,
         applicationData: JSON.stringify(applicationData),
         fileData: JSON.stringify(fileData),
+        resumeUrl: resumeUrl, // Store the resume URL for easy access
+        coverLetter: applicationData.cover_letter || null,
         status: 'pending',
         appliedAt: new Date(),
         updatedAt: new Date()

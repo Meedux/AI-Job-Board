@@ -193,7 +193,7 @@ export async function POST(request) {
 
     // Send verification email using external service
     try {
-      const emailResult = await emailItService.sendVerificationEmail(email, verificationToken, fullName || companyName);
+      const emailResult = await emailItService.sendVerificationEmail(email, verificationToken, fullName || companyName, request);
       
       if (emailResult.success) {
         console.log('📧 Verification email sent via external service:', emailResult.messageId);

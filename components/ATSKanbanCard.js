@@ -341,10 +341,10 @@ export default function ATSKanbanCard({ candidate, index }) {
                 )}
 
                 {/* Resume/CV Link */}
-                {candidate.applicant?.resumeUrl && (
+                {(candidate.resumeUrl || candidate.fileData?.resume?.url) && (
                   <div>
                     <a
-                      href={candidate.applicant.resumeUrl}
+                      href={candidate.resumeUrl || candidate.fileData?.resume?.url}
                       target="_blank"
                       rel="noopener noreferrer"
                       className="inline-flex items-center gap-2 px-3 py-1 bg-blue-600/20 hover:bg-blue-600/30 

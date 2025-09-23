@@ -14,7 +14,12 @@ export async function GET(request) {
     const packageCount = await prisma.creditPackage.count();
     if (packageCount === 0) {
       console.log('🔄 No credit packages found, initializing default packages...');
-      await initializeDefaultCreditPackages();
+      try {
+        await initializeDefaultCreditPackages();
+      } catch (initError) {
+        console.error('❌ Error initializing credit packages, continuing with empty list:', initError);
+        // Continue execution to return empty list rather than failing completely
+      }
     }
 
     const packages = await prisma.creditPackage.findMany({

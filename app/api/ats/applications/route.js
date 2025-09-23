@@ -112,6 +112,16 @@ export async function GET(request) {
       prisma.jobApplication.count({ where: whereClause })
     ]);
 
+    // Process applications to parse JSON fields and add computed properties
+    const processedApplications = applications.map(app => ({
+      ...app,
+      // Parse JSON fields if they exist
+      applicationData: app.applicationData ? (typeof app.applicationData === 'string' ? JSON.parse(app.applicationData) : app.applicationData) : {},
+      fileData: app.fileData ? (typeof app.fileData === 'string' ? JSON.parse(app.fileData) : app.fileData) : {},
+      // Ensure resume URL is available for the frontend
+      resumeUrl: app.resumeUrl || (app.fileData && typeof app.fileData === 'string' ? JSON.parse(app.fileData)?.resume?.url : app.fileData?.resume?.url)
+    }));
+
     // Log ATS activity
     await prisma.aTSActivity.create({
       data: {
@@ -125,7 +135,7 @@ export async function GET(request) {
     });
 
     return NextResponse.json({
-      applications,
+      applications: processedApplications,
       pagination: {
         page,
         limit,

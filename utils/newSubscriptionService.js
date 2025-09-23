@@ -252,20 +252,35 @@ export async function initializeDefaultCreditPackages() {
   try {
     for (const packageCategory of Object.values(DEFAULT_CREDIT_PACKAGES)) {
       for (const packageData of packageCategory) {
-        await prisma.creditPackage.upsert({
+        // Check if package already exists
+        const existingPackage = await prisma.creditPackage.findFirst({
           where: { 
-            name: packageData.name
-          },
-          update: {
-            ...packageData,
-            bundleConfig: packageData.bundleConfig || null,
-            updatedAt: new Date()
-          },
-          create: {
-            ...packageData,
-            bundleConfig: packageData.bundleConfig || null
+            name: packageData.name,
+            creditType: packageData.creditType
           }
         });
+
+        if (existingPackage) {
+          // Update existing package
+          await prisma.creditPackage.update({
+            where: { id: existingPackage.id },
+            data: {
+              ...packageData,
+              bundleConfig: packageData.bundleConfig || null,
+              updatedAt: new Date()
+            }
+          });
+          console.log(`✅ Updated credit package: ${packageData.name}`);
+        } else {
+          // Create new package
+          await prisma.creditPackage.create({
+            data: {
+              ...packageData,
+              bundleConfig: packageData.bundleConfig || null
+            }
+          });
+          console.log(`✅ Created credit package: ${packageData.name}`);
+        }
       }
     }
     
