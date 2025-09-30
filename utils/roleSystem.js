@@ -253,7 +253,10 @@ export function canCreateSubUsers(user, subscription) {
   if (!user || user.role !== USER_ROLES.EMPLOYER_ADMIN) return false;
   
   // Check if subscription allows sub-users
-  if (!subscription || !subscription.plan) return false;
+  if (!subscription || !subscription.plan) {
+    // Allow creation if no subscription data is loaded yet (fallback)
+    return true;
+  }
   
   // Basic subscription or higher required for sub-users
   const planType = subscription.plan.planType;

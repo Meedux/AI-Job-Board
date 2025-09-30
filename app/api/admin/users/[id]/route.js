@@ -128,11 +128,29 @@ export async function PUT(request, { params }) {
       allocatedResumeCredits,
       allocatedAiCredits,
       accessLevel,
-      permissions
+      permissions,
+      convertToSubUser
     } = await request.json();
 
-    // Validate role transition
-    if (role && role !== targetUser.role) {
+    // Handle sub-user conversion
+    if (convertToSubUser && role === USER_ROLES.SUB_USER) {
+      // Special handling for converting existing users to sub-users
+      if (currentUser.role !== USER_ROLES.EMPLOYER_ADMIN && currentUser.role !== USER_ROLES.SUPER_ADMIN) {
+        return Response.json({ error: 'Only employer admins can convert users to sub-users' }, { status: 403 });
+      }
+      
+      // Validate that the target user can be converted (job seeker or employer)
+      if (targetUser.role !== USER_ROLES.JOB_SEEKER && targetUser.role !== USER_ROLES.EMPLOYER_ADMIN) {
+        return Response.json({ error: 'Only job seekers and employers can be converted to sub-users' }, { status: 400 });
+      }
+      
+      // Make sure they're not already a sub-user of someone else
+      if (targetUser.parentUserId && targetUser.parentUserId !== currentUser.id) {
+        return Response.json({ error: 'User is already a sub-user of another employer' }, { status: 400 });
+      }
+    } 
+    // Validate role transition for non-conversion updates
+    else if (role && role !== targetUser.role) {
       if (!validateRoleTransition(targetUser.role, role)) {
         return Response.json({ error: 'Invalid role transition' }, { status: 400 });
       }
@@ -150,6 +168,11 @@ export async function PUT(request, { params }) {
     if (accountStatus !== undefined) updateData.accountStatus = accountStatus;
     if (accessLevel !== undefined) updateData.accessLevel = accessLevel;
     if (permissions !== undefined) updateData.permissions = permissions;
+    
+    // Handle sub-user conversion - set parent relationship
+    if (convertToSubUser && role === USER_ROLES.SUB_USER && currentUser.role === USER_ROLES.EMPLOYER_ADMIN) {
+      updateData.parentUserId = currentUser.id;
+    }
     
     // Only parent users or super admin can modify credits
     if ((currentUser.role === USER_ROLES.SUPER_ADMIN || 

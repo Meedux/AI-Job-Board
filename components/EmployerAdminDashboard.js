@@ -58,15 +58,8 @@ export default function EmployerAdminDashboard() {
 
   const loadSubUsers = async () => {
     try {
-      // Get authentication token for the request
-      const token = localStorage.getItem('token');
-      const headers = {};
-      if (token) {
-        headers['Authorization'] = `Bearer ${token}`;
-      }
-
       const response = await fetch('/api/admin/users', {
-        headers
+        credentials: 'include' // Include cookies for authentication
       });
       if (response.ok) {
         const data = await response.json();
@@ -188,15 +181,12 @@ export default function EmployerAdminDashboard() {
     if (!confirm('Are you sure you want to delete this sub-user?')) return;
 
     try {
-      const token = localStorage.getItem('token');
-      const headers = { 'Content-Type': 'application/json' };
-      if (token) {
-        headers['Authorization'] = `Bearer ${token}`;
-      }
-
       const response = await fetch(`/api/admin/users/${userId}`, {
         method: 'DELETE',
-        headers
+        headers: { 
+          'Content-Type': 'application/json'
+        },
+        credentials: 'include' // Include cookies for authentication
       });
 
       if (response.ok) {
@@ -213,15 +203,12 @@ export default function EmployerAdminDashboard() {
 
   const allocateCredits = async (userId, resumeCredits, aiCredits) => {
     try {
-      const token = localStorage.getItem('token');
-      const headers = { 'Content-Type': 'application/json' };
-      if (token) {
-        headers['Authorization'] = `Bearer ${token}`;
-      }
-
       const response = await fetch(`/api/admin/users/${userId}`, {
         method: 'PUT',
-        headers,
+        headers: { 
+          'Content-Type': 'application/json'
+        },
+        credentials: 'include', // Include cookies for authentication
         body: JSON.stringify({
           allocatedResumeCredits: resumeCredits,
           allocatedAiCredits: aiCredits
@@ -669,6 +656,7 @@ export default function EmployerAdminDashboard() {
 
 // Create Sub-User Modal Component
 function CreateSubUserModal({ onClose, onSuccess }) {
+  const [mode, setMode] = useState('create'); // 'create' or 'existing'
   const [formData, setFormData] = useState({
     email: '',
     fullName: '',
@@ -677,33 +665,123 @@ function CreateSubUserModal({ onClose, onSuccess }) {
     allocatedResumeCredits: 10,
     allocatedAiCredits: 5
   });
+  const [searchQuery, setSearchQuery] = useState('');
+  const [searchResults, setSearchResults] = useState([]);
+  const [selectedUser, setSelectedUser] = useState(null);
   const [loading, setLoading] = useState(false);
+  const [searching, setSearching] = useState(false);
+  const [showDropdown, setShowDropdown] = useState(false);
+
+  // Search for existing users
+  const searchUsers = async (query) => {
+    if (query.length < 2) {
+      setSearchResults([]);
+      return;
+    }
+
+    setSearching(true);
+    try {
+      const response = await fetch(`/api/admin/users/search?q=${encodeURIComponent(query)}&limit=10`, {
+        credentials: 'include'
+      });
+      
+      if (response.ok) {
+        const data = await response.json();
+        setSearchResults(data.users || []);
+        setShowDropdown(true);
+      } else {
+        console.error('Search failed:', response.status);
+        setSearchResults([]);
+        setShowDropdown(false);
+      }
+    } catch (error) {
+      console.error('Error searching users:', error);
+      setSearchResults([]);
+    } finally {
+      setSearching(false);
+    }
+  };
+
+  // Handle search input change with debouncing
+  const handleSearchChange = (value) => {
+    setSearchQuery(value);
+    setSelectedUser(null);
+    
+    if (value.length < 2) {
+      setSearchResults([]);
+      setShowDropdown(false);
+      return;
+    }
+    
+    // Clear existing timeout
+    if (window.searchTimeout) {
+      clearTimeout(window.searchTimeout);
+    }
+    
+    // Debounce search
+    window.searchTimeout = setTimeout(() => {
+      searchUsers(value);
+    }, 300);
+  };
+
+  // Select an existing user
+  const handleSelectUser = (user) => {
+    setSelectedUser(user);
+    setSearchQuery(user.email);
+    setSearchResults([]);
+    setShowDropdown(false);
+  };
 
   const handleSubmit = async (e) => {
     e.preventDefault();
     setLoading(true);
 
     try {
-      const token = localStorage.getItem('token');
-      const headers = { 'Content-Type': 'application/json' };
-      if (token) {
-        headers['Authorization'] = `Bearer ${token}`;
+      let response;
+      
+      if (mode === 'create') {
+        // Create new sub-user
+        response = await fetch('/api/admin/users', {
+          method: 'POST',
+          headers: { 
+            'Content-Type': 'application/json'
+          },
+          credentials: 'include',
+          body: JSON.stringify({
+            ...formData,
+            role: USER_ROLES.SUB_USER
+          })
+        });
+      } else if (mode === 'existing' && selectedUser) {
+        // Convert existing user to sub-user
+        response = await fetch(`/api/admin/users/${selectedUser.id}`, {
+          method: 'PUT',
+          headers: { 
+            'Content-Type': 'application/json'
+          },
+          credentials: 'include',
+          body: JSON.stringify({
+            role: USER_ROLES.SUB_USER,
+            userType: formData.userType,
+            allocatedResumeCredits: formData.allocatedResumeCredits,
+            allocatedAiCredits: formData.allocatedAiCredits,
+            convertToSubUser: true // Flag to indicate conversion
+          })
+        });
+      } else {
+        alert('Please select a user or switch to create mode');
+        setLoading(false);
+        return;
       }
 
-      const response = await fetch('/api/admin/users', {
-        method: 'POST',
-        headers,
-        body: JSON.stringify({
-          ...formData,
-          role: USER_ROLES.SUB_USER
-        })
-      });
-
       if (response.ok) {
+        const data = await response.json();
+        console.log('Sub-user created successfully:', data);
         onSuccess();
         onClose();
       } else {
         const data = await response.json();
+        console.error('Sub-user creation failed:', data);
         alert(data.error || 'Failed to create sub-user');
       }
     } catch (error) {
@@ -716,43 +794,214 @@ function CreateSubUserModal({ onClose, onSuccess }) {
 
   return (
     <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
-      <div className="bg-gray-800 rounded-lg p-6 w-full max-w-md border border-gray-700">
-        <h3 className="text-lg font-semibold text-white mb-4">Create Sub-User</h3>
+      <div className="bg-gray-800 rounded-lg p-6 w-full max-w-lg border border-gray-700 max-h-[90vh] overflow-y-auto">
+        <div className="flex justify-between items-center mb-4">
+          <h3 className="text-lg font-semibold text-white">Create Sub-User</h3>
+          <button
+            onClick={onClose}
+            className="text-gray-400 hover:text-white"
+          >
+            ✕
+          </button>
+        </div>
+
+        {/* Mode Selection */}
+        <div className="mb-6">
+          <div className="flex space-x-4 bg-gray-700 rounded-lg p-1">
+            <button
+              type="button"
+              onClick={() => {
+                setMode('create');
+                setSelectedUser(null);
+                setSearchQuery('');
+                setSearchResults([]);
+              }}
+              className={`flex-1 py-2 px-4 rounded-md text-sm font-medium transition-colors ${
+                mode === 'create' 
+                  ? 'bg-indigo-600 text-white' 
+                  : 'text-gray-300 hover:text-white'
+              }`}
+            >
+              Create New Account
+            </button>
+            <button
+              type="button"
+              onClick={() => {
+                setMode('existing');
+                setFormData(prev => ({ ...prev, email: '', fullName: '', password: '' }));
+              }}
+              className={`flex-1 py-2 px-4 rounded-md text-sm font-medium transition-colors ${
+                mode === 'existing' 
+                  ? 'bg-indigo-600 text-white' 
+                  : 'text-gray-300 hover:text-white'
+              }`}
+            >
+              Convert Existing User
+            </button>
+          </div>
+        </div>
         
         <form onSubmit={handleSubmit} className="space-y-4">
-          <div>
-            <label className="block text-sm font-medium text-gray-300 mb-1">Email</label>
-            <input
-              type="email"
-              value={formData.email}
-              onChange={(e) => setFormData({...formData, email: e.target.value})}
-              className="w-full px-3 py-2 bg-gray-700 border border-gray-600 rounded-md text-white focus:outline-none focus:ring-2 focus:ring-indigo-500"
-              required
-            />
-          </div>
+          {mode === 'create' ? (
+            // Create new user fields
+            <>
+              <div>
+                <label className="block text-sm font-medium text-gray-300 mb-1">Email</label>
+                <input
+                  type="email"
+                  value={formData.email}
+                  onChange={(e) => setFormData({...formData, email: e.target.value})}
+                  className="w-full px-3 py-2 bg-gray-700 border border-gray-600 rounded-md text-white focus:outline-none focus:ring-2 focus:ring-indigo-500"
+                  required
+                />
+              </div>
 
-          <div>
-            <label className="block text-sm font-medium text-gray-300 mb-1">Full Name</label>
-            <input
-              type="text"
-              value={formData.fullName}
-              onChange={(e) => setFormData({...formData, fullName: e.target.value})}
-              className="w-full px-3 py-2 bg-gray-700 border border-gray-600 rounded-md text-white focus:outline-none focus:ring-2 focus:ring-indigo-500"
-              required
-            />
-          </div>
+              <div>
+                <label className="block text-sm font-medium text-gray-300 mb-1">Full Name</label>
+                <input
+                  type="text"
+                  value={formData.fullName}
+                  onChange={(e) => setFormData({...formData, fullName: e.target.value})}
+                  className="w-full px-3 py-2 bg-gray-700 border border-gray-600 rounded-md text-white focus:outline-none focus:ring-2 focus:ring-indigo-500"
+                  required
+                />
+              </div>
 
-          <div>
-            <label className="block text-sm font-medium text-gray-300 mb-1">Password</label>
-            <input
-              type="password"
-              value={formData.password}
-              onChange={(e) => setFormData({...formData, password: e.target.value})}
-              className="w-full px-3 py-2 bg-gray-700 border border-gray-600 rounded-md text-white focus:outline-none focus:ring-2 focus:ring-indigo-500"
-              required
-            />
-          </div>
+              <div>
+                <label className="block text-sm font-medium text-gray-300 mb-1">Password</label>
+                <input
+                  type="password"
+                  value={formData.password}
+                  onChange={(e) => setFormData({...formData, password: e.target.value})}
+                  className="w-full px-3 py-2 bg-gray-700 border border-gray-600 rounded-md text-white focus:outline-none focus:ring-2 focus:ring-indigo-500"
+                  required
+                />
+              </div>
+            </>
+          ) : (
+            // Existing user search and selection
+            <div className="relative">
+              <label className="block text-sm font-medium text-gray-300 mb-1">
+                Search User (Job Seeker or Employer)
+                <span className="text-gray-500 text-xs ml-1">- Search by email, name, or username</span>
+              </label>
+              <div className="relative">
+                <input
+                  type="text"
+                  value={searchQuery}
+                  onChange={(e) => handleSearchChange(e.target.value)}
+                  onFocus={() => {
+                    if (searchResults.length > 0 && !selectedUser) {
+                      setShowDropdown(true);
+                    }
+                  }}
+                  onBlur={() => {
+                    // Delay hiding dropdown to allow click on results
+                    setTimeout(() => setShowDropdown(false), 150);
+                  }}
+                  placeholder="Type email, name, or username to search..."
+                  className="w-full px-3 py-2 bg-gray-700 border border-gray-600 rounded-md text-white focus:outline-none focus:ring-2 focus:ring-indigo-500"
+                  required
+                />
+                {searching && (
+                  <div className="absolute right-3 top-3 text-gray-400">
+                    Searching...
+                  </div>
+                )}
+              </div>
+              
+              {/* Search Results Dropdown */}
+              {showDropdown && searchResults.length > 0 && !selectedUser && (
+                <div className="absolute z-10 w-full mt-1 bg-gray-700 border border-gray-600 rounded-md shadow-lg max-h-60 overflow-y-auto">
+                  <div className="py-1">
+                    {searchResults.map((user) => (
+                      <div
+                        key={user.id}
+                        onClick={() => handleSelectUser(user)}
+                        className="px-4 py-3 hover:bg-gray-600 cursor-pointer transition-colors border-b border-gray-600 last:border-b-0"
+                      >
+                        <div className="flex items-center justify-between">
+                          <div className="flex-1 min-w-0">
+                            <div className="text-white font-medium truncate">
+                              {user.fullName || user.username || 'No name provided'}
+                            </div>
+                            <div className="text-gray-400 text-sm truncate">{user.email}</div>
+                            {user.username && user.fullName && (
+                              <div className="text-gray-500 text-xs truncate">@{user.username}</div>
+                            )}
+                          </div>
+                          <div className="ml-3 flex-shrink-0">
+                            <span className="inline-flex items-center px-2 py-1 rounded-full text-xs font-medium bg-blue-100 text-blue-800 capitalize">
+                              {user.role.replace('_', ' ')}
+                            </span>
+                          </div>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                  {searchResults.length === 10 && (
+                    <div className="px-4 py-2 text-gray-400 text-sm border-t border-gray-600 bg-gray-800">
+                      Showing first 10 results. Type more to narrow down.
+                    </div>
+                  )}
+                </div>
+              )}
+              
+              {/* No Results Message */}
+              {showDropdown && searchQuery.length >= 2 && searchResults.length === 0 && !searching && !selectedUser && (
+                <div className="absolute z-10 w-full mt-1 bg-gray-700 border border-gray-600 rounded-md shadow-lg">
+                  <div className="px-4 py-3 text-gray-400 text-sm">
+                    No users found for "{searchQuery}". Try searching by email, name, or username.
+                  </div>
+                </div>
+              )}
+              
+              {/* Selected User Display */}
+              {selectedUser && (
+                <div className="mt-3 p-4 bg-gradient-to-r from-indigo-900/40 to-purple-900/40 border border-indigo-500/50 rounded-lg">
+                  <div className="flex items-start justify-between">
+                    <div className="flex items-center space-x-3">
+                      <div className="w-10 h-10 bg-indigo-600 rounded-full flex items-center justify-center">
+                        <span className="text-white font-bold text-lg">
+                          {(selectedUser.fullName || selectedUser.username || selectedUser.email || 'U')[0].toUpperCase()}
+                        </span>
+                      </div>
+                      <div>
+                        <div className="text-white font-semibold">
+                          {selectedUser.fullName || selectedUser.username || 'No name provided'}
+                        </div>
+                        <div className="text-gray-300 text-sm">{selectedUser.email}</div>
+                        {selectedUser.username && (
+                          <div className="text-gray-400 text-xs">@{selectedUser.username}</div>
+                        )}
+                        <div className="flex items-center mt-1">
+                          <span className="inline-flex items-center px-2 py-1 rounded-full text-xs font-medium bg-indigo-100 text-indigo-800 capitalize">
+                            {selectedUser.role.replace('_', ' ')}
+                          </span>
+                        </div>
+                      </div>
+                    </div>
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setSelectedUser(null);
+                        setSearchQuery('');
+                        setSearchResults([]);
+                      }}
+                      className="text-gray-400 hover:text-white transition-colors p-1"
+                      title="Clear selection"
+                    >
+                      <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                      </svg>
+                    </button>
+                  </div>
+                </div>
+              )}
+            </div>
+          )}
 
+          {/* Common fields for both modes */}
           <div>
             <label className="block text-sm font-medium text-gray-300 mb-1">Sub-user Type</label>
             <select
@@ -799,10 +1048,14 @@ function CreateSubUserModal({ onClose, onSuccess }) {
             </button>
             <button
               type="submit"
-              disabled={loading}
+              disabled={loading || (mode === 'existing' && !selectedUser)}
               className="flex-1 px-4 py-2 bg-indigo-600 text-white rounded-md hover:bg-indigo-700 transition-colors disabled:opacity-50"
             >
-              {loading ? 'Creating...' : 'Create Sub-User'}
+              {loading ? (
+                mode === 'create' ? 'Creating...' : 'Converting...'
+              ) : (
+                mode === 'create' ? 'Create Sub-User' : 'Convert to Sub-User'
+              )}
             </button>
           </div>
         </form>

@@ -171,8 +171,8 @@ export async function POST(request) {
     }
 
     // Hash password
-    const bcrypt = require('bcryptjs');
-    const hashedPassword = await bcrypt.hash(password, 12);
+    const bcrypt = await import('bcryptjs');
+    const hashedPassword = await bcrypt.default.hash(password, 12);
 
     // Get default permissions for role
     const defaultPermissions = getDefaultPermissions(role, userType);
