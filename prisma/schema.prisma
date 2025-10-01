@@ -289,6 +289,10 @@ model User {
   emailTemplates   EmailTemplate[]
   sentEmails       EmailLog[]
   statusChanges    ApplicationStatusHistory[]
+  
+  // Resume contact reveal relations
+  resumeContactReveals ResumeContactReveal[] @relation("ResumeContactReveals")
+  targetReveals        ResumeContactReveal[] @relation("TargetReveals")
 
   @@map("users")
 }
@@ -338,6 +342,9 @@ model JobApplication {
   // Email system relations
   emailLogs     EmailLog[]
   statusHistory ApplicationStatusHistory[]
+  
+  // Resume contact reveal relations
+  contactReveals ResumeContactReveal[]
 
   @@unique([jobId, applicantId])
   @@map("job_applications")
@@ -1101,4 +1108,24 @@ model ApplicationStatusHistory {
   changedByUser User           @relation(fields: [changedBy], references: [id])
 
   @@map("application_status_history")
+}
+
+// Resume contact reveal tracking for credit management
+model ResumeContactReveal {
+  id              String   @id @default(cuid())
+  revealedBy      String   @map("revealed_by")
+  targetUserId    String   @map("target_user_id")
+  applicationId   String?  @map("application_id")  // Optional for job application reveals
+  creditCost      Int      @default(1) @map("credit_cost")
+  revealType      String   @default("contact") @map("reveal_type") // 'contact', 'resume', 'full_profile'
+  createdAt       DateTime @default(now()) @map("created_at")
+
+  // Relations
+  revealer        User           @relation("ResumeContactReveals", fields: [revealedBy], references: [id])
+  targetUser      User           @relation("TargetReveals", fields: [targetUserId], references: [id])
+  application     JobApplication? @relation(fields: [applicationId], references: [id])
+
+  // Ensure one reveal per user per target
+  @@unique([revealedBy, targetUserId, applicationId])
+  @@map("resume_contact_reveals")
 }

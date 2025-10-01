@@ -3,10 +3,10 @@
 import { useState, useEffect } from 'react';
 import { useAuth } from '@/contexts/AuthContext';
 import Header from '@/components/Header';
-import JobManagement from '@/components/JobManagement';
+import EnhancedResumeDatabaseSearch from '@/components/EnhancedResumeDatabaseSearch';
 import Link from 'next/link';
 
-export default function AdminJobsPage() {
+export default function ResumeSearchPage() {
   const { user, loading } = useAuth();
   const [mounted, setMounted] = useState(false);
 
@@ -27,7 +27,7 @@ export default function AdminJobsPage() {
       <div className="min-h-screen bg-gray-900 flex items-center justify-center">
         <div className="text-center">
           <h1 className="text-2xl font-bold text-white mb-4">Access Denied</h1>
-          <p className="text-gray-300 mb-4">You need to be an employer to access this page.</p>
+          <p className="text-gray-300 mb-4">You need to be an employer to access resume search.</p>
           <Link 
             href="/login" 
             className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors"
@@ -42,8 +42,7 @@ export default function AdminJobsPage() {
   return (
     <div className="min-h-screen bg-gray-50">
       <Header />
-      <JobManagement />
+      <EnhancedResumeDatabaseSearch />
     </div>
   );
 }
-

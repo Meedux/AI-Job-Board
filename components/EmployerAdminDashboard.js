@@ -423,6 +423,130 @@ export default function EmployerAdminDashboard() {
           </div>
         </div>
 
+        {/* Enhanced Employer Features */}
+        <div className="bg-gradient-to-r from-purple-800 to-blue-800 rounded-lg p-6 mb-8 border border-purple-600">
+          <h2 className="text-xl font-semibold text-white mb-4">🚀 Enhanced Employer Features</h2>
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+            
+            {/* Advanced Job Management */}
+            <div className="bg-black bg-opacity-30 rounded-lg p-4">
+              <div className="flex items-center gap-3 mb-3">
+                <div className="w-10 h-10 bg-blue-500 rounded-lg flex items-center justify-center">
+                  <svg className="w-6 h-6 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
+                  </svg>
+                </div>
+                <h3 className="text-white font-semibold">Advanced Job Management</h3>
+              </div>
+              <p className="text-purple-100 text-sm mb-4">
+                Edit, duplicate, and manage jobs with enhanced controls. Perfect for template-based job creation.
+              </p>
+              <div className="space-y-2 text-sm text-purple-200 mb-4">
+                <div className="flex items-center gap-2">
+                  <span className="w-1.5 h-1.5 bg-green-400 rounded-full"></span>
+                  <span>Edit existing jobs</span>
+                </div>
+                <div className="flex items-center gap-2">
+                  <span className="w-1.5 h-1.5 bg-green-400 rounded-full"></span>
+                  <span>One-click job duplication</span>
+                </div>
+                <div className="flex items-center gap-2">
+                  <span className="w-1.5 h-1.5 bg-green-400 rounded-full"></span>
+                  <span>Status management</span>
+                </div>
+              </div>
+              <a
+                href="/admin/jobs"
+                className="inline-flex items-center px-3 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors text-sm font-medium"
+              >
+                Manage Jobs
+                <svg className="w-4 h-4 ml-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
+                </svg>
+              </a>
+            </div>
+
+            {/* Resume Database Search */}
+            <div className="bg-black bg-opacity-30 rounded-lg p-4">
+              <div className="flex items-center gap-3 mb-3">
+                <div className="w-10 h-10 bg-green-500 rounded-lg flex items-center justify-center">
+                  <svg className="w-6 h-6 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
+                  </svg>
+                </div>
+                <h3 className="text-white font-semibold">Resume Database Search</h3>
+              </div>
+              <p className="text-purple-100 text-sm mb-4">
+                Search qualified candidates with AI-powered matching and credit-based contact reveals.
+              </p>
+              <div className="space-y-2 text-sm text-purple-200 mb-4">
+                <div className="flex items-center gap-2">
+                  <span className="w-1.5 h-1.5 bg-yellow-400 rounded-full"></span>
+                  <span>Basic Search (Free)</span>
+                </div>
+                <div className="flex items-center gap-2">
+                  <span className="w-1.5 h-1.5 bg-yellow-400 rounded-full"></span>
+                  <span>Advanced Search (1 credit)</span>
+                </div>
+                <div className="flex items-center gap-2">
+                  <span className="w-1.5 h-1.5 bg-yellow-400 rounded-full"></span>
+                  <span>AI Search (2 credits)</span>
+                </div>
+              </div>
+              <a
+                href="/admin/resume-search"
+                className="inline-flex items-center px-3 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 transition-colors text-sm font-medium"
+              >
+                Search Resumes
+                <svg className="w-4 h-4 ml-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
+                </svg>
+              </a>
+            </div>
+
+            {/* Contact Reveal System */}
+            <div className="bg-black bg-opacity-30 rounded-lg p-4">
+              <div className="flex items-center gap-3 mb-3">
+                <div className="w-10 h-10 bg-yellow-500 rounded-lg flex items-center justify-center">
+                  <svg className="w-6 h-6 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z" />
+                  </svg>
+                </div>
+                <h3 className="text-white font-semibold">Contact Reveal System</h3>
+              </div>
+              <p className="text-purple-100 text-sm mb-4">
+                Reveal candidate contact information with smart credit management for your team.
+              </p>
+              <div className="space-y-2 text-sm text-purple-200 mb-4">
+                <div className="flex items-center gap-2">
+                  <span className="w-1.5 h-1.5 bg-red-400 rounded-full"></span>
+                  <span>1 credit per contact reveal</span>
+                </div>
+                <div className="flex items-center gap-2">
+                  <span className="w-1.5 h-1.5 bg-red-400 rounded-full"></span>
+                  <span>No duplicate charges</span>
+                </div>
+                <div className="flex items-center gap-2">
+                  <span className="w-1.5 h-1.5 bg-red-400 rounded-full"></span>
+                  <span>Sub-user credit sharing</span>
+                </div>
+              </div>
+              <div className="flex items-center justify-between">
+                <span className="text-sm text-purple-200">
+                  {getAvailableCredits(user, 'resume')} credits available
+                </span>
+                <a
+                  href="/admin/credits"
+                  className="px-3 py-1 bg-yellow-600 text-white rounded text-sm hover:bg-yellow-700 transition-colors"
+                >
+                  Buy Credits
+                </a>
+              </div>
+            </div>
+          </div>
+        </div>
+
         {/* Actions */}
         <div className="mb-6 flex space-x-4">
           <button
