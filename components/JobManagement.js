@@ -1,8 +1,7 @@
 'use client';
 
 import { useState, useEffect } from 'react';
-import { Edit3, Copy, Trash2, Eye, MoreHorizontal, Plus, Search, Filter, ExternalLink } from 'lucide-react';
-import { useAuth } from '@/contexts/AuthContext';
+import JobPostingForm from './JobPostingForm';
 
 export default function JobManagement() {
   const { user } = useAuth();
@@ -259,7 +258,7 @@ export default function JobManagement() {
             <span className="font-medium">Views:</span> {job.viewsCount || 0}
           </div>
           <div>
-            <span className="font-medium">Posted:</span> {new Date(job.createdAt).toLocaleDateString()}
+            <span className="font-medium">Posted:</span> {new Date(job.postedAt || job.createdAt).toLocaleDateString()}
           </div>
         </div>
 
@@ -304,31 +303,42 @@ export default function JobManagement() {
             <h2 className="text-xl font-semibold mb-4">
               {editingJob ? 'Edit Job' : 'Create New Job'}
             </h2>
-            {/* JobPostingForm component would go here */}
-            <div className="bg-gray-50 p-8 text-center rounded-lg">
-              <p className="text-gray-600 mb-4">Job form component would be integrated here</p>
-              <div className="flex gap-3 justify-center">
-                <button
-                  onClick={() => {
-                    setShowJobForm(false);
-                    setEditingJob(null);
-                  }}
-                  className="px-4 py-2 bg-gray-600 text-white rounded-lg hover:bg-gray-700"
-                >
-                  Cancel
-                </button>
-                <button
-                  onClick={() => {
-                    setShowJobForm(false);
-                    setEditingJob(null);
-                    fetchJobs(); // Refresh list
-                  }}
-                  className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700"
-                >
-                  Save Job
-                </button>
-              </div>
-            </div>
+            <JobPostingForm
+              initialData={editingJob}
+              onSubmit={async (jobData) => {
+                try {
+                  setLoading(true);
+                  const url = editingJob ? `/api/jobs/${editingJob.id}` : '/api/jobs';
+                  const method = editingJob ? 'PUT' : 'POST';
+
+                  const response = await fetch(url, {
+                    method,
+                    headers: {
+                      'Content-Type': 'application/json',
+                    },
+                    body: JSON.stringify(jobData),
+                  });
+
+                  if (!response.ok) {
+                    const errorData = await response.json();
+                    throw new Error(errorData.error || 'Failed to save job');
+                  }
+
+                  setShowJobForm(false);
+                  setEditingJob(null);
+                  await fetchJobs();
+                } catch (err) {
+                  console.error('Error saving job:', err);
+                  alert(`Failed to save job: ${err.message}`);
+                } finally {
+                  setLoading(false);
+                }
+              }}
+              onCancel={() => {
+                setShowJobForm(false);
+                setEditingJob(null);
+              }}
+            />
           </div>
         </div>
       </div>

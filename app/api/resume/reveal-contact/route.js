@@ -3,6 +3,7 @@ import { cookies } from 'next/headers';
 import { verifyToken } from '@/utils/auth';
 import { PrismaClient } from '@prisma/client';
 import { USER_ROLES, hasPermission, PERMISSIONS } from '@/utils/roleSystem';
+import { useCredit, getUserCredits, checkUserUsageLimits } from '@/utils/newSubscriptionService';
 
 const prisma = new PrismaClient();
 
@@ -48,13 +49,7 @@ export async function POST(request) {
       ? currentUser.parentUser 
       : currentUser;
 
-    // Check if user has sufficient resume credits
-    if (creditUser.allocatedResumeCredits <= creditUser.usedResumeCredits) {
-      return NextResponse.json({ 
-        error: 'Insufficient resume credits',
-        remainingCredits: Math.max(0, creditUser.allocatedResumeCredits - creditUser.usedResumeCredits)
-      }, { status: 402 });
-    }
+    let creditUsage = null;
 
     let contactInfo = {};
     let targetApplication = null;
@@ -131,16 +126,11 @@ export async function POST(request) {
     const existingReveal = await prisma.resumeContactReveal.findFirst({
       where: {
         OR: [
-          { 
-            revealedBy: currentUser.id,
-            ...(jobApplicationId ? { jobApplicationId } : { resumeId })
-          },
-          // For sub-users, also check if parent user already revealed
-          ...(currentUser.role === USER_ROLES.SUB_USER ? [{
-            revealedBy: creditUser.id,
-            ...(jobApplicationId ? { jobApplicationId } : { resumeId })
-          }] : [])
-        ]
+          jobApplicationId ? { revealedBy: currentUser.id, applicationId: jobApplicationId } : null,
+          jobApplicationId && currentUser.role === USER_ROLES.SUB_USER ? { revealedBy: creditUser.id, applicationId: jobApplicationId } : null,
+          resumeId ? { revealedBy: currentUser.id, targetUserId: resumeId, applicationId: null } : null,
+          resumeId && currentUser.role === USER_ROLES.SUB_USER ? { revealedBy: creditUser.id, targetUserId: resumeId, applicationId: null } : null
+        ].filter(Boolean)
       }
     });
 
@@ -154,37 +144,69 @@ export async function POST(request) {
       });
     }
 
-    // Deduct credit from the appropriate user (main user for sub-users)
-    await prisma.user.update({
-      where: { id: creditUser.id },
-      data: {
-        usedResumeCredits: {
-          increment: 1
+    // If not already revealed, attempt to consume a credit (subscription allowance first, then purchased credits)
+    if (!existingReveal) {
+      try {
+        creditUsage = await useCredit(creditUser.id, 'resume_contact', 1);
+      } catch (err) {
+        const usage = await checkUserUsageLimits(creditUser.id, 'resume_view').catch(() => null);
+        const purchased = await getUserCredits(creditUser.id).catch(() => ({}));
+        const purchasedBalance = (purchased && purchased.resume_contact && purchased.resume_contact.balance) || 0;
+        return NextResponse.json({ 
+          error: 'Insufficient resume credits',
+          requiresCredits: true,
+          neededCredits: 1,
+          available: {
+            subscriptionRemaining: usage && usage.hasLimit ? usage.remaining : 'unlimited',
+            purchasedBalance
+          }
+        }, { status: 402 });
+      }
+
+      // If the credit was consumed from purchased credits, increment usedResumeCredits on the credit owner for backward-compatibility
+      if (creditUsage && creditUsage.source === 'credit') {
+        await prisma.user.update({ where: { id: creditUser.id }, data: { usedResumeCredits: { increment: 1 } } });
+      }
+
+      // Track the contact reveal
+      const created = await prisma.resumeContactReveal.create({
+        data: {
+          revealedBy: currentUser.id,
+          targetUserId: jobApplicationId ? targetApplication.applicant.id : (resumeId || null),
+          applicationId: jobApplicationId || null,
+          creditCost: 1,
+          contactInfo: JSON.stringify(contactInfo),
+          revealType: jobApplicationId ? 'application' : 'database'
         }
-      }
-    });
+      });
 
-    // Track the contact reveal
-    await prisma.resumeContactReveal.create({
-      data: {
-        revealedBy: currentUser.id,
-        revealedFor: creditUser.id, // Track which account the credit was used from
-        jobApplicationId: jobApplicationId || null,
-        resumeId: resumeId || null,
-        contactInfo: JSON.stringify(contactInfo),
-        revealType: jobApplicationId ? 'application' : 'database'
-      }
-    });
+      const purchased = await getUserCredits(creditUser.id).catch(() => ({}));
+      const purchasedBalance = (purchased && purchased.resume_contact && purchased.resume_contact.balance) || 0;
 
-    const remainingCredits = Math.max(0, creditUser.allocatedResumeCredits - (creditUser.usedResumeCredits + 1));
+      // Return canonical response
+      return NextResponse.json({
+        success: true,
+        contactInfo,
+        alreadyRevealed: false,
+        creditsUsed: 1,
+        remainingCredits: purchasedBalance,
+        revealedBy: currentUser.fullName || currentUser.email,
+        revealedAt: created.createdAt
+      });
+    }
 
+    const purchased = await getUserCredits(creditUser.id).catch(() => ({}));
+    const purchasedBalance = (purchased && purchased.resume_contact && purchased.resume_contact.balance) || 0;
+
+    // Return canonical response
     return NextResponse.json({
       success: true,
       contactInfo,
       alreadyRevealed: false,
       creditsUsed: 1,
-      remainingCredits,
-      revealedBy: currentUser.fullName || currentUser.email
+      remainingCredits: purchasedBalance,
+      revealedBy: currentUser.fullName || currentUser.email,
+      revealedAt: created.createdAt
     });
 
   } catch (error) {

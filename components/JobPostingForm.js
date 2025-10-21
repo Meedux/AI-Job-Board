@@ -51,6 +51,56 @@ const JobPostingForm = ({ onSubmit, onCancel, initialData = null, isEditing = fa
   const [skillInput, setSkillInput] = useState('');
   const [companies, setCompanies] = useState([]);
   const [loadingCompanies, setLoadingCompanies] = useState(true);
+  const [draftId, setDraftId] = useState(initialData?.id || null);
+  const [lastSaved, setLastSaved] = useState(null);
+  const [autoSaveStatus, setAutoSaveStatus] = useState('');
+
+  // Auto-save functionality
+  useEffect(() => {
+    if (isEditing) return; // Don't auto-save when editing existing jobs
+
+    const autoSaveInterval = setInterval(() => {
+      const formData = getValues();
+      if (formData.title || formData.description) { // Only save if there's some content
+        saveDraft(formData);
+      }
+    }, 30000); // Auto-save every 30 seconds
+
+    return () => clearInterval(autoSaveInterval);
+  }, [isEditing, getValues]);
+
+  const saveDraft = async (formData) => {
+    try {
+      setAutoSaveStatus('Saving...');
+      
+      const draftData = {
+        ...formData,
+        status: 'draft',
+        id: draftId // Include existing draft ID if available
+      };
+
+      const response = await fetch('/api/jobs', {
+        method: draftId ? 'PUT' : 'POST', // Use PUT for updates, POST for new
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${localStorage.getItem('token') || ''}`
+        },
+        body: JSON.stringify(draftData),
+      });
+
+      if (response.ok) {
+        const result = await response.json();
+        setDraftId(result.id);
+        setLastSaved(new Date());
+        setAutoSaveStatus('Draft saved');
+        setTimeout(() => setAutoSaveStatus(''), 2000);
+      }
+    } catch (error) {
+      console.error('Auto-save failed:', error);
+      setAutoSaveStatus('Save failed');
+      setTimeout(() => setAutoSaveStatus(''), 2000);
+    }
+  };
 
   // Load companies
   useEffect(() => {
@@ -163,10 +213,18 @@ const JobPostingForm = ({ onSubmit, onCancel, initialData = null, isEditing = fa
   return (
     <div className="max-w-4xl mx-auto bg-gray-900 rounded-lg shadow-xl p-6">
       <div className="flex items-center justify-between mb-6">
-        <h2 className="text-2xl font-bold text-white flex items-center gap-2">
-          <Building className="text-blue-400" />
-          {isEditing ? 'Edit Job Posting' : 'Create New Job Posting'}
-        </h2>
+        <div>
+          <h2 className="text-2xl font-bold text-white flex items-center gap-2">
+            <Building className="text-blue-400" />
+            {isEditing ? 'Edit Job Posting' : 'Create New Job Posting'}
+          </h2>
+          {!isEditing && autoSaveStatus && (
+            <p className="text-sm text-gray-400 mt-1">
+              {autoSaveStatus}
+              {lastSaved && ` at ${lastSaved.toLocaleTimeString()}`}
+            </p>
+          )}
+        </div>
         <button
           type="button"
           onClick={onCancel}

@@ -12,8 +12,7 @@ export default function ResumeContactReveal({
 }) {
   const [isRevealed, setIsRevealed] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
-  const [revealedData, setRevealedData] = useState(null);
-  const [error, setError] = useState('');
+  const [isHidden, setIsHidden] = useState(false);
 
   const handleRevealContact = async () => {
     if (isLoading || isRevealed) return;
@@ -92,19 +91,19 @@ export default function ResumeContactReveal({
           icon={Mail}
           label="Email Address"
           value={revealedData?.email || targetUser.email}
-          isRevealed={isRevealed}
+          isRevealed={isRevealed && !isHidden}
         />
         <ContactField
           icon={Phone}
           label="Phone Number"
           value={revealedData?.phone || targetUser.phone || 'Not provided'}
-          isRevealed={isRevealed}
+          isRevealed={isRevealed && !isHidden}
         />
         <ContactField
           icon={MapPin}
           label="Location"
           value={revealedData?.location || targetUser.location || 'Not provided'}
-          isRevealed={isRevealed}
+          isRevealed={isRevealed && !isHidden}
         />
       </div>
 
@@ -149,9 +148,18 @@ export default function ResumeContactReveal({
             {isLoading ? 'Revealing...' : 'Reveal Contact (1 credit)'}
           </button>
         ) : (
-          <div className="flex items-center gap-2 px-4 py-2 bg-green-100 text-green-700 rounded-lg">
-            <Eye className="w-4 h-4" />
-            <span>Contact information revealed</span>
+          <div className="flex items-center gap-2">
+            <div className="flex items-center gap-2 px-4 py-2 bg-green-100 text-green-700 rounded-lg">
+              <Eye className="w-4 h-4" />
+              <span>Contact information revealed</span>
+            </div>
+            <button
+              onClick={() => setIsHidden(!isHidden)}
+              className="flex items-center gap-2 px-4 py-2 bg-gray-600 text-white rounded-lg hover:bg-gray-700 transition-colors"
+            >
+              {isHidden ? <Eye className="w-4 h-4" /> : <EyeOff className="w-4 h-4" />}
+              {isHidden ? 'Show Contact' : 'Hide Contact'}
+            </button>
           </div>
         )}
 

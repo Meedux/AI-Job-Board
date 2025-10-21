@@ -39,6 +39,8 @@ import {
   Phone
 } from 'lucide-react';
 
+import RichTextEditor from './RichTextEditor';
+
 const ComprehensiveJobPostingForm = ({ 
   onSubmit, 
   onCancel, 
@@ -115,6 +117,49 @@ const ComprehensiveJobPostingForm = ({
     generateSocialTemplate: false
   });
 
+  // Initialize form data from initialData if provided
+  useEffect(() => {
+    if (initialData) {
+      setFormData(prev => ({
+        ...prev,
+        ...initialData,
+        // Ensure prescreenQuestions is properly initialized
+        prescreenQuestions: initialData.prescreenQuestions || [],
+        useDefaultQuestions: initialData.useDefaultQuestions || false
+      }));
+    }
+  }, [initialData]);
+
+  // Auto-save prescreen questions to localStorage
+  useEffect(() => {
+    if (formData.prescreenQuestions.length > 0) {
+      const key = `job-posting-prescreen-${user?.id || 'anonymous'}`;
+      localStorage.setItem(key, JSON.stringify(formData.prescreenQuestions));
+    }
+  }, [formData.prescreenQuestions, user?.id]);
+
+  // Load prescreen questions from localStorage on mount
+  useEffect(() => {
+    if (!initialData) {
+      const key = `job-posting-prescreen-${user?.id || 'anonymous'}`;
+      const saved = localStorage.getItem(key);
+      if (saved) {
+        try {
+          const parsedQuestions = JSON.parse(saved);
+          if (parsedQuestions.length > 0) {
+            setFormData(prev => ({
+              ...prev,
+              prescreenQuestions: parsedQuestions
+            }));
+            // Could add a toast notification here if needed
+          }
+        } catch (error) {
+          console.error('Error loading saved prescreen questions:', error);
+        }
+      }
+    }
+  }, [initialData, user?.id]);
+
   // Determine if user is overseas employer
   const isOverseasEmployer = user?.employerType?.startsWith('overseas_');
   const isLocalAgency = ['local_pra', 'local_do174', 'local_cda'].includes(user?.employerType);
@@ -186,6 +231,10 @@ const ComprehensiveJobPostingForm = ({
       };
       
       onSubmit(submissionData);
+      
+      // Clear saved prescreen questions from localStorage after successful submission
+      const key = `job-posting-prescreen-${user?.id || 'anonymous'}`;
+      localStorage.removeItem(key);
     } catch (error) {
       console.error('Form submission error:', error);
       setErrors({ submit: 'An error occurred while submitting the form' });
@@ -386,26 +435,46 @@ const ComprehensiveJobPostingForm = ({
   );
 
   // Step indicator
-  const StepIndicator = () => (
-    <div className="flex items-center justify-center mb-8">
-      {[1, 2, 3, 4, 5].map((step) => (
-        <div key={step} className="flex items-center">
-          <div className={`w-8 h-8 rounded-full flex items-center justify-center text-sm font-medium ${
-            step <= currentStep 
-              ? 'bg-blue-600 text-white' 
-              : 'bg-gray-700 text-gray-400'
-          }`}>
-            {step}
+  const StepIndicator = () => {
+    const steps = [
+      { number: 1, label: 'Basic Info' },
+      { number: 2, label: 'Location & Salary' },
+      { number: 3, label: 'Job Details' },
+      { number: 4, label: 'Application' },
+      { number: 5, label: 'Questions & Publish', hasQuestions: formData.prescreenQuestions.length > 0 }
+    ];
+
+    return (
+      <div className="flex items-center justify-center mb-8">
+        {steps.map((step, index) => (
+          <div key={step.number} className="flex items-center">
+            <div className="flex flex-col items-center">
+              <div className={`w-8 h-8 rounded-full flex items-center justify-center text-sm font-medium relative ${
+                step.number <= currentStep 
+                  ? 'bg-blue-600 text-white' 
+                  : 'bg-gray-700 text-gray-400'
+              }`}>
+                {step.number}
+                {step.hasQuestions && (
+                  <div className="absolute -top-1 -right-1 w-3 h-3 bg-green-500 rounded-full border border-gray-900"></div>
+                )}
+              </div>
+              <span className={`text-xs mt-1 ${
+                step.number <= currentStep ? 'text-blue-400' : 'text-gray-500'
+              }`}>
+                {step.label}
+              </span>
+            </div>
+            {index < steps.length - 1 && (
+              <div className={`w-12 h-0.5 ${
+                step.number < currentStep ? 'bg-blue-600' : 'bg-gray-700'
+              }`} />
+            )}
           </div>
-          {step < 5 && (
-            <div className={`w-12 h-0.5 ${
-              step < currentStep ? 'bg-blue-600' : 'bg-gray-700'
-            }`} />
-          )}
-        </div>
-      ))}
-    </div>
-  );
+        ))}
+      </div>
+    );
+  };
 
   // Step 1: Basic Information
   const renderStep1 = () => (
@@ -485,11 +554,9 @@ const ComprehensiveJobPostingForm = ({
             </button>
           )}
         </div>
-        <textarea
-          rows={6}
-          value={formData.jobDescription}
-          onChange={(e) => handleInputChange('jobDescription', e.target.value)}
-          className="w-full px-3 py-2 bg-gray-800 border border-gray-700 rounded-lg text-white placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-blue-500"
+        <RichTextEditor
+          content={formData.jobDescription}
+          onChange={(content) => handleInputChange('jobDescription', content)}
           placeholder="Describe the role, responsibilities, and what makes this position exciting..."
         />
         {errors.jobDescription && <p className="mt-1 text-sm text-red-400">{errors.jobDescription}</p>}
@@ -1125,6 +1192,11 @@ const ComprehensiveJobPostingForm = ({
             <p className="text-sm text-gray-400">
               Add up to {mode === 'ai' ? '5' : '3'} questions to filter candidates effectively
             </p>
+            {formData.prescreenQuestions.length > 0 && (
+              <p className="text-sm text-green-400">
+                ✓ {formData.prescreenQuestions.length} question{formData.prescreenQuestions.length !== 1 ? 's' : ''} added
+              </p>
+            )}
           </div>
           
           <div className="flex gap-2">
@@ -1378,112 +1450,34 @@ const ComprehensiveJobPostingForm = ({
   };
 
   return (
-    <div className="max-w-4xl mx-auto bg-gray-900 rounded-lg shadow-xl p-6">
-      {/* Header */}
-      <div className="flex items-center justify-between mb-6">
-        <div>
-          <h2 className="text-2xl font-bold text-white flex items-center gap-2">
-            <Building2 className="text-blue-400" />
-            Job Posting Form
-          </h2>
-          <p className="text-gray-400 mt-1">
-            Mode: <span className="capitalize font-medium text-blue-400">{mode}</span>
-            {user?.employerType && (
-              <span className="ml-4">
-                Type: <span className="capitalize font-medium text-green-400">
-                  {user.employerType.replace(/_/g, ' ')}
-                </span>
-              </span>
-            )}
-          </p>
-        </div>
+    <form onSubmit={handleFormSubmit} className="max-w-3xl mx-auto py-8 px-4 sm:px-6 lg:px-8">
+      <StepIndicator />
+      
+      {/* Render current step */}
+      {currentStep === 1 && renderStep1()}
+      {currentStep === 2 && renderStep2()}
+      {currentStep === 3 && renderStep3()}
+      {currentStep === 4 && renderStep4()}
+      {currentStep === 5 && renderStep5()}
+
+      {/* Navigation buttons */}
+      <div className="flex justify-between mt-6">
         <button
           type="button"
-          onClick={onCancel}
-          className="p-2 text-gray-400 hover:text-white hover:bg-gray-700 rounded-lg transition-colors"
+          onClick={prevStep}
+          className="px-4 py-2 bg-gray-700 text-white rounded-lg hover:bg-gray-600 transition-colors"
         >
-          ✕
+          &larr; Back
+        </button>
+        
+        <button
+          type="submit"
+          className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors"
+        >
+          {currentStep < 5 ? 'Next &rarr;' : 'Submit Job Posting'}
         </button>
       </div>
-
-      {/* Step Indicator */}
-      <StepIndicator />
-
-      {/* Form Content */}
-      <form onSubmit={handleFormSubmit} className="space-y-8">
-        {currentStep === 1 && renderStep1()}
-        {currentStep === 2 && renderStep2()}
-        {currentStep === 3 && renderStep3()}
-        {currentStep === 4 && renderStep4()}
-        {currentStep === 5 && renderStep5()}
-        
-        {/* Navigation Buttons */}
-        <div className="flex justify-between pt-6 border-t border-gray-700">
-          <button
-            type="button"
-            onClick={prevStep}
-            disabled={currentStep === 1}
-            className="px-6 py-2 text-gray-400 hover:text-white hover:bg-gray-700 border border-gray-600 rounded-lg transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
-          >
-            Previous
-          </button>
-          
-          <div className="flex gap-3">
-            <button
-              type="button"
-              onClick={() => setShowPreview(!showPreview)}
-              className="flex items-center gap-2 px-4 py-2 bg-gray-700 text-white rounded-lg hover:bg-gray-600 transition-colors"
-            >
-              <Eye size={16} />
-              Preview
-            </button>
-            
-            {currentStep < 5 ? (
-              <button
-                type="button"
-                onClick={nextStep}
-                className="px-6 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors"
-              >
-                Next
-              </button>
-            ) : (
-              <button
-                type="submit"
-                disabled={loading}
-                className="flex items-center gap-2 px-6 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
-              >
-                <Save size={16} />
-                {loading ? 'Publishing...' : 'Publish Job'}
-              </button>
-            )}
-          </div>
-        </div>
-      </form>
-
-      {/* Preview Modal - placeholder for now */}
-      {showPreview && (
-        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-50">
-          <div className="bg-gray-900 rounded-lg p-6 max-w-2xl w-full max-h-[80vh] overflow-y-auto">
-            <div className="flex items-center justify-between mb-4">
-              <h3 className="text-xl font-semibold text-white">Job Preview</h3>
-              <button
-                onClick={() => setShowPreview(false)}
-                className="text-gray-400 hover:text-white"
-              >
-                ✕
-              </button>
-            </div>
-            <div className="text-gray-300">
-              <h4 className="text-lg font-bold text-white">{formData.jobTitle}</h4>
-              <p className="text-gray-400">{formData.companyName}</p>
-              <div className="mt-4 prose prose-invert">
-                {formData.jobDescription}
-              </div>
-            </div>
-          </div>
-        </div>
-      )}
-    </div>
+    </form>
   );
 };
 

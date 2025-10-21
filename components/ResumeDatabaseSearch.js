@@ -1,7 +1,7 @@
 'use client';
 
-import { useState, useEffect } from 'react';
-import { motion, AnimatePresence } from 'framer-motion';
+import { useAuth } from '@/contexts/AuthContext';
+import { useSubscription } from '@/contexts/SubscriptionContext';
 import { 
   Search, 
   Filter, 
@@ -62,6 +62,8 @@ const EDUCATION_LEVELS = ['High School', 'Bachelor', 'Master', 'PhD', 'Diploma',
 const AVAILABILITY_OPTIONS = ['immediate', '2_weeks', '1_month', 'negotiable'];
 
 export default function ResumeDatabaseSearch() {
+  const { user } = useAuth();
+  const { credits, loading: creditsLoading } = useSubscription();
   const [searchType, setSearchType] = useState('basic');
   const [searchTerm, setSearchTerm] = useState('');
   const [filters, setFilters] = useState({
@@ -96,6 +98,12 @@ export default function ResumeDatabaseSearch() {
   }, [searchTerm, filters, sortBy, sortOrder, pagination.page]);
 
   const performSearch = async () => {
+    // Check if user has sufficient credits
+    if (!user || credits.resume_view <= 0) {
+      alert('You need resume view credits to search the database. Please purchase credits to continue.');
+      return;
+    }
+
     setLoading(true);
     try {
       const params = new URLSearchParams({
@@ -252,6 +260,23 @@ export default function ResumeDatabaseSearch() {
               <div>
                 <h1 className="text-3xl font-bold text-white">Resume Database Search</h1>
                 <p className="text-gray-400">Find the perfect candidates with advanced search capabilities</p>
+                {!creditsLoading && (
+                  <div className="mt-2 flex items-center space-x-4">
+                    <div className="flex items-center space-x-2">
+                      <Eye className="w-4 h-4 text-blue-400" />
+                      <span className="text-sm text-gray-300">
+                        Resume View Credits: <span className={`font-semibold ${credits.resume_view > 0 ? 'text-green-400' : 'text-red-400'}`}>
+                          {credits.resume_view || 0}
+                        </span>
+                      </span>
+                    </div>
+                    {credits.resume_view === 0 && (
+                      <div className="bg-red-900/50 border border-red-700 rounded-lg px-3 py-1">
+                        <span className="text-sm text-red-300">No credits remaining</span>
+                      </div>
+                    )}
+                  </div>
+                )}
               </div>
             </div>
             <div className="flex items-center space-x-4">
@@ -330,7 +355,12 @@ export default function ResumeDatabaseSearch() {
               value={searchTerm}
               onChange={(e) => setSearchTerm(e.target.value)}
               placeholder={`Search candidates with ${SEARCH_TYPES[searchType].label.toLowerCase()}...`}
-              className="w-full pl-12 pr-4 py-4 bg-gray-800 border border-gray-700 rounded-xl text-white placeholder-gray-400 focus:border-blue-500 focus:outline-none"
+              disabled={!user || credits.resume_view <= 0}
+              className={`w-full pl-12 pr-4 py-4 bg-gray-800 border rounded-xl text-white placeholder-gray-400 focus:outline-none ${
+                !user || credits.resume_view <= 0
+                  ? 'border-red-700 cursor-not-allowed opacity-50'
+                  : 'border-gray-700 focus:border-blue-500'
+              }`}
             />
           </div>
         </div>

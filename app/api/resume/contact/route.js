@@ -1,132 +1,270 @@
 // API Route: /api/resume/contact
 import { NextResponse } from 'next/server';
-import { getUserFromRequest } from '@/utils/auth';
-import { useUserCredits, getUserCreditBalance, hasFeatureAccess } from '@/utils/subscriptionService';
+import { getUserFromRequest, verifyToken } from '@/utils/auth';
+import { prisma } from '@/utils/db';
+import { useCredit, getUserCredits, checkUserUsageLimits } from '@/utils/newSubscriptionService';
+import { USER_ROLES, hasPermission, PERMISSIONS } from '@/utils/roleSystem';
 
 export async function POST(request) {
   try {
-    const user = getUserFromRequest(request);
-    
-    if (!user) {
-      return NextResponse.json(
-        { success: false, error: 'Unauthorized' },
-        { status: 401 }
-      );
+    // Accept auth token either via cookie or Authorization header
+    let tokenPayload = await getUserFromRequest(request);
+    if (!tokenPayload) {
+      const header = request.headers.get('authorization') || request.headers.get('Authorization');
+      if (header && header.startsWith('Bearer ')) {
+        const token = header.replace('Bearer ', '');
+        tokenPayload = verifyToken(token);
+      }
     }
 
-    const { resumeId, contactType = 'view' } = await request.json();
-    
-    if (!resumeId) {
-      return NextResponse.json(
-        { success: false, error: 'Resume ID is required' },
-        { status: 400 }
-      );
+    if (!tokenPayload) {
+      return NextResponse.json({ success: false, error: 'Unauthorized' }, { status: 401 });
     }
 
-    // Check if user has access to resume contact feature
-    const hasAccess = await hasFeatureAccess(user.id, 'resumeContacts');
-    if (!hasAccess) {
-      return NextResponse.json(
-        { success: false, error: 'Feature not available in your plan' },
-        { status: 403 }
-      );
+    // Load full user so we can respect parent/main account billing
+    const currentUser = await prisma.user.findUnique({ where: { id: tokenPayload.id || tokenPayload.uid }, include: { parentUser: true } });
+    if (!currentUser) {
+      return NextResponse.json({ success: false, error: 'User not found' }, { status: 404 });
     }
 
-    // Check credit balance
-    const creditBalance = await getUserCreditBalance(user.id, 'resume_contact');
-    if (creditBalance <= 0) {
-      return NextResponse.json(
-        { 
-          success: false, 
-          error: 'Insufficient credits', 
-          remainingCredits: creditBalance 
-        },
-        { status: 402 }
-      );
+    // Permission check
+    if (!hasPermission(currentUser, PERMISSIONS.VIEW_RESUMES)) {
+      return NextResponse.json({ success: false, error: 'Insufficient permissions' }, { status: 403 });
     }
 
-    // Use credit
-    const creditUsed = await useUserCredits(user.id, 'resume_contact', 1);
-    if (!creditUsed) {
-      return NextResponse.json(
-        { success: false, error: 'Failed to use credit' },
-        { status: 500 }
-      );
+    const { resumeId, jobApplicationId, contactType = 'view' } = await request.json();
+    if (!resumeId && !jobApplicationId) {
+      return NextResponse.json({ success: false, error: 'Job application ID or Resume ID is required' }, { status: 400 });
     }
 
-    // Get resume contact information (mock implementation)
-    const contactInfo = await getResumeContactInfo(resumeId);
-    
-    // Log the contact view
-    await logContactView(user.id, resumeId, contactType);
+    // Determine whose credits to bill (main account for sub-users)
+    const creditUser = currentUser.role === USER_ROLES.SUB_USER && currentUser.parentUser ? currentUser.parentUser : currentUser;
+
+    // Resolve contact source: job application (applicant) or resume owner
+    let target = null;
+    let targetApplication = null;
+    if (jobApplicationId) {
+      targetApplication = await prisma.jobApplication.findUnique({
+        where: { id: jobApplicationId },
+        include: {
+          applicant: {
+            select: {
+              id: true,
+              fullName: true,
+              email: true,
+              phone: true,
+              username: true,
+              socialLinks: true,
+              profilePicture: true,
+              showSensitiveInfo: true
+            }
+          },
+          job: {
+            select: {
+              id: true,
+              employerId: true
+            }
+          }
+        }
+      });
+
+      if (!targetApplication) {
+        return NextResponse.json({ success: false, error: 'Job application not found' }, { status: 404 });
+      }
+
+      // Verify that the current (or main) account can access this application
+      const employerId = targetApplication.job?.employerId;
+      if (!employerId || employerId !== creditUser.id) {
+        return NextResponse.json({ success: false, error: 'Access denied to this application' }, { status: 403 });
+      }
+
+      target = targetApplication.applicant;
+    } else if (resumeId) {
+      target = await prisma.user.findUnique({
+        where: { id: resumeId },
+        select: {
+          id: true,
+          fullName: true,
+          email: true,
+          phone: true,
+          username: true,
+          socialLinks: true,
+          profilePicture: true,
+          showSensitiveInfo: true
+        }
+      });
+
+      if (!target) {
+        return NextResponse.json({ success: false, error: 'Resume not found' }, { status: 404 });
+      }
+    }
+
+    // Check if contact was already revealed by this user or their main account
+    const existingReveal = await prisma.resumeContactReveal.findFirst({
+      where: {
+        OR: [
+          // application-level reveals
+          jobApplicationId ? { revealedBy: currentUser.id, applicationId: jobApplicationId } : null,
+          jobApplicationId && currentUser.parentUser ? { revealedBy: creditUser.id, applicationId: jobApplicationId } : null,
+          // database resume reveals
+          resumeId ? { revealedBy: currentUser.id, targetUserId: resumeId, applicationId: null } : null,
+          resumeId && currentUser.parentUser ? { revealedBy: creditUser.id, targetUserId: resumeId, applicationId: null } : null
+        ].filter(Boolean)
+      }
+    });
+
+    // If already revealed, return existing contact info and remaining credits info
+    if (existingReveal) {
+      const parsedContact = existingReveal.contactInfo ? JSON.parse(existingReveal.contactInfo) : {
+        email: target.email,
+        phone: target.phone
+      };
+      const purchased = await getUserCredits(creditUser.id).catch(() => ({}));
+      const purchasedBalance = (purchased && purchased.resume_contact && purchased.resume_contact.balance) || 0;
+
+      return NextResponse.json({
+        success: true,
+        contactInfo: parsedContact,
+        alreadyRevealed: true,
+        revealedAt: existingReveal.createdAt,
+        remainingCredits: purchasedBalance
+      });
+    }
+
+    // Attempt to consume a resume contact credit (subscription allowance will be used first)
+    let creditUsageResult = null;
+    try {
+      creditUsageResult = await useCredit(creditUser.id, 'resume_contact', 1);
+    } catch (err) {
+      const usage = await checkUserUsageLimits(creditUser.id, 'resume_view').catch(() => null);
+      const purchased = await getUserCredits(creditUser.id).catch(() => ({}));
+      const purchasedBalance = (purchased && purchased.resume_contact && purchased.resume_contact.balance) || 0;
+      return NextResponse.json({
+        success: false,
+        error: 'Insufficient resume credits',
+        requiresCredits: true,
+        neededCredits: 1,
+        available: {
+          subscriptionRemaining: usage && usage.hasLimit ? usage.remaining : 'unlimited',
+          purchasedBalance
+        }
+      }, { status: 402 });
+    }
+
+    // If the credit was consumed from purchased credits, increment usedResumeCredits on the credit owner for backwards-compat
+    if (creditUsageResult && creditUsageResult.source === 'credit') {
+      await prisma.user.update({ where: { id: creditUser.id }, data: { usedResumeCredits: { increment: 1 } } });
+    }
+
+    // Create a ResumeContactReveal record (tracks that this resume's contact was revealed)
+    const reveal = await prisma.resumeContactReveal.create({
+      data: {
+        revealedBy: currentUser.id,
+        targetUserId: target.id,
+        applicationId: jobApplicationId || null,
+        creditCost: 1,
+        contactInfo: JSON.stringify({ email: target.email, phone: target.phone, socialLinks: target.socialLinks || null, fullName: target.fullName }),
+        revealType: jobApplicationId ? 'application' : 'database'
+      }
+    });
+
+    const purchased = await getUserCredits(creditUser.id).catch(() => ({}));
+    const purchasedBalance = (purchased && purchased.resume_contact && purchased.resume_contact.balance) || 0;
 
     return NextResponse.json({
       success: true,
-      contactInfo: contactInfo,
-      remainingCredits: creditBalance - 1
+      contactInfo: { email: target.email, phone: target.phone, socialLinks: target.socialLinks || null },
+      alreadyRevealed: false,
+      creditsUsed: 1,
+      remainingCredits: purchasedBalance,
+      revealedBy: currentUser.fullName || currentUser.email,
+      revealedAt: reveal.createdAt
     });
   } catch (error) {
     console.error('Error accessing resume contact:', error);
-    return NextResponse.json(
-      { success: false, error: 'Failed to access resume contact' },
-      { status: 500 }
-    );
+    return NextResponse.json({ success: false, error: 'Failed to access resume contact' }, { status: 500 });
   }
 }
 
 export async function GET(request) {
   try {
-    const token = request.headers.get('Authorization')?.replace('Bearer ', '');
-    const user = await verifyToken(token);
-    
-    if (!user) {
-      return NextResponse.json(
-        { success: false, error: 'Unauthorized' },
-        { status: 401 }
-      );
+    const tokenPayload = await getUserFromRequest(request);
+    if (!tokenPayload) {
+      return NextResponse.json({ success: false, error: 'Unauthorized' }, { status: 401 });
+    }
+
+    const currentUser = await prisma.user.findUnique({ where: { id: tokenPayload.id || tokenPayload.uid }, include: { parentUser: true } });
+    if (!currentUser) {
+      return NextResponse.json({ success: false, error: 'User not found' }, { status: 404 });
+    }
+
+    // Permission to view resumes
+    if (!hasPermission(currentUser, PERMISSIONS.VIEW_RESUMES)) {
+      return NextResponse.json({ success: false, error: 'Insufficient permissions' }, { status: 403 });
     }
 
     const { searchParams } = new URL(request.url);
     const resumeId = searchParams.get('resume_id');
-    
     if (!resumeId) {
-      return NextResponse.json(
-        { success: false, error: 'Resume ID is required' },
-        { status: 400 }
-      );
+      return NextResponse.json({ success: false, error: 'Resume ID is required' }, { status: 400 });
     }
 
-    // Check if user has access to resume contact feature
-    const hasAccess = await hasFeatureAccess(user.id, 'resumeContacts');
-    if (!hasAccess) {
-      return NextResponse.json(
-        { success: false, error: 'Feature not available in your plan' },
-        { status: 403 }
-      );
+    // Determine credit owner
+    const creditUser = currentUser.role === USER_ROLES.SUB_USER && currentUser.parentUser ? currentUser.parentUser : currentUser;
+
+    // Resolve basic resume/profile info
+    const targetUser = await prisma.user.findUnique({
+      where: { id: resumeId },
+      select: {
+        id: true,
+        fullName: true,
+        profilePicture: true,
+        location: true,
+        email: true,
+        phone: true,
+        showSensitiveInfo: true
+      }
+    });
+
+    if (!targetUser) {
+      return NextResponse.json({ success: false, error: 'Resume not found' }, { status: 404 });
     }
 
-    // Get credit balance
-    const creditBalance = await getUserCreditBalance(user.id, 'resume_contact');
-    
-    // Check if user has previously accessed this resume
-    const hasAccessed = await hasAccessedResume(user.id, resumeId);
-    
-    // Get basic resume info (without contact details)
-    const resumeInfo = await getBasicResumeInfo(resumeId);
-    
+    // Check if current user or their main account already revealed this resume
+    const existingReveal = await prisma.resumeContactReveal.findFirst({
+      where: {
+        OR: [
+          { revealedBy: currentUser.id, targetUserId: resumeId, applicationId: null },
+          ...(currentUser.parentUser ? [{ revealedBy: creditUser.id, targetUserId: resumeId, applicationId: null }] : [])
+        ]
+      }
+    });
+
+    const purchased = await getUserCredits(creditUser.id).catch(() => ({}));
+    const purchasedBalance = (purchased && purchased.resume_contact && purchased.resume_contact.balance) || 0;
+
+    // Build a basic resume info payload (without contact details)
+    const parsedResume = await prisma.parsedResume.findFirst({ where: { userId: resumeId, parsingStatus: 'completed' }, select: { summary: true, skills: true, experience: true, totalExperienceYears: true } });
+    const resumeInfo = {
+      resumeId: resumeId,
+      fullName: targetUser.fullName,
+      title: parsedResume?.summary || null,
+      location: targetUser.location,
+      experience: parsedResume?.totalExperienceYears || null,
+      skills: parsedResume?.skills || [],
+      summary: parsedResume?.summary || null
+    };
+
     return NextResponse.json({
       success: true,
-      resumeInfo: resumeInfo,
-      hasAccess: hasAccessed,
-      remainingCredits: creditBalance,
-      canAccess: creditBalance > 0 || hasAccessed
+      resumeInfo,
+      hasAccess: !!existingReveal,
+      remainingCredits: purchasedBalance,
+      canAccess: purchasedBalance > 0 || !!existingReveal || !!targetUser.showSensitiveInfo
     });
   } catch (error) {
     console.error('Error fetching resume info:', error);
-    return NextResponse.json(
-      { success: false, error: 'Failed to fetch resume info' },
-      { status: 500 }
-    );
+    return NextResponse.json({ success: false, error: 'Failed to fetch resume info' }, { status: 500 });
   }
 }
 

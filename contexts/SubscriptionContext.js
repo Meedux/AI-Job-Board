@@ -272,6 +272,11 @@ export function SubscriptionProvider({ children }) {
     }
   };
 
+  // Update local credit balance (useful when the server authoritatively changes credits)
+  const setCreditBalance = useCallback((type, balance) => {
+    dispatch({ type: SUBSCRIPTION_ACTIONS.UPDATE_CREDIT_BALANCE, payload: { type, balance } });
+  }, []);
+
   // Cancel subscription
   const cancelSubscription = async () => {
     try {
@@ -339,6 +344,7 @@ export function SubscriptionProvider({ children }) {
     subscribeToPlan,
     purchaseCredits,
     useCredits,
+    setCreditBalance,
     cancelSubscription,
     hasFeatureAccess,
     hasEnoughCredits,

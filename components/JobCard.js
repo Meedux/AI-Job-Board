@@ -97,11 +97,15 @@ const JobCard = ({ job }) => {
   // Format salary - Only bold for featured jobs
   const formatSalary = (salaryData) => {
     if (!salaryData?.from && !salaryData?.to) return null;
+    
+    const currencySymbol = salaryData.currency === 'USD' ? '$' : '₱';
+    const periodText = salaryData.period ? `/${salaryData.period.slice(0, 1)}` : '';
+    
     if (salaryData.from && salaryData.to) {
-      return `₱${salaryData.from.toLocaleString()} - ₱${salaryData.to.toLocaleString()}`;
+      return `${currencySymbol}${salaryData.from.toLocaleString()} - ${currencySymbol}${salaryData.to.toLocaleString()}${periodText}`;
     }
-    if (salaryData.from) return `₱${salaryData.from.toLocaleString()}+`;
-    if (salaryData.to) return `Up to ₱${salaryData.to.toLocaleString()}`;
+    if (salaryData.from) return `${currencySymbol}${salaryData.from.toLocaleString()}${periodText}+`;
+    if (salaryData.to) return `Up to ${currencySymbol}${salaryData.to.toLocaleString()}${periodText}`;
     return null;
   };
 

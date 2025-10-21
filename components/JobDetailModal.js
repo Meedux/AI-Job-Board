@@ -17,6 +17,7 @@ const JobDetailModal = ({ job, isOpen, onClose }) => {
   const [showReviewModal, setShowReviewModal] = useState(false);
   const [showApplicationForm, setShowApplicationForm] = useState(false);
   const [customForm, setCustomForm] = useState(null);
+  const [isLoadingForm, setIsLoadingForm] = useState(false);
   const [companyRating, setCompanyRating] = useState(null);
 
   useEffect(() => {
@@ -41,26 +42,55 @@ const JobDetailModal = ({ job, isOpen, onClose }) => {
       // Use custom form directly from job data if available
       if (job.customForm) {
         console.log('🎉 CUSTOM FORM FOUND in job data:', job.customForm);
-        console.log('🎉 Custom form fields:', job.customForm.fields);
-        setCustomForm(job.customForm);
+        // Normalize fields to expected shape for JobApplicationForm
+        const normalize = (fields = []) => {
+          return fields.map((f, i) => ({
+            id: String(f.id ?? `f_${i}`),
+            type: f.type || (f.options && f.options.length ? 'select' : 'text'),
+            label: f.label || f.question || f.name || `Question ${i + 1}`,
+            placeholder: f.placeholder || '',
+            options: f.options || f.choices || [],
+            required: !!f.required,
+            validation: f.validation || {}
+          }));
+        };
+
+        const converted = {
+          id: job.customForm.id,
+          title: job.customForm.title,
+          description: job.customForm.description,
+          fields: normalize(job.customForm.fields)
+        };
+        setCustomForm(converted);
       } else {
         console.log('⚠️ NO CUSTOM FORM in job data, checking applicationForm...');
         if (job.applicationForm) {
           console.log('📋 Found applicationForm in job data:', job.applicationForm);
-          // Convert applicationForm to customForm format
+          // Convert applicationForm to customForm format and normalize
+          const rawFields = typeof job.applicationForm.fields === 'string' ? JSON.parse(job.applicationForm.fields) : job.applicationForm.fields || [];
+          const normalize = (fields = []) => fields.map((f, i) => ({
+            id: String(f.id ?? `f_${i}`),
+            type: f.type || (f.options && f.options.length ? 'select' : 'text'),
+            label: f.label || f.question || f.name || `Question ${i + 1}`,
+            placeholder: f.placeholder || '',
+            options: f.options || f.choices || [],
+            required: !!f.required,
+            validation: f.validation || {}
+          }));
+
           const convertedForm = {
             id: job.applicationForm.id,
             title: job.applicationForm.title,
             description: job.applicationForm.description,
-            fields: typeof job.applicationForm.fields === 'string' 
-              ? JSON.parse(job.applicationForm.fields) 
-              : job.applicationForm.fields
+            fields: normalize(rawFields)
           };
           console.log('🔄 Converted applicationForm to customForm:', convertedForm);
           setCustomForm(convertedForm);
         } else {
           console.log('❌ No applicationForm found, fetching from API...');
-          fetchCustomForm();
+          // Try to fetch on-demand when user attempts to apply
+          // We'll leave fetchCustomForm available for explicit fetch
+          // but don't call it eagerly here to avoid unnecessary requests
         }
       }
     }
@@ -78,7 +108,25 @@ const JobDetailModal = ({ job, isOpen, onClose }) => {
       if (response.ok) {
         const result = await response.json();
         if (result.success && result.form) {
-          setCustomForm(result.form);
+          // Normalize fields so the application form can render them consistently
+          const rawFields = Array.isArray(result.form.fields) ? result.form.fields : (typeof result.form.fields === 'string' ? JSON.parse(result.form.fields) : []);
+          const normalize = (fields = []) => fields.map((f, i) => ({
+            id: String(f.id ?? `f_${i}`),
+            type: f.type || (f.options && f.options.length ? 'select' : 'text'),
+            label: f.label || f.question || f.name || `Question ${i + 1}`,
+            placeholder: f.placeholder || '',
+            options: f.options || f.choices || [],
+            required: !!f.required,
+            validation: f.validation || {}
+          }));
+
+          const normalized = {
+            id: result.form.id,
+            title: result.form.title,
+            description: result.form.description,
+            fields: normalize(rawFields)
+          };
+          setCustomForm(normalized);
         }
       }
     } catch (error) {
@@ -86,11 +134,19 @@ const JobDetailModal = ({ job, isOpen, onClose }) => {
     }
   };
 
-  const handleApplyClick = () => {
+  const handleApplyClick = async () => {
     if (!user) {
       router.push('/login');
       return;
     }
+
+    // Ensure custom form is loaded before mounting the application form
+    if (!customForm) {
+      setIsLoadingForm(true);
+      await fetchCustomForm();
+      setIsLoadingForm(false);
+    }
+
     setShowApplicationForm(true);
   };
 
@@ -700,14 +756,21 @@ const JobDetailModal = ({ job, isOpen, onClose }) => {
                 </svg>
               </button>
             </div>
-            <div className="p-6">
-              <JobApplicationForm
-                job={job}
-                customForm={customForm}
-                onSubmit={handleApplicationSubmit}
-                onCancel={() => setShowApplicationForm(false)}
-              />
-            </div>
+                <div className="p-6">
+                  {isLoadingForm ? (
+                    <div className="flex items-center justify-center py-12">
+                      <div className="animate-spin rounded-full h-12 w-12 border-4 border-blue-500 border-t-transparent"></div>
+                    </div>
+                  ) : (
+                    <JobApplicationForm
+                      key={`${job?.id || 'job'}-${customForm?.id || 'default'}`}
+                      job={job}
+                      customForm={customForm}
+                      onSubmit={handleApplicationSubmit}
+                      onCancel={() => setShowApplicationForm(false)}
+                    />
+                  )}
+                </div>
           </div>
         </div>
       )}

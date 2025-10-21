@@ -6,7 +6,7 @@ import { useAuth } from '../contexts/AuthContext';
 import { combineClasses } from '../utils/designSystem';
 
 const ResumeContactView = ({ jobApplication, onContactRevealed }) => {
-  const { hasEnoughCredits, useCredits, getCreditBalance } = useSubscription();
+  const { hasEnoughCredits, useCredits, getCreditBalance, setCreditBalance } = useSubscription();
   const { user } = useAuth();
   const [isRevealed, setIsRevealed] = useState(false);
   const [contactInfo, setContactInfo] = useState(null);
@@ -31,10 +31,7 @@ const ResumeContactView = ({ jobApplication, onContactRevealed }) => {
     setError(null);
 
     try {
-      // First, use the credits
-      await useCredits('resume_view', 1, jobApplication.id);
-
-      // Then, fetch the contact information
+      // Call server to reveal (server is authoritative about debiting credits)
       const response = await fetch('/api/resume/contact', {
         method: 'POST',
         headers: {
@@ -49,6 +46,11 @@ const ResumeContactView = ({ jobApplication, onContactRevealed }) => {
       const data = await response.json();
 
       if (response.ok) {
+        // Update local credit balance if server returned a numeric remainingCredits
+        if (typeof data.remainingCredits === 'number') {
+          try { setCreditBalance('resume_view', data.remainingCredits); } catch (err) { /* ignore */ }
+        }
+
         setContactInfo(data.contactInfo);
         setIsRevealed(true);
         onContactRevealed?.(data.contactInfo);

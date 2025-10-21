@@ -1,11 +1,11 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { verifyToken, getUserFromRequest } from '@/utils/auth';
 import { prisma, handlePrismaError } from '@/utils/db';
+import { put } from '@vercel/blob';
 import fs from 'fs';
 import path from 'path';
 import { promisify } from 'util';
 
-const writeFile = promisify(fs.writeFile);
 const unlink = promisify(fs.unlink);
 
 export async function POST(request) {
@@ -38,18 +38,20 @@ export async function POST(request) {
       }, { status: 400 });
     }
 
-    // Create temporary file
+    // Create temporary file for processing
     const bytes = await file.arrayBuffer();
     const buffer = Buffer.from(bytes);
-    const tempDir = path.join(process.cwd(), 'temp');
-    
-    // Create temp directory if it doesn't exist
-    if (!fs.existsSync(tempDir)) {
-      fs.mkdirSync(tempDir, { recursive: true });
-    }
-    
-    const tempFilePath = path.join(tempDir, `${Date.now()}-${file.name}`);
-    await writeFile(tempFilePath, buffer);
+
+    // Generate unique filename for blob storage
+    const timestamp = Date.now();
+    const fileExtension = file.name.split('.').pop();
+    const fileName = `temp_resume_${user.id}_${timestamp}.${fileExtension}`;
+
+    // Upload to Vercel Blob for processing
+    const blob = await put(fileName, file, {
+      access: 'public',
+      contentType: file.type,
+    });
 
     let parsedData = null;
     let textContent = '';
@@ -62,12 +64,12 @@ export async function POST(request) {
         // This can be enhanced later with proper PDF libraries
         textContent = "PDF parsing temporarily unavailable. Please convert to text or Word format.";
         parsedData = { text: textContent, requiresManualEntry: true };
-        
+
       } else if (file.type.includes('word') || file.name.endsWith('.docx')) {
         // For Word docs, we'll also require manual entry for now
         textContent = "Word document parsing temporarily unavailable. Please convert to text format.";
         parsedData = { text: textContent, requiresManualEntry: true };
-        
+
       } else if (file.type === 'text/plain') {
         textContent = buffer.toString('utf-8');
         parsedData = { text: textContent };
@@ -88,7 +90,7 @@ export async function POST(request) {
           userId: user.id,
           applicationId: applicationId,
           originalFileName: file.name,
-          fileUrl: `/temp/${path.basename(tempFilePath)}`, // In production, upload to cloud storage
+          fileUrl: blob.url, // Use blob URL instead of local path
           fileSize: file.size,
           fileType: file.type,
           parsingStatus: 'completed',

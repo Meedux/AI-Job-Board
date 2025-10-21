@@ -570,6 +570,18 @@ model UserPreference {
   remoteWork          Boolean? @map("remote_work")
   jobCategories       String[] @map("job_categories")
   
+  // Resume Alert Preferences
+  resumeAlertFrequency String   @default("daily") @map("resume_alert_frequency") // "immediate", "daily", "weekly"
+  resumeKeywords      String[] @map("resume_keywords")
+  resumeSkills        String[] @map("resume_skills")
+  resumeExperienceLevel String? @map("resume_experience_level") // "entry", "junior", "mid", "senior", "executive"
+  resumeLocation      String?  @map("resume_location")
+  resumeSalaryMin     Int?     @map("resume_salary_min")
+  resumeSalaryMax     Int?     @map("resume_salary_max")
+  resumeEducation     String?  @map("resume_education")
+  resumeEmailAlerts   Boolean  @default(true) @map("resume_email_alerts")
+  resumePushAlerts    Boolean  @default(true) @map("resume_push_alerts")
+  
   // Privacy Preferences
   hideContactInfo     Boolean  @default(true) @map("hide_contact_info")
   hideEmail           Boolean  @default(true) @map("hide_email")

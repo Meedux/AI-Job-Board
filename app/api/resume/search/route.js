@@ -1,6 +1,9 @@
 import { NextResponse } from 'next/server';
 import { PrismaClient } from '@prisma/client';
 import { cookies } from 'next/headers';
+import { verifyToken } from '@/utils/auth';
+import { useCredit, checkUserUsageLimits, getUserCredits } from '@/utils/newSubscriptionService';
+import { USER_ROLES } from '@/utils/roleSystem';
 
 const prisma = new PrismaClient();
 
@@ -8,28 +11,25 @@ const prisma = new PrismaClient();
 export async function GET(request) {
   try {
     const cookieStore = cookies();
-    const token = cookieStore.get('auth-token');
-    
+    const token = cookieStore.get('auth-token')?.value;
+
     if (!token) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
 
-    // Get user from token
-    const user = await prisma.user.findFirst({
-      where: {
-        OR: [
-          { id: token.value },
-          { email: token.value }
-        ]
-      }
-    });
+    const decoded = verifyToken(token);
+    if (!decoded || !decoded.id) {
+      return NextResponse.json({ error: 'Invalid token' }, { status: 401 });
+    }
 
-    if (!user) {
+    // Load full user (include parentUser when applicable)
+    const currentUser = await prisma.user.findUnique({ where: { id: decoded.id }, include: { parentUser: true } });
+    if (!currentUser) {
       return NextResponse.json({ error: 'User not found' }, { status: 404 });
     }
 
-    // Check if user has permission to search resumes
-    if (!['employer_admin', 'sub_user'].includes(user.role)) {
+    // Check permission
+    if (!['employer_admin', 'sub_user'].includes(currentUser.role)) {
       return NextResponse.json({ error: 'Insufficient permissions' }, { status: 403 });
     }
 
@@ -50,40 +50,32 @@ export async function GET(request) {
     const skip = (page - 1) * pageSize;
 
     // Check credit requirements for search mode
-    const creditCosts = {
-      basic: 0,
-      advanced: 1,
-      ai: 2
-    };
-
+    const creditCosts = { basic: 0, advanced: 1, ai: 2 };
     const creditCost = creditCosts[searchMode] || 0;
 
-    // Check if user has enough credits for paid search modes
-    if (creditCost > 0) {
-      const mainUser = user.parentUserId ? 
-        await prisma.user.findUnique({ where: { id: user.parentUserId } }) : 
-        user;
+    // Determine credit owner (main account for sub-users)
+    const creditUser = currentUser.role === USER_ROLES.SUB_USER && currentUser.parentUser ? currentUser.parentUser : currentUser;
 
-      const availableCredits = mainUser.allocatedResumeCredits - mainUser.usedResumeCredits;
-      
-      if (availableCredits < creditCost) {
-        return NextResponse.json({ 
+    // If paid mode, try to use centralized credit service
+    let creditUsage = null;
+    if (creditCost > 0) {
+      const creditType = searchMode === 'ai' ? 'ai_credit' : 'resume_contact';
+      try {
+        creditUsage = await useCredit(creditUser.id, creditType, creditCost);
+      } catch (err) {
+        const usage = await checkUserUsageLimits(creditUser.id, 'resume_view').catch(() => null);
+        const purchased = await getUserCredits(creditUser.id).catch(() => ({}));
+        const purchasedBalance = (purchased && purchased.resume_contact && purchased.resume_contact.balance) || 0;
+        return NextResponse.json({
           error: `Insufficient credits. ${creditCost} credit${creditCost > 1 ? 's' : ''} required for ${searchMode} search.`,
           requiresCredits: true,
           neededCredits: creditCost,
-          availableCredits
+          available: {
+            subscriptionRemaining: usage && usage.hasLimit ? usage.remaining : 'unlimited',
+            purchasedBalance
+          }
         }, { status: 402 });
       }
-
-      // Deduct credits for advanced/AI search
-      await prisma.user.update({
-        where: { id: mainUser.id },
-        data: {
-          usedResumeCredits: {
-            increment: creditCost
-          }
-        }
-      });
     }
 
     // Build search filters
@@ -182,24 +174,22 @@ export async function GET(request) {
 
     // Check which contacts have already been revealed
     const candidateIds = candidates.map(c => c.id);
-    const revealedContacts = await prisma.resumeContactReveal.findMany({
-      where: {
-        revealedBy: user.id,
-        targetUserId: { in: candidateIds },
-        applicationId: null // Resume database reveals don't have applicationId
-      },
-      select: {
-        targetUserId: true
-      }
-    });
+    // Check for reveals by current user and also by the main account (for sub-users)
+    const revealOr = [
+      { revealedBy: currentUser.id, targetUserId: { in: candidateIds }, applicationId: null }
+    ];
+    if (creditUser?.id && creditUser.id !== currentUser.id) {
+      revealOr.push({ revealedBy: creditUser.id, targetUserId: { in: candidateIds }, applicationId: null });
+    }
 
+    const revealedContacts = candidateIds.length > 0 ? await prisma.resumeContactReveal.findMany({ where: { OR: revealOr }, select: { targetUserId: true } }) : [];
     const revealedContactIds = new Set(revealedContacts.map(r => r.targetUserId));
 
     // Format results with enhanced data for different search modes
     const formattedResults = candidates.map(candidate => {
       const isContactRevealed = revealedContactIds.has(candidate.id);
       
-      let result = {
+      const result = {
         id: candidate.id,
         fullName: candidate.showSensitiveInfo || isContactRevealed ? candidate.fullName : null,
         email: isContactRevealed ? candidate.email : null,
@@ -251,6 +241,10 @@ export async function GET(request) {
       formattedResults.sort((a, b) => (b.matchScore || 0) - (a.matchScore || 0));
     }
 
+    const usageSummary = await checkUserUsageLimits(creditUser.id, 'resume_view').catch(() => null);
+    const purchased = await getUserCredits(creditUser.id).catch(() => ({}));
+    const purchasedBalance = (purchased && purchased.resume_contact && purchased.resume_contact.balance) || 0;
+
     return NextResponse.json({
       success: true,
       results: formattedResults,
@@ -259,6 +253,13 @@ export async function GET(request) {
       pageSize,
       searchMode,
       creditCost,
+      creditInfo: {
+        isSubUser: !!currentUser.parentUserId,
+        parentUserId: currentUser.parentUserId || null,
+        remaining: usageSummary && usageSummary.hasLimit ? usageSummary.remaining : 'unlimited',
+        purchasedBalance
+      },
+      creditUsage: creditUsage || null,
       query: {
         term: query,
         location,

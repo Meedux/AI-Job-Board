@@ -27,6 +27,7 @@ export default function EmployerProfile() {
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [editing, setEditing] = useState(false);
+  const [uploadingLogo, setUploadingLogo] = useState(false);
   const [profile, setProfile] = useState({
     // Company Information
     companyName: '',
@@ -130,6 +131,62 @@ export default function EmployerProfile() {
     setProfile(prev => ({ ...prev, [field]: value }));
   };
 
+  // Logo upload handler
+  const handleLogoUpload = async (event) => {
+    const file = event.target.files[0];
+    if (!file) return;
+
+    // Validate file type (images only)
+    if (!file.type.startsWith('image/')) {
+      alert('Please upload an image file (JPG, PNG, GIF, SVG, etc.)');
+      return;
+    }
+
+    // Validate file size (5MB limit)
+    if (file.size > 5 * 1024 * 1024) {
+      alert('File size must be less than 5MB');
+      return;
+    }
+
+    setUploadingLogo(true);
+
+    try {
+      const formData = new FormData();
+      formData.append('logo', file);
+      formData.append('userId', user.id);
+
+      const response = await fetch('/api/upload/logo', {
+        method: 'POST',
+        headers: {
+          'Authorization': `Bearer ${user.token}`
+        },
+        body: formData
+      });
+
+      if (response.ok) {
+        const data = await response.json();
+
+        // Update profile with new logo URL
+        setProfile(prev => ({
+          ...prev,
+          logoUrl: data.logoUrl
+        }));
+
+        alert('Logo uploaded successfully!');
+      } else {
+        const error = await response.json();
+        alert(`Upload failed: ${error.error || 'Unknown error'}`);
+      }
+    } catch (error) {
+      console.error('Logo upload error:', error);
+      alert('Failed to upload logo. Please try again.');
+    } finally {
+      setUploadingLogo(false);
+      // Reset file input
+      event.target.value = '';
+    }
+  };
+
   if (loading) {
     return (
       <div className="min-h-screen bg-gray-900 flex items-center justify-center">
@@ -158,9 +215,26 @@ export default function EmployerProfile() {
                   )}
                 </div>
                 {editing && (
-                  <button className="absolute -bottom-2 -right-2 bg-blue-600 rounded-full p-2 hover:bg-blue-700">
-                    <Camera className="w-4 h-4 text-white" />
-                  </button>
+                  <div className="relative">
+                    <button
+                      onClick={() => document.getElementById('logo-upload').click()}
+                      disabled={uploadingLogo}
+                      className="absolute -bottom-2 -right-2 bg-blue-600 rounded-full p-2 hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed"
+                    >
+                      {uploadingLogo ? (
+                        <div className="animate-spin rounded-full h-4 w-4 border-2 border-white border-t-transparent"></div>
+                      ) : (
+                        <Camera className="w-4 h-4 text-white" />
+                      )}
+                    </button>
+                    <input
+                      id="logo-upload"
+                      type="file"
+                      accept="image/*"
+                      onChange={handleLogoUpload}
+                      className="hidden"
+                    />
+                  </div>
                 )}
               </div>
               <div>

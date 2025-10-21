@@ -55,6 +55,9 @@ export default function JobSeekerProfile() {
   const [skillInput, setSkillInput] = useState('');
   const [showSkillSuggestions, setShowSkillSuggestions] = useState(false);
   const [profileCompleteness, setProfileCompleteness] = useState(0);
+  const [uploadingResume, setUploadingResume] = useState(false);
+  const [uploadingAvatar, setUploadingAvatar] = useState(false);
+  const [resumeFile, setResumeFile] = useState(null);
   
   // Skill suggestions for better UX
   const skillSuggestions = [
@@ -309,6 +312,129 @@ export default function JobSeekerProfile() {
     }
   };
 
+  // Resume upload handlers
+  const handleResumeUpload = async (event) => {
+    const file = event.target.files[0];
+    if (!file) return;
+
+    // Validate file type
+    if (!file.type.includes('pdf') && !file.type.includes('doc') && !file.type.includes('docx')) {
+      alert('Please upload a PDF, DOC, or DOCX file');
+      return;
+    }
+
+    // Validate file size (5MB limit)
+    if (file.size > 5 * 1024 * 1024) {
+      alert('File size must be less than 5MB');
+      return;
+    }
+
+    setUploadingResume(true);
+    setResumeFile(file);
+
+    try {
+      const formData = new FormData();
+      formData.append('resume', file);
+      formData.append('userId', user.id);
+
+      const response = await fetch('/api/upload/resume', {
+        method: 'POST',
+        headers: {
+          'Authorization': `Bearer ${user.token}`
+        },
+        body: formData
+      });
+
+      if (response.ok) {
+        const data = await response.json();
+        
+        // Update profile with new resume URL
+        setProfile(prev => ({
+          ...prev,
+          resumeUrl: data.resumeUrl,
+          resumeFileName: file.name,
+          resumeUploadedAt: new Date()
+        }));
+
+        alert('Resume uploaded successfully!');
+      } else {
+        const error = await response.json();
+        alert(`Upload failed: ${error.error || 'Unknown error'}`);
+      }
+    } catch (error) {
+      console.error('Resume upload error:', error);
+      alert('Failed to upload resume. Please try again.');
+    } finally {
+      setUploadingResume(false);
+      setResumeFile(null);
+      // Reset file input
+      event.target.value = '';
+    }
+  };
+
+  // Avatar upload handlers
+  const handleAvatarUpload = async (event) => {
+    const file = event.target.files[0];
+    if (!file) return;
+
+    // Validate file type (images only)
+    if (!file.type.startsWith('image/')) {
+      alert('Please upload an image file (JPG, PNG, GIF, etc.)');
+      return;
+    }
+
+    // Validate file size (2MB limit)
+    if (file.size > 2 * 1024 * 1024) {
+      alert('File size must be less than 2MB');
+      return;
+    }
+
+    setUploadingAvatar(true);
+
+    try {
+      const formData = new FormData();
+      formData.append('avatar', file);
+      formData.append('userId', user.id);
+
+      const response = await fetch('/api/upload/avatar', {
+        method: 'POST',
+        headers: {
+          'Authorization': `Bearer ${user.token}`
+        },
+        body: formData
+      });
+
+      if (response.ok) {
+        const data = await response.json();
+
+        // Update profile with new avatar URL
+        setProfile(prev => ({
+          ...prev,
+          profilePicture: data.profilePictureUrl
+        }));
+
+        alert('Avatar uploaded successfully!');
+      } else {
+        const error = await response.json();
+        alert(`Upload failed: ${error.error || 'Unknown error'}`);
+      }
+    } catch (error) {
+      console.error('Avatar upload error:', error);
+      alert('Failed to upload avatar. Please try again.');
+    } finally {
+      setUploadingAvatar(false);
+      // Reset file input
+      event.target.value = '';
+    }
+  };
+
+  const handleCreateWithBuilder = () => {
+    // For now, redirect to a resume builder page or show a message
+    alert('Resume Builder feature coming soon! For now, please upload your existing resume.');
+    // TODO: Implement resume builder functionality
+    // router.push('/resume-builder');
+  };
+
   if (authLoading || loading) {
     return (
       <div className="min-h-screen bg-slate-900 flex items-center justify-center">
@@ -351,9 +477,26 @@ export default function JobSeekerProfile() {
                     )}
                   </div>
                   {editing && (
-                    <button className="absolute -bottom-2 -right-2 bg-indigo-600 rounded-full p-3 hover:bg-indigo-700 shadow-lg transition-all duration-200 hover:scale-110">
-                      <Camera className="w-5 h-5 text-white" />
-                    </button>
+                    <div className="relative">
+                      <button
+                        onClick={() => document.getElementById('avatar-upload').click()}
+                        disabled={uploadingAvatar}
+                        className="absolute -bottom-2 -right-2 bg-indigo-600 rounded-full p-3 hover:bg-indigo-700 shadow-lg transition-all duration-200 hover:scale-110 disabled:opacity-50 disabled:cursor-not-allowed"
+                      >
+                        {uploadingAvatar ? (
+                          <div className="animate-spin rounded-full h-5 w-5 border-2 border-white border-t-transparent"></div>
+                        ) : (
+                          <Camera className="w-5 h-5 text-white" />
+                        )}
+                      </button>
+                      <input
+                        id="avatar-upload"
+                        type="file"
+                        accept="image/*"
+                        onChange={handleAvatarUpload}
+                        className="hidden"
+                      />
+                    </div>
                   )}
                   {/* Online Status Indicator */}
                   {profile.showOnlineStatus && (
@@ -1098,12 +1241,31 @@ export default function JobSeekerProfile() {
                   )}
                   
                   <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                    <button className="p-4 bg-gradient-to-r from-indigo-600 to-purple-600 text-white rounded-xl hover:from-indigo-700 hover:to-purple-700 flex items-center justify-center gap-3 transition-all duration-200 shadow-lg hover:shadow-xl">
-                      <Upload className="w-5 h-5" />
-                      Upload New Resume
-                    </button>
+                    <label className="p-4 bg-gradient-to-r from-indigo-600 to-purple-600 text-white rounded-xl hover:from-indigo-700 hover:to-purple-700 flex items-center justify-center gap-3 transition-all duration-200 shadow-lg hover:shadow-xl cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed">
+                      {uploadingResume ? (
+                        <>
+                          <div className="animate-spin rounded-full h-5 w-5 border-2 border-white border-t-transparent"></div>
+                          Uploading...
+                        </>
+                      ) : (
+                        <>
+                          <Upload className="w-5 h-5" />
+                          Upload New Resume
+                        </>
+                      )}
+                      <input
+                        type="file"
+                        accept=".pdf,.doc,.docx"
+                        onChange={handleResumeUpload}
+                        className="hidden"
+                        disabled={uploadingResume}
+                      />
+                    </label>
                     
-                    <button className="p-4 bg-slate-700 text-white rounded-xl hover:bg-slate-600 flex items-center justify-center gap-3 transition-all duration-200 shadow-lg hover:shadow-xl">
+                    <button 
+                      onClick={handleCreateWithBuilder}
+                      className="p-4 bg-slate-700 text-white rounded-xl hover:bg-slate-600 flex items-center justify-center gap-3 transition-all duration-200 shadow-lg hover:shadow-xl"
+                    >
                       <FileText className="w-5 h-5" />
                       Create with Builder
                     </button>

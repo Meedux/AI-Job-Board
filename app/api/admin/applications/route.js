@@ -102,7 +102,13 @@ export async function GET(request) {
             select: {
               id: true,
               fullName: true,
-              email: true
+              email: true,
+              phone: true,
+              location: true,
+              profilePicture: true,
+              resumeUrl: true,
+              skills: true,
+              createdAt: true
             }
           }
         },

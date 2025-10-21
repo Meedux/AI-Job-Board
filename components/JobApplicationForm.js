@@ -1,6 +1,7 @@
 'use client';
 
 import { useState, useEffect } from 'react';
+import { useRef } from 'react';
 import { useForm, Controller } from 'react-hook-form';
 import { yupResolver } from '@hookform/resolvers/yup';
 import * as yup from 'yup';
@@ -164,7 +165,8 @@ const JobApplicationForm = ({ job, customForm = null, onSubmit, onCancel }) => {
     control,
     formState: { errors },
     setValue,
-    watch
+    watch,
+    reset
   } = useForm({
     resolver: yupResolver(validationSchema),
     defaultValues: {
@@ -180,6 +182,40 @@ const JobApplicationForm = ({ job, customForm = null, onSubmit, onCancel }) => {
       }, {})
     }
   });
+
+  // When the custom form changes (loaded async), reset react-hook-form with new default values
+  const _initializedCustomForm = useRef(false);
+
+  useEffect(() => {
+    // Only initialize/reset the form on the first time a custom form becomes available.
+    // This prevents accidental clearing of user input if the custom form object is updated
+    // while the candidate is entering their answers.
+    if (!customForm) return;
+    if (_initializedCustomForm.current) return;
+
+    try {
+      const fields = getFormFields();
+      const defaults = {
+        full_name: user?.fullName || '',
+        email: user?.email || ''
+      };
+
+      fields.forEach(field => {
+        if (field.type === FIELD_TYPES.CHECKBOX) {
+          defaults[field.id] = [];
+        } else {
+          defaults[field.id] = '';
+        }
+      });
+
+      // Reset the form with new defaults and clear uploaded files state
+      reset(defaults);
+      setUploadedFiles({});
+      _initializedCustomForm.current = true;
+    } catch (err) {
+      console.error('Error resetting form with custom fields:', err);
+    }
+  }, [customForm]);
 
   const handleFileUpload = (fieldId, files) => {
     if (files && files.length > 0) {

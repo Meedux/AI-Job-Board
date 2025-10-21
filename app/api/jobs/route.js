@@ -129,6 +129,7 @@ export async function GET(request) {
           from: job.salaryFrom,
           to: job.salaryTo,
           currency: job.salaryCurrency,
+          period: job.salaryPeriod,
           range: job.salaryFrom && job.salaryTo 
             ? `${job.salaryFrom} - ${job.salaryTo}` 
             : (job.salaryFrom || job.salaryTo || null)
@@ -221,8 +222,10 @@ export async function POST(request) {
 
     const jobData = await request.json();
 
-    // Validate required fields
-    const requiredFields = ['title', 'description', 'location', 'jobType', 'companyId'];
+    // For drafts, only title is required. For published jobs, more fields are required
+    const isDraft = jobData.status === 'draft';
+    const requiredFields = isDraft ? ['title'] : ['title', 'description', 'location', 'jobType', 'companyId'];
+    
     for (const field of requiredFields) {
       if (!jobData[field]) {
         return Response.json(
@@ -252,7 +255,7 @@ export async function POST(request) {
     const newJob = await db.jobs.create({
       ...jobData,
       postedById: user.id,
-      status: 'active'
+      status: jobData.status || 'active'
     });
 
     // Transform response to match expected format

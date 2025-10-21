@@ -5,6 +5,7 @@
   "type": "module",
   "scripts": {
     "dev": "next dev --turbopack",
+  "test:blob-upload": "node scripts/test-blob-upload.js",
     "build": "prisma generate && next build",
     "start": "next start",
     "lint": "next lint",
@@ -27,6 +28,7 @@
     "@tiptap/pm": "^3.0.7",
     "@tiptap/react": "^3.0.7",
     "@tiptap/starter-kit": "^3.0.7",
+    "@vercel/blob": "^2.0.0",
     "bcryptjs": "^3.0.2",
     "child_process": "^1.0.2",
     "docx-parser": "^0.2.1",

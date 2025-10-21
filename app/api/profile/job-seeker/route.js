@@ -4,6 +4,24 @@ import { NextResponse } from 'next/server';
 
 const prisma = new PrismaClient();
 
+// Helper function to calculate profile completeness
+function calculateProfileCompleteness(user) {
+  const fields = [
+    user?.fullName,
+    user?.email,
+    user?.phone,
+    user?.location,
+    user?.skills && user.skills.length > 0,
+    user?.resumeUrl
+  ];
+
+  const completedFields = fields.filter(field =>
+    typeof field === 'boolean' ? field : Boolean(field)
+  ).length;
+
+  return Math.round((completedFields / fields.length) * 100);
+}
+
 export async function GET(request) {
   try {
     const user = await getUserFromRequest(request);
@@ -44,38 +62,90 @@ export async function GET(request) {
       }
     });
 
-    // Get related data separately since the User model might not have all relations
-    let applications = [];
-    let resumeScans = [];
-    
-    try {
-      // Try to get applications if the table exists
-      applications = await prisma.jobApplication?.findMany({
-        where: { userId: user.id },
+    // Fetch application counts and recent applications using correct applicantId
+    // We limit the returned application list so the profile endpoint stays performant
+    const positiveResponseStatuses = ['shortlisted', 'interview_scheduled', 'interviewed', 'offered', 'hired', 'reviewed'];
+
+    const [
+      totalApplications,
+      applicationsByStatus,
+      recentApplications,
+      resumeRevealCount,
+      resumeScanCount,
+      parsedResumeAgg
+    ] = await Promise.all([
+      // total number of applications the user submitted
+      prisma.jobApplication.count({ where: { applicantId: user.id } }),
+
+      // grouped counts by status for quick breakdown
+      // groupBy returns an array of { status, _count: { status: n }}
+      prisma.jobApplication.groupBy({
+        by: ['status'],
+        where: { applicantId: user.id },
+        _count: { status: true }
+      }).catch(() => []),
+
+      // a short list of most recent applications for UI previews
+      prisma.jobApplication.findMany({
+        where: { applicantId: user.id },
         include: {
           job: {
             select: {
+              id: true,
               title: true,
-              status: true
+              company: {
+                select: { id: true, name: true }
+              }
             }
           }
         },
-        orderBy: {
-          createdAt: 'desc'
-        }
-      }) || [];
-    } catch (error) {
-      console.log('Applications table not found or accessible');
-    }
+        orderBy: { appliedAt: 'desc' },
+        take: 5
+      }).catch(() => []),
 
-    // Calculate statistics using the separate applications array
-    const totalApplications = applications?.length || 0;
-    const interviewsScheduled = applications?.filter(
-      app => app.status === 'interview_scheduled'
-    ).length || 0;
+      // number of resume contact reveals targeted at this user (employers who revealed contact)
+      prisma.resumeContactReveal.count({ where: { targetUserId: user.id } }).catch(() => 0),
 
-    // Get profile views (you might want to create a separate ProfileView model)
-    const profileViews = Math.floor(Math.random() * 50) + 10; // Placeholder
+      // number of resume scans performed against this user's parsed resumes
+      prisma.resumeScanResult.count({ where: { resume: { userId: user.id } } }).catch(() => 0),
+
+      // average resume quality if parsed resumes exist
+      prisma.parsedResume.aggregate({ _avg: { resumeQualityScore: true }, where: { userId: user.id } }).catch(() => ({ _avg: { resumeQualityScore: null } }))
+    ]);
+
+    // Map grouped status counts into an object for easy consumption by the UI
+    const applicationsStatusCounts = (applicationsByStatus || []).reduce((acc, item) => {
+      acc[item.status] = item._count?.status || 0;
+      return acc;
+    }, {});
+
+    const interviewsScheduled = applicationsStatusCounts['interview_scheduled'] || 0;
+
+    // Calculate profile completeness using actual profile fields
+    const profileCompleteness = calculateProfileCompleteness(jobSeekerProfile);
+
+    // Aggregate profile views from contact reveals + resume scan activity
+    const profileViews = (resumeRevealCount || 0) + (resumeScanCount || 0);
+
+    // Calculate response rate based on meaningful status transitions (non-pending states)
+    const respondedCount = Object.keys(applicationsStatusCounts).reduce((acc, status) => {
+      return positiveResponseStatuses.includes(status) ? (acc + (applicationsStatusCounts[status] || 0)) : acc;
+    }, 0);
+
+    const responseRate = totalApplications > 0 ? Math.min(100, Math.round((respondedCount / totalApplications) * 100)) : 0;
+
+    // Include resume quality metric (0-100) as a factor in profile strength
+    const avgResumeQuality = parsedResumeAgg?._avg?.resumeQualityScore || 0;
+
+    // Profile strength is derived from completeness, response behavior, and resume quality
+    const strengthScore = Math.round((profileCompleteness * 0.6) + (responseRate * 0.25) + (avgResumeQuality * 0.15));
+    let profileStrength = 'Poor';
+    if (strengthScore >= 85) profileStrength = 'Excellent';
+    else if (strengthScore >= 70) profileStrength = 'Good';
+    else if (strengthScore >= 50) profileStrength = 'Fair';
+
+    // Get member since date
+    const memberSince = jobSeekerProfile?.createdAt;
 
     // Prepare response data using the User model fields
     const profileData = {
@@ -106,17 +176,28 @@ export async function GET(request) {
       profileViews,
       applicationsSent: totalApplications,
       interviewsScheduled,
+      responseRate,
+      profileStrength,
       
       // Related data
-      applications: applications,
-      resumeScans: resumeScans,
-      
-      // Recent activity
-      recentApplications: applications?.slice(0, 5)?.map(app => ({
+      applications: recentApplications || [],
+      resumeScans: resumeScanCount || 0,
+
+      // Recent activity (sanitized)
+      recentApplications: (recentApplications || []).map(app => ({
+        id: app.id,
+        jobId: app.job?.id || null,
         jobTitle: app.job?.title || 'Unknown',
+        company: app.job?.company?.name || null,
         status: app.status,
-        appliedAt: app.createdAt
-      })) || []
+        appliedAt: app.appliedAt
+      })),
+
+      // Profile completeness
+      profileCompleteness: profileCompleteness,
+      applicationsStatusCounts,
+      resumeRevealCount,
+      avgResumeQuality
     };
 
     return NextResponse.json(profileData);

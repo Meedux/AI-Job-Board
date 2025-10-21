@@ -5,6 +5,7 @@ import jwt from 'jsonwebtoken';
 import { createNotification } from '@/utils/notificationService';
 import emailItService from '@/utils/emailItService';
 import { uploadFile } from '@/utils/fileUpload';
+import path from 'path';
 
 const prisma = new PrismaClient();
 // Using EmailIt service for notifications
@@ -85,30 +86,38 @@ export async function POST(request) {
       if (key.startsWith('file_')) {
         // Handle file uploads
         const fieldName = key.replace('file_', '');
-        if (value instanceof File && value.size > 0) {
+        // Detect file-like object (works in Node and browsers)
+        if (value && typeof value.arrayBuffer === 'function' && value.size > 0) {
           try {
-            // Convert File to Buffer
-            const arrayBuffer = await value.arrayBuffer();
-            const buffer = Buffer.from(arrayBuffer);
-            
-            // Upload file using the utility
-            const uploadResult = await uploadFile(buffer, value.name, 'resume');
-            
-            // Store file metadata
-            fileData[fieldName] = {
-              filename: value.name,
-              size: value.size,
-              type: value.type,
-              url: uploadResult.url,
-              path: uploadResult.path
-            };
-            
-            // For resume field, store the URL
-            if (fieldName === 'resume') {
-              resumeUrl = uploadResult.url;
+            // Determine type from extension or field name
+            const filename = value.name || `file_${Date.now()}`;
+            const ext = (path.extname(filename) || '').toLowerCase();
+            let uploadType = 'resume';
+            if (['.zip', '.rar'].includes(ext) || fieldName.toLowerCase().includes('portfolio')) uploadType = 'portfolio';
+            if (['.jpg', '.jpeg', '.png', '.gif', '.webp', '.svg'].includes(ext) || fieldName.toLowerCase().includes('avatar') || fieldName.toLowerCase().includes('photo')) uploadType = 'avatar';
+            if (['.pdf', '.doc', '.docx'].includes(ext)) uploadType = 'resume';
+
+            // Upload file using the utility (pass file-like object)
+            const uploadResult = await uploadFile(value, uploadType);
+
+            if (uploadResult && uploadResult.success) {
+              // Store file metadata
+              fileData[fieldName] = {
+                filename: filename,
+                size: value.size,
+                type: value.type || null,
+                url: uploadResult.url || uploadResult.blobUrl || null
+              };
+
+              // For resume field, store the URL
+              if (fieldName === 'resume') {
+                resumeUrl = uploadResult.url || uploadResult.blobUrl || null;
+              }
+            } else {
+              console.warn(`Upload failed for ${filename}:`, uploadResult?.error || 'Unknown');
             }
           } catch (uploadError) {
-            console.error(`Error uploading file ${value.name}:`, uploadError);
+            console.error(`Error uploading file ${value.name || 'unknown'}:`, uploadError);
             // Continue with other files even if one fails
           }
         }
