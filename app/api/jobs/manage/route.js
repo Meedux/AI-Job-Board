@@ -1,26 +1,39 @@
 import { NextResponse } from 'next/server';
 import { PrismaClient } from '@prisma/client';
 import { cookies } from 'next/headers';
+import jwt from 'jsonwebtoken';
 
 const prisma = new PrismaClient();
 
 // GET - Fetch jobs for the current user
 export async function GET(request) {
   try {
-    const cookieStore = cookies();
-    const token = cookieStore.get('auth-token');
-    
+    const cookieStore = await cookies();
+    const token = cookieStore.get('auth-token')?.value;
+
     if (!token) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
 
-    // Get user from token
+    // Decode JWT token
+    let decoded;
+    try {
+      decoded = jwt.verify(token, process.env.JWT_SECRET);
+    } catch (err) {
+      console.error('Invalid token in /api/jobs/manage GET:', err.message);
+      return NextResponse.json({ error: 'Invalid token' }, { status: 401 });
+    }
+
+    // Get user from decoded token (prefer id, then uid or email)
+    const userId = decoded.id || decoded.uid || null;
+    const userEmail = decoded.email || null;
+
     const user = await prisma.user.findFirst({
       where: {
         OR: [
-          { id: token.value },
-          { email: token.value }
-        ]
+          userId ? { id: userId } : undefined,
+          userEmail ? { email: userEmail } : undefined
+        ].filter(Boolean)
       }
     });
 
@@ -81,6 +94,8 @@ export async function GET(request) {
       id: job.id,
       title: job.title,
       slug: job.slug,
+      companyId: job.company?.id || null,
+      company: job.company || null,
       companyName: job.company?.name || job.postedBy?.companyName || 'No Company',
       location: job.location,
       jobType: job.jobType,
@@ -123,20 +138,31 @@ export async function GET(request) {
 // POST - Create a new job (duplicate functionality)
 export async function POST(request) {
   try {
-    const cookieStore = cookies();
-    const token = cookieStore.get('auth-token');
-    
+    const cookieStore = await cookies();
+    const token = cookieStore.get('auth-token')?.value;
+
     if (!token) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
 
-    // Get user from token
+    // Decode JWT token
+    let decoded;
+    try {
+      decoded = jwt.verify(token, process.env.JWT_SECRET);
+    } catch (err) {
+      console.error('Invalid token in /api/jobs/manage POST:', err.message);
+      return NextResponse.json({ error: 'Invalid token' }, { status: 401 });
+    }
+
+    const userId = decoded.id || decoded.uid || null;
+    const userEmail = decoded.email || null;
+
     const user = await prisma.user.findFirst({
       where: {
         OR: [
-          { id: token.value },
-          { email: token.value }
-        ]
+          userId ? { id: userId } : undefined,
+          userEmail ? { email: userEmail } : undefined
+        ].filter(Boolean)
       }
     });
 

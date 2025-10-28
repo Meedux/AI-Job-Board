@@ -1,7 +1,19 @@
 'use client';
 
 import { useState, useEffect } from 'react';
+import { useAuth } from '@/contexts/AuthContext';
 import JobPostingForm from './JobPostingForm';
+import {
+  MoreHorizontal,
+  Edit3,
+  Copy,
+  ExternalLink,
+  Trash2,
+  Plus,
+  Search,
+  Filter,
+  Building2
+} from 'lucide-react';
 
 export default function JobManagement() {
   const { user } = useAuth();
@@ -43,17 +55,27 @@ export default function JobManagement() {
     try {
       setLoading(true);
       
-      // Create a new job based on the existing one
+      // Create a clean payload for duplication using server-side field names
       const duplicatedJobData = {
-        ...job,
         title: `${job.title} (Copy)`,
-        id: undefined, // Remove ID to create new
-        createdAt: undefined,
-        updatedAt: undefined,
-        applicationsCount: 0,
-        viewsCount: 0,
-        status: 'draft', // Start as draft
-        slug: undefined // Will be auto-generated
+        description: job.description || job.full_description || '',
+        requirements: job.requirements || '',
+        benefits: job.benefits || '',
+        location: job.location || '',
+        jobType: job.jobType || job.type || 'full-time',
+        // map workMode/remote to remoteType if present
+        remoteType: job.workMode === 'remote' ? 'full' : (job.workMode === 'hybrid' ? 'hybrid' : (job.remote_type || 'no')),
+        experienceLevel: job.experienceLevel || job.level || 'mid',
+        salaryFrom: job.salaryMin || job.salary?.from || null,
+        salaryTo: job.salaryMax || job.salary?.to || null,
+        salaryCurrency: job.salaryCurrency || job.salary?.currency || 'PHP',
+        applicationDeadline: job.applicationDeadline || job.expiresAt || null,
+        status: 'draft',
+        slug: undefined,
+        // include company info if available
+        companyId: job.companyId || job.company?.id || job.company_id || null,
+        // categories: send category ids if available (job.categories assumed to be array of category objects or ids)
+        categories: job.categories && Array.isArray(job.categories) ? job.categories.map(c => (c.id || c.categoryId || c.category?.id || c)) : undefined
       };
 
       const response = await fetch('/api/jobs', {
@@ -143,12 +165,12 @@ export default function JobManagement() {
 
   const getStatusColor = (status) => {
     switch (status) {
-      case 'active': return 'bg-green-100 text-green-800';
-      case 'draft': return 'bg-gray-100 text-gray-800';
-      case 'paused': return 'bg-yellow-100 text-yellow-800';
-      case 'closed': return 'bg-red-100 text-red-800';
-      case 'expired': return 'bg-orange-100 text-orange-800';
-      default: return 'bg-gray-100 text-gray-800';
+      case 'active': return 'bg-green-800 text-green-100';
+      case 'draft': return 'bg-neutral-700 text-gray-100';
+      case 'paused': return 'bg-yellow-800 text-yellow-100';
+      case 'closed': return 'bg-red-800 text-red-100';
+      case 'expired': return 'bg-orange-800 text-orange-100';
+      default: return 'bg-neutral-700 text-gray-100';
     }
   };
 
@@ -156,12 +178,12 @@ export default function JobManagement() {
     const [showActions, setShowActions] = useState(false);
 
     return (
-      <div className="bg-white border border-gray-200 rounded-lg p-6 hover:shadow-md transition-shadow">
+      <div className="bg-neutral-800 border border-neutral-700 rounded-lg p-6 hover:shadow-md transition-shadow">
         <div className="flex items-start justify-between mb-4">
           <div className="flex-1">
-            <h3 className="text-lg font-semibold text-gray-900 mb-1">{job.title}</h3>
-            <p className="text-gray-600 text-sm">{job.companyName || 'No company'}</p>
-            <div className="flex items-center gap-4 mt-2 text-sm text-gray-500">
+            <h3 className="text-lg font-semibold text-white mb-1">{job.title}</h3>
+            <p className="text-gray-300 text-sm">{job.companyName || 'No company'}</p>
+            <div className="flex items-center gap-4 mt-2 text-sm text-gray-400">
               <span>{job.location}</span>
               <span>{job.jobType}</span>
               <span>{job.workMode}</span>
@@ -176,54 +198,54 @@ export default function JobManagement() {
             <div className="relative">
               <button
                 onClick={() => setShowActions(!showActions)}
-                className="p-2 hover:bg-gray-100 rounded-lg transition-colors"
+                className="p-2 hover:bg-neutral-700 rounded-lg transition-colors"
               >
-                <MoreHorizontal className="w-4 h-4" />
+                <MoreHorizontal className="w-4 h-4 text-gray-300" />
               </button>
               
               {showActions && (
-                <div className="absolute right-0 top-full mt-1 w-48 bg-white border border-gray-200 rounded-lg shadow-lg z-10">
-                  <button
-                    onClick={() => {
-                      handleEditJob(job);
-                      setShowActions(false);
-                    }}
-                    className="w-full px-4 py-2 text-left text-sm hover:bg-gray-50 flex items-center gap-2"
-                  >
-                    <Edit3 className="w-4 h-4" />
-                    Edit Job
-                  </button>
+                <div className="absolute right-0 top-full mt-1 w-48 bg-neutral-800 border border-neutral-700 rounded-lg shadow-lg z-10">
+                    <button
+                      onClick={() => {
+                        handleEditJob(job);
+                        setShowActions(false);
+                      }}
+                      className="w-full px-4 py-2 text-left text-sm hover:bg-neutral-700 flex items-center gap-2 text-gray-100"
+                    >
+                      <Edit3 className="w-4 h-4 text-gray-100" />
+                      Edit Job
+                    </button>
                   
-                  <button
-                    onClick={() => {
-                      handleDuplicateJob(job);
-                      setShowActions(false);
-                    }}
-                    className="w-full px-4 py-2 text-left text-sm hover:bg-gray-50 flex items-center gap-2"
-                  >
-                    <Copy className="w-4 h-4" />
-                    Duplicate Job
-                  </button>
+                    <button
+                      onClick={() => {
+                        handleDuplicateJob(job);
+                        setShowActions(false);
+                      }}
+                      className="w-full px-4 py-2 text-left text-sm hover:bg-neutral-700 flex items-center gap-2 text-gray-100"
+                    >
+                      <Copy className="w-4 h-4 text-gray-100" />
+                      Duplicate Job
+                    </button>
                   
-                  <a
-                    href={`/jobs/${job.slug || job.id}`}
-                    target="_blank"
-                    rel="noopener noreferrer"
-                    className="w-full px-4 py-2 text-left text-sm hover:bg-gray-50 flex items-center gap-2"
-                    onClick={() => setShowActions(false)}
-                  >
-                    <ExternalLink className="w-4 h-4" />
-                    View Job Page
-                  </a>
+                    <a
+                      href={`/jobs/${job.slug || job.id}`}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="w-full px-4 py-2 text-left text-sm hover:bg-neutral-700 flex items-center gap-2 text-gray-100"
+                      onClick={() => setShowActions(false)}
+                    >
+                      <ExternalLink className="w-4 h-4 text-gray-100" />
+                      View Job Page
+                    </a>
                   
-                  <div className="border-t border-gray-100">
+                    <div className="border-t border-neutral-700">
                     <select
                       value={job.status}
                       onChange={(e) => {
                         handleStatusChange(job.id, e.target.value);
                         setShowActions(false);
                       }}
-                      className="w-full px-4 py-2 text-sm bg-transparent border-none focus:outline-none"
+                      className="w-full px-4 py-2 text-sm bg-transparent border-none focus:outline-none text-gray-100"
                     >
                       <option value="draft">Draft</option>
                       <option value="active">Active</option>
@@ -232,15 +254,15 @@ export default function JobManagement() {
                     </select>
                   </div>
                   
-                  <div className="border-t border-gray-100">
+                    <div className="border-t border-neutral-700">
                     <button
                       onClick={() => {
                         handleDeleteJob(job.id);
                         setShowActions(false);
                       }}
-                      className="w-full px-4 py-2 text-left text-sm text-red-600 hover:bg-red-50 flex items-center gap-2"
+                      className="w-full px-4 py-2 text-left text-sm text-red-400 hover:bg-neutral-700 flex items-center gap-2"
                     >
-                      <Trash2 className="w-4 h-4" />
+                      <Trash2 className="w-4 h-4 text-red-400" />
                       Delete Job
                     </button>
                   </div>
@@ -250,9 +272,9 @@ export default function JobManagement() {
           </div>
         </div>
 
-        <div className="grid grid-cols-3 gap-4 text-sm text-gray-600 mb-4">
+  <div className="grid grid-cols-3 gap-4 text-sm text-gray-400 mb-4">
           <div>
-            <span className="font-medium">Applications:</span> {job.applicationsCount || 0}
+            <span className="font-medium text-gray-200">Applications:</span> {job.applicationsCount || 0}
           </div>
           <div>
             <span className="font-medium">Views:</span> {job.viewsCount || 0}
@@ -263,7 +285,7 @@ export default function JobManagement() {
         </div>
 
         {job.description && (
-          <p className="text-gray-700 text-sm line-clamp-2 mb-4">
+            <p className="text-gray-300 text-sm line-clamp-2 mb-4">
             {job.description.replace(/<[^>]*>/g, '').substring(0, 100)}...
           </p>
         )}
@@ -275,16 +297,16 @@ export default function JobManagement() {
             )}
           </div>
           
-          <div className="flex items-center gap-2">
+            <div className="flex items-center gap-2">
             <button
               onClick={() => handleEditJob(job)}
-              className="px-3 py-1 text-sm bg-blue-100 text-blue-700 rounded-lg hover:bg-blue-200 transition-colors"
+              className="px-3 py-1 text-sm bg-blue-700 text-white rounded-lg hover:bg-blue-600 transition-colors"
             >
               Quick Edit
             </button>
             <button
               onClick={() => handleDuplicateJob(job)}
-              className="px-3 py-1 text-sm bg-gray-100 text-gray-700 rounded-lg hover:bg-gray-200 transition-colors"
+              className="px-3 py-1 text-sm bg-neutral-700 text-white rounded-lg hover:bg-neutral-600 transition-colors"
             >
               Duplicate
             </button>
@@ -298,9 +320,9 @@ export default function JobManagement() {
     // Import and render job posting form
     return (
       <div className="fixed inset-0 bg-black bg-opacity-50 z-50 flex items-center justify-center p-4">
-        <div className="bg-white rounded-lg w-full max-w-4xl max-h-screen overflow-y-auto">
+        <div className="bg-neutral-800 rounded-lg w-full max-w-4xl max-h-screen overflow-y-auto text-white">
           <div className="p-6">
-            <h2 className="text-xl font-semibold mb-4">
+            <h2 className="text-xl font-semibold mb-4 text-white">
               {editingJob ? 'Edit Job' : 'Create New Job'}
             </h2>
             <JobPostingForm
@@ -349,8 +371,8 @@ export default function JobManagement() {
     <div className="max-w-7xl mx-auto p-6">
       <div className="flex items-center justify-between mb-6">
         <div>
-          <h1 className="text-2xl font-bold text-gray-900">Manage Jobs</h1>
-          <p className="text-gray-600">Create, edit, and manage your job postings</p>
+          <h1 className="text-2xl font-bold text-white">Manage Jobs</h1>
+          <p className="text-gray-300">Create, edit, and manage your job postings</p>
         </div>
         
         <button
@@ -363,7 +385,7 @@ export default function JobManagement() {
       </div>
 
       {/* Search and Filter Bar */}
-      <div className="bg-white border border-gray-200 rounded-lg p-4 mb-6">
+      <div className="bg-neutral-800 border border-neutral-700 rounded-lg p-4 mb-6">
         <div className="flex items-center gap-4">
           <div className="flex-1 relative">
             <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 w-4 h-4 text-gray-400" />
@@ -372,7 +394,7 @@ export default function JobManagement() {
               placeholder="Search jobs by title or company..."
               value={searchTerm}
               onChange={(e) => setSearchTerm(e.target.value)}
-              className="w-full pl-10 pr-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+              className="w-full pl-10 pr-4 py-2 border border-neutral-700 rounded-lg bg-neutral-900 text-white focus:ring-2 focus:ring-blue-500 focus:border-transparent"
             />
           </div>
           
@@ -381,7 +403,7 @@ export default function JobManagement() {
             <select
               value={filterStatus}
               onChange={(e) => setFilterStatus(e.target.value)}
-              className="px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+              className="px-3 py-2 border border-neutral-700 rounded-lg bg-neutral-900 text-white focus:ring-2 focus:ring-blue-500 focus:border-transparent"
             >
               <option value="all">All Status</option>
               <option value="active">Active</option>
@@ -396,16 +418,16 @@ export default function JobManagement() {
 
       {/* Error State */}
       {error && (
-        <div className="bg-red-50 border border-red-200 rounded-lg p-4 mb-6">
-          <p className="text-red-700">{error}</p>
+        <div className="bg-red-900 border border-red-700 rounded-lg p-4 mb-6">
+          <p className="text-red-200">{error}</p>
         </div>
       )}
 
       {/* Loading State */}
       {loading && (
         <div className="text-center py-12">
-          <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600 mx-auto"></div>
-          <p className="text-gray-600 mt-2">Loading jobs...</p>
+          <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-400 mx-auto"></div>
+          <p className="text-gray-300 mt-2">Loading jobs...</p>
         </div>
       )}
 
@@ -420,14 +442,14 @@ export default function JobManagement() {
 
       {/* Empty State */}
       {!loading && filteredJobs.length === 0 && (
-        <div className="text-center py-12">
-          <div className="w-16 h-16 bg-gray-100 rounded-full flex items-center justify-center mx-auto mb-4">
-            <Building2 className="w-8 h-8 text-gray-400" />
+        <div className="text-center py-12 text-white">
+          <div className="w-16 h-16 bg-neutral-700 rounded-full flex items-center justify-center mx-auto mb-4">
+            <Building2 className="w-8 h-8 text-gray-300" />
           </div>
-          <h3 className="text-lg font-medium text-gray-900 mb-2">
+          <h3 className="text-lg font-medium text-white mb-2">
             {searchTerm || filterStatus !== 'all' ? 'No jobs found' : 'No jobs posted yet'}
           </h3>
-          <p className="text-gray-600 mb-4">
+          <p className="text-gray-300 mb-4">
             {searchTerm || filterStatus !== 'all' 
               ? 'Try adjusting your search or filter criteria'
               : 'Get started by creating your first job posting'

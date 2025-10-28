@@ -55,19 +55,7 @@ const JobPostingForm = ({ onSubmit, onCancel, initialData = null, isEditing = fa
   const [lastSaved, setLastSaved] = useState(null);
   const [autoSaveStatus, setAutoSaveStatus] = useState('');
 
-  // Auto-save functionality
-  useEffect(() => {
-    if (isEditing) return; // Don't auto-save when editing existing jobs
-
-    const autoSaveInterval = setInterval(() => {
-      const formData = getValues();
-      if (formData.title || formData.description) { // Only save if there's some content
-        saveDraft(formData);
-      }
-    }, 30000); // Auto-save every 30 seconds
-
-    return () => clearInterval(autoSaveInterval);
-  }, [isEditing, getValues]);
+  // Auto-save functionality (initialized after form hooks below)
 
   const saveDraft = async (formData) => {
     try {
@@ -151,6 +139,25 @@ const JobPostingForm = ({ onSubmit, onCancel, initialData = null, isEditing = fa
       category: initialData?.category || '',
     }
   });
+
+  // Auto-save functionality (moved here so `getValues` is available)
+  useEffect(() => {
+    if (isEditing) return; // Don't auto-save when editing existing jobs
+
+    const autoSaveInterval = setInterval(() => {
+      try {
+        const formData = getValues();
+        if (formData && (formData.title || formData.description)) { // Only save if there's some content
+          saveDraft(formData);
+        }
+      } catch (err) {
+        // Guard: if getValues isn't ready for some reason, skip this interval run
+        console.debug('Auto-save skipped, getValues not ready yet', err);
+      }
+    }, 30000); // Auto-save every 30 seconds
+
+    return () => clearInterval(autoSaveInterval);
+  }, [isEditing, getValues]);
 
   const skillsRequired = watch('skillsRequired');
 
@@ -482,6 +489,7 @@ const JobPostingForm = ({ onSubmit, onCancel, initialData = null, isEditing = fa
                 content={field.value}
                 onChange={field.onChange}
                 placeholder="Describe the role, responsibilities, and what makes this position exciting..."
+                showMediaButtons={false}
               />
             )}
           />
@@ -503,6 +511,7 @@ const JobPostingForm = ({ onSubmit, onCancel, initialData = null, isEditing = fa
                 content={field.value}
                 onChange={field.onChange}
                 placeholder="List the required qualifications, experience, and skills..."
+                showMediaButtons={false}
               />
             )}
           />
@@ -524,6 +533,7 @@ const JobPostingForm = ({ onSubmit, onCancel, initialData = null, isEditing = fa
                 content={field.value}
                 onChange={field.onChange}
                 placeholder="Describe the benefits, perks, and company culture..."
+                showMediaButtons={false}
               />
             )}
           />

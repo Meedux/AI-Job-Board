@@ -1,9 +1,13 @@
 'use client';
 
 import { useEditor, EditorContent } from '@tiptap/react';
+import { useEffect } from 'react';
 import StarterKit from '@tiptap/starter-kit';
 import Link from '@tiptap/extension-link';
 import Image from '@tiptap/extension-image';
+import BulletList from '@tiptap/extension-bullet-list';
+import OrderedList from '@tiptap/extension-ordered-list';
+import ListItem from '@tiptap/extension-list-item';
 import { 
   Bold, 
   Italic, 
@@ -19,10 +23,13 @@ import {
   Heading3
 } from 'lucide-react';
 
-const RichTextEditor = ({ content, onChange, placeholder = "Start typing..." }) => {
+const RichTextEditor = ({ content, onChange, placeholder = "Start typing...", showMediaButtons = true }) => {
   const editor = useEditor({
     extensions: [
       StarterKit,
+      BulletList,
+      OrderedList,
+      ListItem,
       Link.configure({
         openOnClick: false,
         HTMLAttributes: {
@@ -38,7 +45,13 @@ const RichTextEditor = ({ content, onChange, placeholder = "Start typing..." }) 
     content: content,
     immediatelyRender: false,
     onUpdate: ({ editor }) => {
-      onChange(editor.getHTML());
+      if (typeof onChange === 'function') {
+        try {
+          onChange(editor.getHTML());
+        } catch (err) {
+          console.debug('RichTextEditor onUpdate onChange handler threw:', err);
+        }
+      }
     },
     editorProps: {
       attributes: {
@@ -47,6 +60,23 @@ const RichTextEditor = ({ content, onChange, placeholder = "Start typing..." }) 
       },
     },
   });
+  // If the parent updates the `content` prop (e.g., loaded from API), make sure
+  // the editor reflects that content (preserve lists, headings, etc.). Use a
+  // React effect to avoid mutating editor during render.
+  useEffect(() => {
+    if (!editor) return;
+    if (content === undefined || content === null) return;
+
+    const current = editor.getHTML();
+    if (content !== current) {
+      try {
+        // setContent may reset selection; only call when content changed
+        editor.commands.setContent(content);
+      } catch (err) {
+        console.debug('Failed to set editor content directly:', err);
+      }
+    }
+  }, [editor, content]);
 
   if (!editor) {
     return (
@@ -202,28 +232,30 @@ const RichTextEditor = ({ content, onChange, placeholder = "Start typing..." }) 
 
         <div className="w-px h-8 bg-gray-600 mx-1" />
 
-        {/* Media */}
-        <div className="flex gap-1">
-          <button
-            type="button"
-            onClick={addLink}
-            className={`p-2 rounded hover:bg-gray-700 transition-colors ${
-              editor.isActive('link') ? 'bg-blue-600 text-white' : 'text-gray-300'
-            }`}
-            title="Add/Edit Link"
-          >
-            <LinkIcon size={16} />
-          </button>
+        {/* Media (link/image) - can be hidden by passing showMediaButtons=false */}
+        {showMediaButtons && (
+          <div className="flex gap-1">
+            <button
+              type="button"
+              onClick={addLink}
+              className={`p-2 rounded hover:bg-gray-700 transition-colors ${
+                editor.isActive('link') ? 'bg-blue-600 text-white' : 'text-gray-300'
+              }`}
+              title="Add/Edit Link"
+            >
+              <LinkIcon size={16} />
+            </button>
 
-          <button
-            type="button"
-            onClick={insertImage}
-            className="p-2 rounded hover:bg-gray-700 transition-colors text-gray-300"
-            title="Insert Image"
-          >
-            <ImageIcon size={16} />
-          </button>
-        </div>
+            <button
+              type="button"
+              onClick={insertImage}
+              className="p-2 rounded hover:bg-gray-700 transition-colors text-gray-300"
+              title="Insert Image"
+            >
+              <ImageIcon size={16} />
+            </button>
+          </div>
+        )}
 
         <div className="w-px h-8 bg-gray-600 mx-1" />
 
@@ -262,11 +294,17 @@ const RichTextEditor = ({ content, onChange, placeholder = "Start typing..." }) 
           className="rich-text-editor"
         />
         
-        {/* Placeholder when empty */}
-        {editor.isEmpty && (
+        {/* Placeholder when empty (call isEmpty as a function) */}
+        {typeof editor.isEmpty === 'function' ? editor.isEmpty() && (
           <div className="absolute top-4 left-4 text-gray-500 pointer-events-none">
             {placeholder}
           </div>
+        ) : ( // fallback if API differs
+          !editor.getText().trim() && (
+            <div className="absolute top-4 left-4 text-gray-500 pointer-events-none">
+              {placeholder}
+            </div>
+          )
         )}
       </div>
 

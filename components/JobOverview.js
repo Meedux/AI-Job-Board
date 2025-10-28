@@ -153,12 +153,18 @@ const JobOverview = ({ job, showApplicationForm = false, onApply }) => {
                 Job Description
               </h2>
               <div className="prose prose-invert max-w-none">
-                <div 
-                  className={`text-gray-300 leading-relaxed ${!showFullDescription ? 'line-clamp-6' : ''}`}
-                  dangerouslySetInnerHTML={{ 
-                    __html: job.jobDescription?.replace(/\n/g, '<br />') || 'No description provided'
-                  }}
-                />
+                  <div 
+                    className={`google-docs-content text-gray-300 leading-relaxed ${!showFullDescription ? 'line-clamp-6' : ''}`}
+                    dangerouslySetInnerHTML={{ 
+                      __html: (() => {
+                        const raw = job.jobDescription || job.description || '';
+                        // If the content already contains HTML tags, render as-is.
+                        if (/<[a-z][\s\S]*>/i.test(raw)) return raw;
+                        // Otherwise convert newlines to <br /> for simple line breaks
+                        return raw.replace(/\n/g, '<br />') || 'No description provided';
+                      })()
+                    }}
+                  />
                 {job.jobDescription && job.jobDescription.length > 300 && (
                   <button
                     onClick={() => setShowFullDescription(!showFullDescription)}

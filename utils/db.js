@@ -192,19 +192,34 @@ export const db = {
 
     // Create new job
     async create(data) {
-      const { categories, ...jobData } = data;
-      
+      const { categories, companyId, companyName, company, postedById, ...jobData } = data;
+
+      // Build company relation handling: prefer explicit companyId, then company object, then companyName (connectOrCreate)
+      const companyRelation = companyId
+        ? { connect: { id: companyId } }
+        : company?.id
+          ? { connect: { id: company.id } }
+          : companyName
+            ? { connectOrCreate: { where: { name: companyName }, create: { name: companyName } } }
+            : undefined;
+
+      const postedByRelation = postedById ? { postedBy: { connect: { id: postedById } } } : undefined;
+
+      const createData = {
+        ...jobData,
+        ...(companyRelation && { company: companyRelation }),
+        ...(postedByRelation && postedByRelation),
+        ...(categories && {
+          categories: {
+            create: categories.map(categoryId => ({
+              categoryId
+            }))
+          }
+        })
+      };
+
       return await prisma.job.create({
-        data: {
-          ...jobData,
-          ...(categories && {
-            categories: {
-              create: categories.map(categoryId => ({
-                categoryId
-              }))
-            }
-          })
-        },
+        data: createData,
         include: {
           company: true,
           categories: {

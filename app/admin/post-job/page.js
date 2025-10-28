@@ -1,4 +1,4 @@
-'use client';
+"use client";
 
 import { useState } from 'react';
 import { useAuth } from '@/contexts/AuthContext';
@@ -7,6 +7,7 @@ import ComprehensiveJobPostingForm from '@/components/ComprehensiveJobPostingFor
 import JobPreview from '@/components/JobPreview';
 import FormBuilder from '@/components/FormBuilder';
 import { ArrowLeft, Plus, Settings, Eye, Briefcase, Zap, FileText } from 'lucide-react';
+import { colors, components, typography } from '@/utils/designSystem';
 
 const PostJobPage = () => {
   const { user } = useAuth();
@@ -21,14 +22,14 @@ const PostJobPage = () => {
   // Check if user is authenticated and has posting permissions
   if (!user || !['super_admin', 'employer_admin', 'sub_user'].includes(user.role)) {
     return (
-      <div className="min-h-screen bg-gray-900 flex items-center justify-center">
+      <div className={`min-h-screen ${colors.neutral.background} flex items-center justify-center`}>
         <div className="text-center">
-          <Briefcase className="mx-auto h-12 w-12 text-gray-400 mb-4" />
-          <h1 className="text-2xl font-bold text-white mb-2">Access Denied</h1>
-          <p className="text-gray-400 mb-4">You need employer privileges to post jobs.</p>
+          <Briefcase className={`${colors.neutral.textSecondary} mx-auto h-12 w-12 mb-4`} />
+          <h1 className={`${typography.h4} ${colors.neutral.textPrimary} mb-2`}>Access Denied</h1>
+          <p className={`${colors.neutral.textSecondary} mb-4`}>You need employer privileges to post jobs.</p>
           <button
             onClick={() => router.push('/dashboard')}
-            className="px-6 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors"
+            className={`${components.button.base} ${components.button.primary} ${components.button.sizes.medium}`}
           >
             Go to Dashboard
           </button>
@@ -182,43 +183,35 @@ const PostJobPage = () => {
   );
 
   return (
-    <div className="min-h-screen bg-gray-900">
+    <div className={`min-h-screen ${colors.neutral.background}`}>
       {/* Header */}
-      <div className="bg-gray-800 border-b border-gray-700">
+      <div className={`${colors.neutral.backgroundSecondary} border-b ${colors.neutral.border}`}>
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           <div className="flex items-center justify-between h-16">
             <div className="flex items-center">
               <button
                 onClick={() => router.push('/admin/jobs')}
-                className="p-2 text-gray-400 hover:text-white hover:bg-gray-700 rounded-lg transition-colors"
+                className={`p-2 ${colors.neutral.textSecondary} hover:text-white ${colors.neutral.surfaceHover} rounded-lg transition-colors`}
               >
                 <ArrowLeft size={20} />
               </button>
-              <h1 className="ml-3 text-xl font-semibold text-white">Post New Job</h1>
+              <h1 className={`ml-3 text-xl font-semibold ${colors.neutral.textPrimary}`}>Post New Job</h1>
             </div>
             
             <div className="flex items-center space-x-4">
               {/* Mode Toggle - Only show on job form step */}
               {currentStep === 'job-form' && (
-                <div className="flex bg-gray-700 rounded-lg p-1">
+                <div className={`${colors.neutral.backgroundSecondary} rounded-lg p-1`}>
                   <button
                     onClick={() => setMode('manual')}
-                    className={`px-3 py-1.5 rounded text-sm transition-colors flex items-center gap-2 ${
-                      mode === 'manual' 
-                        ? 'bg-blue-600 text-white' 
-                        : 'text-gray-400 hover:text-white'
-                    }`}
+                    className={`${components.button.base} ${mode === 'manual' ? components.button.primary : components.button.ghost} ${components.button.sizes.small} flex items-center gap-2`}
                   >
                     <FileText size={14} />
                     Manual
                   </button>
                   <button
                     onClick={() => setMode('ai')}
-                    className={`px-3 py-1.5 rounded text-sm transition-colors flex items-center gap-2 ${
-                      mode === 'ai' 
-                        ? 'bg-purple-600 text-white' 
-                        : 'text-gray-400 hover:text-white'
-                    }`}
+                    className={`${components.button.base} ${mode === 'ai' ? components.button.secondary : components.button.ghost} ${components.button.sizes.small} flex items-center gap-2`}
                   >
                     <Zap size={14} />
                     AI Mode
@@ -229,7 +222,7 @@ const PostJobPage = () => {
               {currentStep !== 'job-form' && (
                 <button
                   onClick={() => setCurrentStep('job-form')}
-                  className="px-4 py-2 text-gray-300 hover:text-white hover:bg-gray-700 rounded-lg transition-colors"
+                  className={`${components.button.base} ${components.button.ghost} ${components.button.sizes.medium}`}
                 >
                   Edit Job Details
                 </button>
@@ -238,7 +231,7 @@ const PostJobPage = () => {
               {currentStep === 'preview' && (
                 <button
                   onClick={() => setCurrentStep('form-builder')}
-                  className="px-4 py-2 text-gray-300 hover:text-white hover:bg-gray-700 rounded-lg transition-colors flex items-center gap-2"
+                  className={`${components.button.base} ${components.button.ghost} ${components.button.sizes.medium} flex items-center gap-2`}
                 >
                   <Settings size={16} />
                   Edit Form
@@ -255,9 +248,9 @@ const PostJobPage = () => {
         {/* Message Display */}
         {message && (
           <div className={`mb-6 p-4 rounded-lg ${
-            message.includes('success') || message.includes('Success') 
-              ? 'bg-green-900 border border-green-700 text-green-300' 
-              : 'bg-red-900 border border-red-700 text-red-300'
+            message.includes('success') || message.includes('Success')
+              ? `${colors.success.background} border border-green-700 ${colors.success.text}`
+              : `${colors.error.background} border border-red-700 ${colors.error.text}`
           }`}>
             {message}
           </div>
@@ -267,11 +260,11 @@ const PostJobPage = () => {
         {currentStep === 'job-form' && (
           <div>
             <div className="mb-6 text-center">
-              <h2 className="text-2xl font-bold text-white mb-2">
+              <h2 className={`${typography.h2} ${colors.neutral.textPrimary} mb-2`}>
                 {mode === 'ai' ? 'AI-Powered Job Posting' : 'Manual Job Posting'}
               </h2>
-              <p className="text-gray-400">
-                {mode === 'ai' 
+              <p className={`${colors.neutral.textTertiary}`}>
+                {mode === 'ai'
                   ? 'Let AI help you create a comprehensive job posting with smart suggestions'
                   : 'Fill out the detailed job posting form step by step'
                 }
@@ -291,9 +284,9 @@ const PostJobPage = () => {
         {currentStep === 'form-builder' && jobData && (
           <div>
             <div className="mb-6 text-center">
-              <h2 className="text-2xl font-bold text-white mb-2">Create Application Form</h2>
-              <p className="text-gray-400">
-                Design a custom application form for <span className="text-blue-400">{jobData.title || jobData.jobTitle}</span>
+              <h2 className={`${typography.h2} ${colors.neutral.textPrimary} mb-2`}>Create Application Form</h2>
+              <p className={`${colors.neutral.textTertiary}`}>
+                Design a custom application form for <span className={`${colors.primary[600]}`}>{jobData.title || jobData.jobTitle}</span>
               </p>
             </div>
             
@@ -309,8 +302,8 @@ const PostJobPage = () => {
         {currentStep === 'preview' && jobData && (
           <div>
             <div className="mb-6 text-center">
-              <h2 className="text-2xl font-bold text-white mb-2">Preview & Publish</h2>
-              <p className="text-gray-400">
+              <h2 className={`${typography.h2} ${colors.neutral.textPrimary} mb-2`}>Preview & Publish</h2>
+              <p className={`${colors.neutral.textTertiary}`}>
                 Review your comprehensive job posting before publishing
               </p>
             </div>

@@ -1,5 +1,61 @@
 // API route for individual job operations using Prisma
-import { db, handlePrismaError } from '../../../../utils/db';
+import { db, handlePrismaError, prisma } from '../../../../utils/db';
+import { cookies } from 'next/headers';
+
+// PUT - Update a job by id (RESTful endpoint)
+export async function PUT(request, { params }) {
+  try {
+    const cookieStore = cookies();
+    const token = cookieStore.get('auth-token');
+    if (!token) {
+      return Response.json({ error: 'Unauthorized' }, { status: 401 });
+    }
+
+    // Get user from token value (token may store user id or email)
+    const user = await prisma.user.findFirst({
+      where: {
+        OR: [
+          { id: token.value },
+          { email: token.value }
+        ]
+      }
+    });
+
+    if (!user) {
+      return Response.json({ error: 'User not found' }, { status: 404 });
+    }
+
+    const jobId = params.id;
+    const jobData = await request.json();
+
+    // Fetch existing job and check permissions
+    const existingJob = await prisma.job.findUnique({
+      where: { id: jobId },
+      include: { postedBy: { select: { id: true, parentUserId: true } } }
+    });
+
+    if (!existingJob) {
+      return Response.json({ error: 'Job not found' }, { status: 404 });
+    }
+
+    const canUpdate = existingJob.postedById === user.id ||
+      (user.role === 'employer_admin' && existingJob.postedBy.parentUserId === user.id);
+
+    if (!canUpdate) {
+      return Response.json({ error: 'Insufficient permissions' }, { status: 403 });
+    }
+
+    // Update using db helper (handles categories mapping)
+    const updatedJob = await db.jobs.update(jobId, jobData);
+
+    return Response.json({ success: true, job: updatedJob, message: 'Job updated successfully' });
+
+  } catch (error) {
+    console.error('Error updating job:', error);
+    const errResponse = handlePrismaError(error);
+    return Response.json({ error: errResponse.error || 'Failed to update job', details: error.message }, { status: 500 });
+  }
+}
 
 export async function GET(request, { params }) {
   try {

@@ -208,14 +208,28 @@ export async function GET(request) {
 export async function POST(request) {
   try {
     // Verify authentication for posting jobs
-    const authHeader = request.headers.get('authorization');
-    if (!authHeader || !authHeader.startsWith('Bearer ')) {
+    // Accept token from Authorization header OR auth-token cookie
+    let token = null;
+    try {
+      // Prefer cookie-based token for browser requests
+      token = request.cookies?.get('auth-token')?.value || null;
+    } catch (err) {
+      // some runtimes may not support request.cookies - fall back
+      token = null;
+    }
+
+    if (!token) {
+      const authHeader = request.headers.get('authorization');
+      if (authHeader && authHeader.startsWith('Bearer ')) {
+        token = authHeader.substring(7);
+      }
+    }
+
+    if (!token) {
       return Response.json({ error: 'Authentication required' }, { status: 401 });
     }
 
-    const token = authHeader.substring(7);
-    const user = await verifyToken(token);
-    
+    const user = verifyToken(token);
     if (!user) {
       return Response.json({ error: 'Invalid token' }, { status: 401 });
     }

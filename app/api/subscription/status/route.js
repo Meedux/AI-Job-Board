@@ -24,11 +24,32 @@ export async function GET(request) {
     const subscription = await getUserSubscription(userId);
     
     if (!subscription) {
-      console.log('❌ No subscription found for user:', userId);
+      console.log('ℹ️ No subscription found for user (treating as free tier):', userId);
+
+      // Return a default 'free' subscription representation instead of 404
+      const defaultUsage = {
+        jobPostings: { used: 0, limit: 3 },
+        resumeViews: { used: 0, limit: 10 },
+        directApplications: { used: 0, limit: 50 },
+        aiCredits: { used: 0, limit: 0 }
+      };
+
       return NextResponse.json({
-        success: false,
-        error: 'No subscription found'
-      }, { status: 404 });
+        success: true,
+        subscription: {
+          id: null,
+          userId: userId,
+          plan: 'free',
+          status: 'active',
+          currentPeriodStart: null,
+          currentPeriodEnd: null,
+          trialEnd: null,
+          canceledAt: null,
+          usage: defaultUsage,
+          createdAt: null,
+          updatedAt: null
+        }
+      });
     }
 
     // Get current usage limits

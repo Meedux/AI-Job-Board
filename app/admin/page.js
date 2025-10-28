@@ -1,4 +1,4 @@
-'use client';
+"use client";
 
 import { useState, useEffect } from 'react';
 import { useAuth } from '@/contexts/AuthContext';
@@ -6,6 +6,7 @@ import { USER_ROLES } from '@/utils/roleSystem';
 import Header from '@/components/Header';
 import EmployerAdminDashboard from '@/components/EmployerAdminDashboard';
 import SubUserDashboard from '@/components/SubUserDashboard';
+import { colors, components, typography } from '@/utils/designSystem';
 
 export default function AdminDashboardPage() {
   const { user, loading } = useAuth();
@@ -19,10 +20,10 @@ export default function AdminDashboardPage() {
     return (
       <div className="min-h-screen bg-gray-50">
         <Header />
-        <div className="min-h-screen bg-gray-900 flex items-center justify-center">
+        <div className={`min-h-screen ${colors.neutral.background} flex items-center justify-center`}>
           <div className="text-center">
-            <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-indigo-500 mx-auto mb-4"></div>
-            <p className="text-gray-300">Loading dashboard...</p>
+            <div className={`animate-spin rounded-full h-12 w-12 border-b-2 ${colors.primary[600]} mx-auto mb-4`}></div>
+            <p className={`${colors.neutral.textSecondary}`}>Loading dashboard...</p>
           </div>
         </div>
       </div>
@@ -33,13 +34,13 @@ export default function AdminDashboardPage() {
     return (
       <div className="min-h-screen bg-gray-50">
         <Header />
-        <div className="min-h-screen bg-gray-900 flex items-center justify-center">
+        <div className={`min-h-screen ${colors.neutral.background} flex items-center justify-center`}>
           <div className="text-center">
-            <h1 className="text-2xl font-bold text-white mb-4">Authentication Required</h1>
-            <p className="text-gray-300 mb-6">Please log in to access the admin dashboard.</p>
+            <h1 className={`${typography.h3} ${colors.neutral.textPrimary} mb-4`}>Authentication Required</h1>
+            <p className={`${colors.neutral.textSecondary} mb-6`}>Please log in to access the admin dashboard.</p>
             <a 
               href="/login"
-              className="bg-indigo-600 hover:bg-indigo-700 text-white font-medium py-2 px-4 rounded-lg transition-colors"
+              className={`${components.button.base} ${components.button.primary} ${components.button.sizes.medium}`}
             >
               Go to Login
             </a>
@@ -71,31 +72,31 @@ export default function AdminDashboardPage() {
       return (
         <div className="min-h-screen bg-gray-50">
           <Header />
-          <div className="min-h-screen bg-gray-900 flex items-center justify-center">
+          <div className={`min-h-screen ${colors.neutral.background} flex items-center justify-center`}>
             <div className="text-center">
-              <h1 className="text-2xl font-bold text-white mb-4">Access Denied</h1>
-              <p className="text-gray-300 mb-6">
+              <h1 className={`${typography.h3} ${colors.neutral.textPrimary} mb-4`}>Access Denied</h1>
+              <p className={`${colors.neutral.textSecondary} mb-6`}>
                 This admin area is for employers only. Super admins should use the dedicated super admin panel.
               </p>
               <div className="space-x-4">
                 {user.role === USER_ROLES.SUPER_ADMIN ? (
                   <a 
                     href="/super-admin"
-                    className="bg-indigo-600 hover:bg-indigo-700 text-white font-medium py-2 px-4 rounded-lg transition-colors"
+                    className={`${components.button.base} ${components.button.primary} ${components.button.sizes.medium}`}
                   >
                     Go to Super Admin Panel
                   </a>
                 ) : (
                   <a 
                     href="/dashboard"
-                    className="bg-indigo-600 hover:bg-indigo-700 text-white font-medium py-2 px-4 rounded-lg transition-colors"
+                    className={`${components.button.base} ${components.button.primary} ${components.button.sizes.medium}`}
                   >
                     Go to Dashboard
                   </a>
                 )}
                 <a 
                   href="/"
-                  className="bg-gray-600 hover:bg-gray-700 text-white font-medium py-2 px-4 rounded-lg transition-colors"
+                  className={`${components.button.base} ${components.button.ghost} ${components.button.sizes.medium}`}
                 >
                   Go Home
                 </a>
