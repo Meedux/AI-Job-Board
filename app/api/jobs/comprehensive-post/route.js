@@ -25,6 +25,26 @@ export async function POST(request) {
     }
 
     const jobData = await request.json();
+
+    // Enforce verification-based posting limits: unverified employers can only have one non-closed job
+    const verifiedDoc = await prisma.verificationDocument.findFirst({ where: { userId: user.id, status: 'verified' } });
+    if (!verifiedDoc && user.role !== 'super_admin') {
+      const activeCount = await prisma.job.count({ where: { postedById: user.id, NOT: { status: 'closed' } } });
+      if (activeCount >= 1) {
+        return NextResponse.json({ error: 'Account not verified — limit of 1 active posting for unverified accounts' }, { status: 403 });
+      }
+    }
+
+    // Stronger enforcement: disallow placement fees or placement-only postings for unverified accounts
+    const placementFee = jobData.placementFee ? parseFloat(jobData.placementFee) : 0;
+    if (!verifiedDoc && user.role !== 'super_admin') {
+      if (placementFee > 0) {
+        return NextResponse.json({ error: 'Account not verified — placement fees are restricted to verified employers' }, { status: 403 });
+      }
+      if (jobData.isPlacement && jobData.isPlacement === true) {
+        return NextResponse.json({ error: 'Account not verified — placement job types require verification' }, { status: 403 });
+      }
+    }
     
     // Validate required fields - check both old and new field names
     const title = jobData.title || jobData.jobTitle;
@@ -52,32 +72,7 @@ export async function POST(request) {
       );
     }
 
-    // Additional validation for overseas employers
-    if (jobData.employerType?.startsWith('overseas_')) {
-      if (!jobData.overseasStatement) {
-        return NextResponse.json(
-          { error: 'Overseas statement selection is required for international jobs' },
-          { status: 400 }
-        );
-      }
-      
-      // Overseas jobs must have salary information
-      if (!jobData.showCompensation || (!jobData.customSalaryMin && !jobData.salaryRange)) {
-        return NextResponse.json(
-          { error: 'Salary information is required for overseas job postings' },
-          { status: 400 }
-        );
-      }
-    }
-
-    // Validate license for agencies
-    const requiresLicense = ['local_pra', 'local_do174', 'local_cda', 'overseas_manning', 'overseas_recruitment'];
-    if (requiresLicense.includes(jobData.employerType) && !jobData.licenseNumber) {
-      return NextResponse.json(
-        { error: 'License number is required for your employer type' },
-        { status: 400 }
-      );
-    }
+    // employerType related validations removed — employerType has been deprecated
 
     // Generate slug
     const baseSlug = jobData.title
@@ -178,19 +173,20 @@ export async function POST(request) {
         showContactOnPosting: jobData.showContactOnPosting,
         protectEmailAddress: jobData.protectEmailAddress,
         
-        // Employer-specific fields
-        licenseNumber: jobData.licenseNumber,
-        licenseExpirationDate: jobData.licenseExpirationDate ? new Date(jobData.licenseExpirationDate) : null,
-        overseasStatement: jobData.overseasStatement,
+  // Employer-specific fields (optional)
+  licenseNumber: jobData.licenseNumber,
+  licenseExpirationDate: jobData.licenseExpirationDate ? new Date(jobData.licenseExpirationDate) : null,
+  overseasStatement: jobData.overseasStatement,
+  placementFee: jobData.placementFee ? parseFloat(jobData.placementFee) : null,
+  isPlacement: jobData.isPlacement || false,
         
         // Additional features
         allowPreview: jobData.allowPreview,
         generateQRCode: jobData.generateQRCode,
         generateSocialTemplate: jobData.generateSocialTemplate,
         
-        // Mode and employer type
-        mode: jobData.mode,
-        employerType: jobData.employerType,
+  // Mode
+  mode: jobData.mode,
       }
     });
 
@@ -222,7 +218,6 @@ export async function POST(request) {
         status: job.status,
         companyName: jobData.companyName,
         mode: jobData.mode,
-        employerType: jobData.employerType,
       }
     });
 

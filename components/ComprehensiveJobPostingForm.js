@@ -4,13 +4,13 @@
 import { useState, useEffect } from 'react';
 import { useAuth } from '@/contexts/AuthContext';
 import { 
-  EMPLOYER_TYPES, 
+  
   EDUCATION_LEVELS, 
   SALARY_RANGES_PHP, 
   SALARY_PERIODS, 
   CURRENCIES,
   DEFAULT_PRESCREEN_QUESTIONS,
-  OVERSEAS_STATEMENTS,
+  
   INDUSTRY_CATEGORIES,
   FORM_TOOLTIPS,
   JOB_TYPES,
@@ -104,6 +104,8 @@ const ComprehensiveJobPostingForm = ({
     licenseNumber: '',
     licenseExpirationDate: '',
     overseasStatement: '',
+  // Placement fees and agency-specific fields
+  placementFee: '',
     
     // Application Settings
     applicationDeadline: '',
@@ -160,9 +162,15 @@ const ComprehensiveJobPostingForm = ({
     }
   }, [initialData, user?.id]);
 
-  // Determine if user is overseas employer
-  const isOverseasEmployer = user?.employerType?.startsWith('overseas_');
-  const isLocalAgency = ['local_pra', 'local_do174', 'local_cda'].includes(user?.employerType);
+  // employerType was removed — do not branch UI/validation on legacy employer type
+
+  // Derive employer-related flags from the current user (if available).
+  // These control whether certain fields are shown and/or required.
+  const companyType = user?.companyType || null; // e.g. 'agency', 'employer', 'sub_agency'
+  const employerCategory = user?.employerCategory || null; // e.g. 'local', 'abroad', 'both'
+  const requiresLicense = companyType === 'agency' || companyType === 'sub_agency' || companyType === 'manpower';
+  const isOverseasEmployer = employerCategory === 'abroad' || employerCategory === 'both';
+  const isVerified = !!user?.isVerified;
 
   // Form submission handler
   const handleFormSubmit = async (e) => {
@@ -226,6 +234,9 @@ const ComprehensiveJobPostingForm = ({
         
         // Include all comprehensive fields for the new system
         ...formData,
+        // Normalize placement fee to number if provided
+        placementFee: formData.placementFee ? parseFloat(formData.placementFee) : null,
+        isPlacement: !!formData.isPlacement,
         postedById: user?.id,
         status: 'draft'
       };
@@ -242,7 +253,7 @@ const ComprehensiveJobPostingForm = ({
       setLoading(false);
     }
   };
-  const requiresLicense = ['local_pra', 'local_do174', 'local_cda', 'overseas_manning', 'overseas_recruitment'].includes(user?.employerType);
+  
 
   // Handle form changes
   const handleInputChange = (field, value) => {
@@ -335,7 +346,11 @@ const ComprehensiveJobPostingForm = ({
         if (!formData.jobDescription.trim()) newErrors.jobDescription = 'Job description is required';
         if (!formData.qualification.trim()) newErrors.qualification = 'Qualifications are required';
         if (!formData.educationAttainment) newErrors.educationAttainment = 'Education attainment is required';
-        if (requiresLicense && !formData.licenseNumber.trim()) newErrors.licenseNumber = 'License number is required';
+        // If the employer's company type requires a license, validate license fields
+        if (requiresLicense) {
+          if (!formData.licenseNumber || !formData.licenseNumber.trim()) newErrors.licenseNumber = 'License number is required for your account type';
+          if (!formData.licenseExpirationDate) newErrors.licenseExpirationDate = 'License expiration date is required';
+        }
         break;
 
       case 2: // Location and Salary
@@ -349,8 +364,9 @@ const ComprehensiveJobPostingForm = ({
 
       case 3: // Job Details
         if (!formData.industry) newErrors.industry = 'Industry is required';
-        if (isOverseasEmployer && !formData.overseasStatement) {
-          newErrors.overseasStatement = 'Overseas statement selection is required';
+        // If this employer posts overseas jobs, require an overseas statement
+        if (isOverseasEmployer) {
+          if (!formData.overseasStatement || !formData.overseasStatement.trim()) newErrors.overseasStatement = 'Overseas statement is required for overseas job postings';
         }
         break;
 
@@ -601,7 +617,7 @@ const ComprehensiveJobPostingForm = ({
         {errors.educationAttainment && <p className="mt-1 text-sm text-red-400">{errors.educationAttainment}</p>}
       </div>
 
-      {/* License Information (for applicable employer types) */}
+      {/* License & Overseas Information (shown when applicable based on employer type/category) */}
       {requiresLicense && (
         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
           <div>
@@ -633,7 +649,25 @@ const ComprehensiveJobPostingForm = ({
               onChange={(e) => handleInputChange('licenseExpirationDate', e.target.value)}
               className="w-full px-3 py-2 bg-gray-800 border border-gray-700 rounded-lg text-white focus:outline-none focus:ring-2 focus:ring-blue-500"
             />
+            {errors.licenseExpirationDate && <p className="mt-1 text-sm text-red-400">{errors.licenseExpirationDate}</p>}
           </div>
+        </div>
+      )}
+
+      {isOverseasEmployer && (
+        <div className="mt-4">
+          <label className="flex items-center gap-2 text-sm font-medium text-gray-300 mb-2">
+            <Globe size={16} />
+            Overseas Statement *
+          </label>
+          <textarea
+            rows={3}
+            value={formData.overseasStatement}
+            onChange={(e) => handleInputChange('overseasStatement', e.target.value)}
+            className="w-full px-3 py-2 bg-gray-800 border border-gray-700 rounded-lg text-white placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-blue-500"
+            placeholder="Explain placement details, compliance, and any employer responsibilities for overseas placements"
+          />
+          {errors.overseasStatement && <p className="mt-1 text-sm text-red-400">{errors.overseasStatement}</p>}
         </div>
       )}
 
@@ -1000,30 +1034,7 @@ const ComprehensiveJobPostingForm = ({
         />
       </div>
 
-      {/* Overseas Statement (for overseas employers) */}
-      {isOverseasEmployer && (
-        <div>
-          <label className="text-sm font-medium text-gray-300 mb-2 block">
-            Mandatory Statement for Overseas Jobs *
-          </label>
-          <div className="space-y-3">
-            {OVERSEAS_STATEMENTS.map((statement) => (
-              <label key={statement.id} className="flex items-start gap-3 p-3 bg-gray-800 rounded-lg border border-gray-700">
-                <input
-                  type="radio"
-                  name="overseasStatement"
-                  value={statement.id}
-                  checked={formData.overseasStatement === statement.id}
-                  onChange={(e) => handleInputChange('overseasStatement', e.target.value)}
-                  className="mt-1 w-4 h-4 text-blue-600 bg-gray-700 border-gray-600 focus:ring-blue-500"
-                />
-                <span className="text-sm text-gray-300">{statement.text}</span>
-              </label>
-            ))}
-          </div>
-          {errors.overseasStatement && <p className="mt-1 text-sm text-red-400">{errors.overseasStatement}</p>}
-        </div>
-      )}
+      {/* Overseas statements and employer-type specific choices removed */}
     </div>
   );
 
@@ -1285,6 +1296,31 @@ const ComprehensiveJobPostingForm = ({
               <span className="text-xs bg-yellow-600 text-black px-2 py-1 rounded">PREMIUM</span>
             )}
           </label>
+        </div>
+        <div className="mt-4">
+          <label className="block text-sm font-medium text-gray-300 mb-2">Placement Fee (optional)</label>
+          <div className="flex items-center gap-2">
+            <input
+              type="number"
+              min="0"
+              step="0.01"
+              value={formData.placementFee}
+              onChange={(e) => handleInputChange('placementFee', e.target.value)}
+              className="w-32 px-3 py-2 bg-gray-800 border border-gray-700 rounded-lg text-white placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-blue-500"
+              placeholder="0.00"
+            />
+            <label className="flex items-center gap-2 text-sm text-gray-300 ml-2">
+              <input
+                type="checkbox"
+                checked={!!formData.isPlacement}
+                onChange={(e) => handleInputChange('isPlacement', e.target.checked)}
+                className="w-4 h-4 text-blue-600 bg-gray-700 border-gray-600 rounded focus:ring-blue-500"
+              />
+              Placement job
+            </label>
+            <span className="text-sm text-gray-400">Set a placement fee (optional). Unverified accounts cannot set placement fees.</span>
+          </div>
+          {errors.placementFee && <p className="mt-1 text-sm text-red-400">{errors.placementFee}</p>}
         </div>
       </div>
     </div>

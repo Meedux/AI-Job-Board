@@ -85,7 +85,7 @@ export const db = {
 
       const orderBy = { [sortBy]: sortOrder };
 
-      return await prisma.job.findMany({
+      const results = await prisma.job.findMany({
         where,
         include: {
           company: true,
@@ -98,7 +98,11 @@ export const db = {
             select: {
               id: true,
               fullName: true,
-              email: true
+              email: true,
+              verificationDocuments: {
+                where: { status: 'verified' },
+                select: { id: true }
+              }
             }
           },
           applicationForm: {
@@ -115,6 +119,17 @@ export const db = {
         take: limit,
         skip: offset,
       });
+
+      // Map results to include company_verified boolean derived from postedBy.verificationDocuments
+      const mapped = results.map(job => {
+        const verifiedCount = job.postedBy?.verificationDocuments?.length || 0;
+        const company_verified = verifiedCount > 0;
+        // Remove the internal verificationDocuments array so callers don't need to handle it
+        if (job.postedBy && job.postedBy.verificationDocuments) delete job.postedBy.verificationDocuments;
+        return { ...job, company_verified };
+      });
+
+      return mapped;
     },
 
     // Count jobs with same filters
@@ -168,13 +183,24 @@ export const db = {
 
     // Find job by slug
     async findBySlug(slug) {
-      return await prisma.job.findUnique({
+      const job = await prisma.job.findUnique({
         where: { slug },
         include: {
           company: true,
           categories: {
             include: {
               category: true
+            }
+          },
+          postedBy: {
+            select: {
+              id: true,
+              fullName: true,
+              email: true,
+              verificationDocuments: {
+                where: { status: 'verified' },
+                select: { id: true }
+              }
             }
           },
           applicationForm: {
@@ -188,6 +214,12 @@ export const db = {
           }
         }
       });
+
+      if (!job) return null;
+      const verifiedCount = job.postedBy?.verificationDocuments?.length || 0;
+      const company_verified = verifiedCount > 0;
+      if (job.postedBy && job.postedBy.verificationDocuments) delete job.postedBy.verificationDocuments;
+      return { ...job, company_verified };
     },
 
     // Create new job

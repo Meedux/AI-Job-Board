@@ -96,7 +96,6 @@ export async function POST(request) {
         skills: true,
         role: true,
         userType: true,
-        employerType: true,
         parentUserId: true,
         companyId: true,
         isActive: true,
@@ -284,7 +283,7 @@ export async function POST(request) {
       companyName: user.companyName,
       role: user.role,
       userType: user.userType,
-      employerType: user.employerType,
+      
       isActive: user.isActive,
       accountStatus: user.accountStatus,
       permissions: user.permissions,

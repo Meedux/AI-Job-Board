@@ -16,7 +16,6 @@ async function seedATS() {
         fullName: 'Test Employer',
         name: 'Test Employer',
         role: 'employer_admin',
-        employerType: 'local_direct',
         companyName: 'Tech Solutions Inc.',
         isActive: true
       }

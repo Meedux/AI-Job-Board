@@ -122,7 +122,6 @@ export async function PUT(request, { params }) {
       email,
       role,
       userType,
-      employerType,
       isActive,
       accountStatus,
       allocatedResumeCredits,
@@ -163,7 +162,7 @@ export async function PUT(request, { params }) {
     if (email !== undefined) updateData.email = email;
     if (role !== undefined) updateData.role = role;
     if (userType !== undefined) updateData.userType = userType;
-    if (employerType !== undefined) updateData.employerType = employerType;
+    
     if (isActive !== undefined) updateData.isActive = isActive;
     if (accountStatus !== undefined) updateData.accountStatus = accountStatus;
     if (accessLevel !== undefined) updateData.accessLevel = accessLevel;
@@ -192,7 +191,6 @@ export async function PUT(request, { params }) {
         fullName: true,
         role: true,
         userType: true,
-        employerType: true,
         isActive: true,
         accountStatus: true,
         allocatedResumeCredits: true,

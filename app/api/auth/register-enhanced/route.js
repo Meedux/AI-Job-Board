@@ -21,8 +21,12 @@ export async function POST(request) {
       password, 
       fullName, 
       companyName,
+      companyType,
+      employerCategory,
       role, 
       userType,
+      taxId,
+      authorizedRepresentatives,
       enableTwoFactor,
       captchaToken 
     } = await request.json();
@@ -146,7 +150,9 @@ export async function POST(request) {
     // Add hirer-specific fields
     if (userType === 'hirer') {
       userData.companyName = companyName;
-      userData.employerType = 'company';
+      userData.companyType = companyType || null;
+      userData.employerCategory = employerCategory || null;
+      userData.taxId = taxId || null;
       // Give hirers default credits
       userData.allocatedResumeCredits = 50;
       userData.allocatedAiCredits = 25;
@@ -178,6 +184,21 @@ export async function POST(request) {
       }
     });
 
+    // If authorized representatives were provided, create records
+    if (userType === 'hirer' && Array.isArray(authorizedRepresentatives) && authorizedRepresentatives.length > 0) {
+      for (const ar of authorizedRepresentatives) {
+        await prisma.authorizedRepresentative.create({
+          data: {
+            userId: newUser.id,
+            name: ar.name,
+            email: ar.email,
+            designation: ar.designation || null,
+            phone: ar.phone || null,
+            documentId: ar.documentId || null
+          }
+        });
+      }
+    }
     console.log('✅ User created successfully:', newUser.id);
 
     // Log successful registration

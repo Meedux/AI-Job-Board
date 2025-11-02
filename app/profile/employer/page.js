@@ -28,6 +28,7 @@ export default function EmployerProfile() {
   const [saving, setSaving] = useState(false);
   const [editing, setEditing] = useState(false);
   const [uploadingLogo, setUploadingLogo] = useState(false);
+  const [uploadingDoc, setUploadingDoc] = useState(false);
   const [profile, setProfile] = useState({
     // Company Information
     companyName: '',
@@ -47,12 +48,11 @@ export default function EmployerProfile() {
     businessPhone: '',
     businessEmail: '',
     
-    // Business Details
-    businessRegistrationNumber: '',
-    taxId: '',
-    licenseNumber: '',
-    licenseExpirationDate: '',
-    employerType: '',
+  // Business Details
+  businessRegistrationNumber: '',
+  taxId: '',
+  licenseNumber: '',
+  licenseExpirationDate: '',
     
     // Profile Settings
     showContactOnProfile: false,
@@ -69,6 +69,7 @@ export default function EmployerProfile() {
     activeJobs: 0,
     totalApplications: 0,
     memberSince: null
+    // verificationDocuments will be loaded from the profile API when available
   });
 
   useEffect(() => {
@@ -183,6 +184,112 @@ export default function EmployerProfile() {
     } finally {
       setUploadingLogo(false);
       // Reset file input
+      event.target.value = '';
+    }
+  };
+
+  // Verification document upload (prepare + PUT to proxy)
+  const handleVerificationUpload = async (event) => {
+    const file = event.target.files[0];
+    if (!file) return;
+
+    // Accept PDFs and images
+    const allowed = ['application/pdf', 'image/png', 'image/jpeg'];
+    if (!allowed.includes(file.type)) {
+      alert('Please upload a PDF or image (PNG/JPEG)');
+      return;
+    }
+
+    if (file.size > 10 * 1024 * 1024) {
+      alert('File must be smaller than 10MB');
+      return;
+    }
+
+    setUploadingDoc(true);
+
+    try {
+      // 1) Prepare
+      const prepRes = await fetch('/api/verification/upload/prepare', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${user?.token}`
+        },
+        body: JSON.stringify({ filename: file.name, fileType: file.type, size: file.size, category: 'company_document' })
+      });
+
+      if (!prepRes.ok) {
+        const err = await prepRes.json();
+        alert(`Upload preparation failed: ${err.error || 'Unknown'}`);
+        return;
+      }
+
+      const prep = await prepRes.json();
+
+      // 2) Upload to returned URL. If `direct` is true, the server returned a signed/direct upload URL (Vercel Blob).
+      let uploadedUrl = null;
+
+      if (prep.direct && prep.uploadUrl && prep.uploadUrl.startsWith('http')) {
+        // Direct upload to Vercel Blob or other storage
+        const uploadRes = await fetch(prep.uploadUrl, {
+          method: 'PUT',
+          headers: {
+            'Content-Type': file.type,
+            // No Authorization header for direct signed URLs
+          },
+          body: file
+        });
+
+        if (!uploadRes.ok) {
+          const text = await uploadRes.text().catch(() => '');
+          alert(`Direct upload failed: ${uploadRes.status} ${text}`);
+          return;
+        }
+
+        // If the prepare response included a stable blobUrl, prefer it; otherwise try to derive URL
+        uploadedUrl = prep.blobUrl || prep.blobURL || prep.blobUrl || null;
+
+        // Some blob providers return JSON after upload; attempt to read it
+        try {
+          const maybeJson = await uploadRes.clone().json().catch(() => null);
+          if (maybeJson) {
+            uploadedUrl = uploadedUrl || maybeJson.url || maybeJson.blobUrl || maybeJson.location || uploadedUrl;
+          }
+        } catch (e) {
+          // ignore
+        }
+      } else {
+        // Fallback to proxy upload URL (internal PUT)
+        const uploadRes = await fetch(prep.uploadUrl, {
+          method: 'PUT',
+          headers: {
+            'Content-Type': file.type,
+            'Authorization': `Bearer ${user?.token}`
+          },
+          body: file
+        });
+
+        if (!uploadRes.ok) {
+          const err = await uploadRes.json();
+          alert(`Upload failed: ${err.error || 'Unknown'}`);
+          return;
+        }
+
+        const uploaded = await uploadRes.json();
+        uploadedUrl = uploaded.url;
+      }
+
+      // Optionally update local profile state to include the document URL
+      if (uploadedUrl) {
+        setProfile(prev => ({ ...prev, verificationDocuments: [...(prev.verificationDocuments || []), uploadedUrl] }));
+      }
+
+      alert('Document uploaded successfully');
+    } catch (error) {
+      console.error('Verification upload error:', error);
+      alert('Failed to upload document.');
+    } finally {
+      setUploadingDoc(false);
       event.target.value = '';
     }
   };
@@ -417,6 +524,51 @@ export default function EmployerProfile() {
                     )}
                   </div>
                 </div>
+                <div>
+                  <label className="block text-sm font-medium text-gray-300 mb-1">Tax Identification Number (TIN)</label>
+                  {editing ? (
+                    <input
+                      type="text"
+                      value={profile.taxId || ''}
+                      onChange={(e) => handleInputChange('taxId', e.target.value)}
+                      className="w-full px-3 py-2 bg-gray-700 border border-gray-600 rounded-lg text-white"
+                      placeholder="Enter company TIN / BIR number"
+                    />
+                  ) : (
+                    <p className="text-white">{profile.taxId || 'Not provided'}</p>
+                  )}
+                </div>
+
+                <div>
+                  <label className="block text-sm font-medium text-gray-300 mb-1">Authorized Representatives</label>
+                  {editing ? (
+                    <textarea
+                      value={(profile.authorizedRepresentatives || []).map(a => `${a.name} <${a.email}>`).join('\n')}
+                      onChange={(e) => {
+                        const lines = e.target.value.split('\n').map(l => l.trim()).filter(Boolean);
+                        const ars = lines.map(line => {
+                          const m = line.match(/^(.*) <(.*)>$/);
+                          if (m) return { name: m[1].trim(), email: m[2].trim() };
+                          return { name: line, email: '' };
+                        });
+                        handleInputChange('authorizedRepresentatives', ars);
+                      }}
+                      rows={3}
+                      className="w-full px-3 py-2 bg-gray-700 border border-gray-600 rounded-lg text-white"
+                      placeholder="One per line: Full Name <email@example.com>"
+                    />
+                  ) : (
+                    <div className="space-y-1">
+                      {(profile.authorizedRepresentatives || []).length > 0 ? (
+                        (profile.authorizedRepresentatives || []).map((a, i) => (
+                          <div key={i} className="text-gray-200 text-sm">{a.name} — {a.email}</div>
+                        ))
+                      ) : (
+                        <p className="text-gray-400">No authorized representatives added.</p>
+                      )}
+                    </div>
+                  )}
+                </div>
               </div>
             </div>
 
@@ -574,6 +726,30 @@ export default function EmployerProfile() {
                 </div>
               </div>
             )}
+
+            {/* Verification Documents */}
+            <div className="bg-gray-800 rounded-lg p-6 border border-gray-700">
+              <h2 className="text-lg font-semibold text-white mb-4">Verification Documents</h2>
+              <div className="space-y-3">
+                <p className="text-gray-400 text-sm">Upload company documents (BIR, SEC, licenses). Files are private until reviewed by admins.</p>
+                {editing && (
+                  <div>
+                    <input type="file" accept=".pdf,image/png,image/jpeg" onChange={handleVerificationUpload} />
+                    <p className="text-xs text-gray-400 mt-1">{uploadingDoc ? 'Uploading...' : ''}</p>
+                  </div>
+                )}
+
+                <div className="space-y-2">
+                  {(profile.verificationDocuments || []).length > 0 ? (
+                    (profile.verificationDocuments || []).map((u, idx) => (
+                      <a key={idx} href={u} target="_blank" rel="noreferrer" className="text-blue-400 block text-sm truncate">{u}</a>
+                    ))
+                  ) : (
+                    <p className="text-gray-400 text-sm">No documents uploaded yet.</p>
+                  )}
+                </div>
+              </div>
+            </div>
           </div>
         </div>
       </div>

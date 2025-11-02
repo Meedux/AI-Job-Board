@@ -22,16 +22,13 @@ import {
   CheckCircle,
   ExternalLink
 } from 'lucide-react';
-import { EMPLOYER_TYPES, EDUCATION_LEVELS, CURRENCIES } from '@/utils/jobPostingConstants';
+import { EDUCATION_LEVELS, CURRENCIES } from '@/utils/jobPostingConstants';
 
 const JobOverview = ({ job, showApplicationForm = false, onApply }) => {
   const { user } = useAuth();
   const [showFullDescription, setShowFullDescription] = useState(false);
 
-  // Determine employer type and requirements
-  const isOverseasJob = job.employerType?.startsWith('overseas_');
-  const isLocalAgency = ['local_pra', 'local_do174', 'local_cda'].includes(job.employerType);
-  const requiresLicense = ['local_pra', 'local_do174', 'local_cda', 'overseas_manning', 'overseas_recruitment'].includes(job.employerType);
+  // Employer type removed — do not branch on employerType
 
   // Format salary display
   const formatSalary = (job) => {
@@ -103,9 +100,7 @@ const JobOverview = ({ job, showApplicationForm = false, onApply }) => {
               <span className="px-3 py-1 bg-blue-500 rounded-full text-sm">{job.jobType}</span>
               <span className="px-3 py-1 bg-purple-500 rounded-full text-sm">{job.workMode}</span>
               <span className="px-3 py-1 bg-green-500 rounded-full text-sm">{job.experienceLevel}</span>
-              {isOverseasJob && (
-                <span className="px-3 py-1 bg-orange-500 rounded-full text-sm">Overseas</span>
-              )}
+              {/* employerType removed */}
             </div>
           </div>
 
@@ -237,21 +232,7 @@ const JobOverview = ({ job, showApplicationForm = false, onApply }) => {
               </section>
             )}
 
-            {/* Overseas Job Statement */}
-            {isOverseasJob && job.overseasStatement && (
-              <section className="bg-orange-900/20 border border-orange-500/30 rounded-lg p-4">
-                <div className="flex items-center gap-2 text-orange-400 mb-2">
-                  <AlertTriangle size={16} />
-                  <span className="font-medium">Important Notice</span>
-                </div>
-                <p className="text-orange-300 text-sm">
-                  {job.overseasStatement === 'manpower_pooling' 
-                    ? 'FOR MANPOWER POOLING ONLY. No fees on any form and/or purpose will be collected from applicants. Beware of Illegal Recruiters and Human Trafficking.'
-                    : 'No fees on any form and/or purpose will be collected from applicants. Beware of Illegal Recruiters and Human Trafficking.'
-                  }
-                </p>
-              </section>
-            )}
+            {/* Overseas statements removed along with employerType concept */}
           </div>
 
           {/* Sidebar */}
@@ -330,8 +311,8 @@ const JobOverview = ({ job, showApplicationForm = false, onApply }) => {
                   )}
                 </div>
 
-                {/* License Information for Agencies */}
-                {requiresLicense && job.licenseNumber && (
+                {/* License information will be shown when present on job */}
+                {job.licenseNumber && (
                   <div className="mt-4 p-3 bg-green-900/20 border border-green-500/30 rounded">
                     <div className="flex items-center gap-2 text-green-400 mb-1">
                       <Shield size={14} />

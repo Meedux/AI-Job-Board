@@ -28,6 +28,9 @@ export async function GET(request) {
             reviews: true
           }
         }
+        ,
+        verificationDocuments: true,
+        authorizedRepresentatives: true
       }
     });
 
@@ -65,7 +68,6 @@ export async function GET(request) {
         // Business Details
         licenseNumber: userProfile.licenseNumber || '',
         licenseExpirationDate: userProfile.licenseExpirationDate,
-        employerType: userProfile.employerType || '',
         
         // Profile Settings
         showContactOnProfile: userProfile.showContactOnProfile || false,
@@ -86,6 +88,10 @@ export async function GET(request) {
         // Company specific
         companySize: company.companySize || '',
         foundedYear: company.foundedYear || '',
+        // Verification documents (URLs)
+        verificationDocuments: userProfile.verificationDocuments ? userProfile.verificationDocuments.map(d => d.url).filter(Boolean) : [],
+        taxId: userProfile.taxId || null,
+        authorizedRepresentatives: userProfile.authorizedRepresentatives ? userProfile.authorizedRepresentatives.map(ar => ({ name: ar.name, email: ar.email, designation: ar.designation, phone: ar.phone })) : []
       };
     } else {
       // Basic profile for users without company
@@ -101,7 +107,10 @@ export async function GET(request) {
         totalApplications: 0,
         showContactOnProfile: false,
         allowDirectContact: true,
-        profileVisibility: 'public'
+        profileVisibility: 'public',
+        verificationDocuments: userProfile.verificationDocuments ? userProfile.verificationDocuments.map(d => d.url).filter(Boolean) : [],
+        taxId: userProfile.taxId || null,
+        authorizedRepresentatives: userProfile.authorizedRepresentatives ? userProfile.authorizedRepresentatives.map(ar => ({ name: ar.name, email: ar.email, designation: ar.designation, phone: ar.phone })) : []
       };
     }
 
@@ -139,7 +148,7 @@ export async function PUT(request) {
       postalCode: profileData.postalCode,
       licenseNumber: profileData.licenseNumber,
       licenseExpirationDate: profileData.licenseExpirationDate ? new Date(profileData.licenseExpirationDate) : null,
-      employerType: profileData.employerType,
+      taxId: profileData.taxId || profileData.tax_id || null,
       showContactOnProfile: profileData.showContactOnProfile,
       allowDirectContact: profileData.allowDirectContact,
       profileVisibility: profileData.profileVisibility,
@@ -183,6 +192,25 @@ export async function PUT(request) {
           createdById: user.id
         }
       });
+    }
+
+    // Authorized representatives handling: replace existing ARs for this user
+    if (Array.isArray(profileData.authorizedRepresentatives)) {
+      // Remove existing ARs for this user (simple replace strategy)
+      await prisma.authorizedRepresentative.deleteMany({ where: { userId: user.id } });
+
+      for (const ar of profileData.authorizedRepresentatives) {
+        await prisma.authorizedRepresentative.create({
+          data: {
+            userId: user.id,
+            name: ar.name,
+            email: ar.email,
+            designation: ar.designation || null,
+            phone: ar.phone || null,
+            documentId: ar.documentId || null
+          }
+        });
+      }
     }
 
     return NextResponse.json({ 

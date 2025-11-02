@@ -49,7 +49,6 @@ export async function GET(request) {
           fullName: true,
           role: true,
           userType: true,
-          employerType: true,
           isActive: true,
           accountStatus: true,
           parentUserId: true,
@@ -134,7 +133,6 @@ export async function POST(request) {
       password,
       role,
       userType,
-      employerType,
       parentUserId: providedParentUserId,
       allocatedResumeCredits = 0,
       allocatedAiCredits = 0,
@@ -185,13 +183,12 @@ export async function POST(request) {
 
     // Create user
     const newUser = await prisma.user.create({
-      data: {
+        data: {
         email,
         fullName,
         password: hashedPassword,
         role,
         userType,
-        employerType,
         parentUserId: parentUserId || null,
         allocatedResumeCredits,
         allocatedAiCredits,
@@ -200,13 +197,12 @@ export async function POST(request) {
         activationCode,
         accountStatus: role === USER_ROLES.SUB_USER ? 'pending' : 'active'
       },
-      select: {
+        select: {
         id: true,
         email: true,
         fullName: true,
         role: true,
         userType: true,
-        employerType: true,
         activationCode: true,
         createdAt: true
       }

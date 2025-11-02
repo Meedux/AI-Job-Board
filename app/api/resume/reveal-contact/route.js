@@ -146,6 +146,13 @@ export async function POST(request) {
 
     // If not already revealed, attempt to consume a credit (subscription allowance first, then purchased credits)
     if (!existingReveal) {
+      // Enforce verification restrictions: unverified employers cannot reveal resumes from the public/database
+      if (resumeId) {
+        const revealActor = creditUser; // the account that will be charged/used
+        if (!revealActor.isVerified) {
+          return NextResponse.json({ error: 'Account not verified — verify company to reveal resumes from the database' }, { status: 403 });
+        }
+      }
       try {
         creditUsage = await useCredit(creditUser.id, 'resume_contact', 1);
       } catch (err) {

@@ -99,8 +99,7 @@ const ComprehensivePostJobPage = () => {
         generateQRCode: formData.generateQRCode,
         generateSocialTemplate: formData.generateSocialTemplate,
         
-        // System fields
-        employerType: user.employerType,
+  // System fields
         postedById: user.id,
         mode: mode
       };
@@ -270,16 +269,7 @@ const ComprehensivePostJobPage = () => {
           <div className="mt-8 p-4 bg-gray-800/50 rounded-lg border border-gray-700/50">
             <div className="text-center text-gray-400 text-sm">
               <p className="mb-2">
-                <strong>Your employer type:</strong> {' '}
-                <span className="text-blue-400 capitalize">
-                  {user?.employerType?.replace(/_/g, ' ') || 'Standard Employer'}
-                </span>
-              </p>
-              <p>
-                This job posting form is customized based on your employer type and local compliance requirements.
-                {user?.employerType?.startsWith('overseas_') && (
-                  <span className="text-orange-400"> Additional overseas employment requirements will be enforced.</span>
-                )}
+                This job posting form includes fields for optional license and overseas statement information where applicable.
               </p>
             </div>
           </div>

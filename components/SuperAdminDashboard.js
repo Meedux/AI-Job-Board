@@ -5,7 +5,6 @@ import { useAuth } from '@/contexts/AuthContext';
 import { 
   USER_ROLES, 
   ROLE_LABELS, 
-  EMPLOYER_TYPE_LABELS,
   SUB_USER_TYPES,
   ACCOUNT_STATUS
 } from '@/utils/roleSystem';
@@ -212,8 +211,7 @@ export default function SuperAdminDashboard() {
                         </span>
                       </td>
                       <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-300">
-                        {user.employerType ? EMPLOYER_TYPE_LABELS[user.employerType] : 
-                         user.userType || 'N/A'}
+                        {user.userType || 'N/A'}
                       </td>
                       <td className="px-6 py-4 whitespace-nowrap">
                         <span className={`inline-flex px-2 py-1 text-xs font-semibold rounded-full ${
@@ -279,13 +277,12 @@ export default function SuperAdminDashboard() {
 
 // Create User Modal Component
 function CreateUserModal({ onClose, onSuccess }) {
-  const [formData, setFormData] = useState({
+    const [formData, setFormData] = useState({
     email: '',
     fullName: '',
     password: '',
     role: USER_ROLES.JOB_SEEKER,
     userType: '',
-    employerType: '',
     allocatedResumeCredits: 0,
     allocatedAiCredits: 0
   });

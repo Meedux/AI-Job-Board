@@ -25,6 +25,10 @@ export default function DynamicAuthForm() {
     password: '',
     name: '', // For jobseekers
     companyName: '', // For hirers
+    companyType: '', // e.g., direct, agency
+    employerCategory: '', // local, abroad, both
+    taxId: '',
+    authorizedRepresentatives: [],
     agreeToTerms: false
   });
 
@@ -146,6 +150,10 @@ export default function DynamicAuthForm() {
         } else {
           registrationData.companyName = formData.companyName;
           registrationData.fullName = formData.companyName; // Use company name as full name initially
+          registrationData.companyType = formData.companyType;
+          registrationData.employerCategory = formData.employerCategory;
+          registrationData.taxId = formData.taxId;
+          registrationData.authorizedRepresentatives = formData.authorizedRepresentatives;
         }
 
         const response = await fetch('/api/auth/register-enhanced', {
@@ -307,6 +315,34 @@ export default function DynamicAuthForm() {
                   className="w-full px-3 py-2 bg-gray-700 border border-gray-600 rounded-md text-white placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-transparent"
                   placeholder={userType === 'jobseeker' ? 'Enter your full name' : 'Enter your company name'}
                 />
+                {userType === 'hirer' && (
+                  <div className="mt-3 space-y-3">
+                    <div className="grid grid-cols-2 gap-3">
+                      <select name="companyType" value={formData.companyType} onChange={handleInputChange} className="w-full px-3 py-2 bg-gray-700 border border-gray-600 rounded-md text-white">
+                        <option value="">Company Type</option>
+                        <option value="direct">Direct Employer</option>
+                        <option value="agency">Agency</option>
+                        <option value="sub_agency">Sub-Agency</option>
+                      </select>
+                      <select name="employerCategory" value={formData.employerCategory} onChange={handleInputChange} className="w-full px-3 py-2 bg-gray-700 border border-gray-600 rounded-md text-white">
+                        <option value="">Category</option>
+                        <option value="local">Local</option>
+                        <option value="abroad">Abroad</option>
+                        <option value="both">Both</option>
+                      </select>
+                    </div>
+                    <input type="text" name="taxId" value={formData.taxId} onChange={handleInputChange} placeholder="Tax Identification Number (TIN)" className="w-full px-3 py-2 bg-gray-700 border border-gray-600 rounded-md text-white" />
+                    <textarea name="authorizedReps" value={(formData.authorizedRepresentatives || []).map(a => `${a.name} <${a.email}>`).join('\n')} onChange={(e) => {
+                      const lines = e.target.value.split('\n').map(l => l.trim()).filter(Boolean);
+                      const ars = lines.map(line => {
+                        const m = line.match(/^(.*) <(.*)>$/);
+                        if (m) return { name: m[1].trim(), email: m[2].trim() };
+                        return { name: line, email: '' };
+                      });
+                      setFormData(prev => ({ ...prev, authorizedRepresentatives: ars }));
+                    }} placeholder="Authorized reps: One per line: Full Name <email@example.com>" className="w-full px-3 py-2 bg-gray-700 border border-gray-600 rounded-md text-white" rows={3} />
+                  </div>
+                )}
               </div>
             )}
 

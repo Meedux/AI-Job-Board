@@ -1,0 +1,9 @@
+BEGIN;
+
+ALTER TABLE users
+  ADD COLUMN IF NOT EXISTS company_type TEXT;
+
+ALTER TABLE users
+  ADD COLUMN IF NOT EXISTS employer_category TEXT;
+
+COMMIT;
