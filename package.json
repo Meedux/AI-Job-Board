@@ -6,10 +6,13 @@
   "scripts": {
     "dev": "next dev --turbopack",
   "test:blob-upload": "node scripts/test-blob-upload.js",
-    "build": "prisma generate && next build",
+    "build": "prisma generate --schema=prisma/schema.prisma && next build",
     "start": "next start",
     "lint": "next lint",
-    "postinstall": "prisma generate"
+    "postinstall": "prisma generate --schema=prisma/schema.prisma"
+  },
+  "prisma": {
+    "schema": "prisma/schema.prisma"
   },
   "dependencies": {
     "@dnd-kit/core": "^6.3.1",
