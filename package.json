@@ -5,7 +5,7 @@
   "type": "module",
   "scripts": {
     "dev": "next dev --turbopack",
-  "test:blob-upload": "node scripts/test-blob-upload.js",
+    "test:blob-upload": "node scripts/test-blob-upload.js",
     "build": "prisma generate --schema=prisma/schema.prisma && next build",
     "start": "next start",
     "lint": "next lint",
@@ -51,6 +51,7 @@
     "nodemailer-express-handlebars": "^7.0.0",
     "pg": "^8.13.1",
     "prisma": "^6.11.1",
+    "qrcode": "^1.5.4",
     "react": "^19.0.0",
     "react-beautiful-dnd": "^13.1.1",
     "react-copy-to-clipboard": "^5.1.0",

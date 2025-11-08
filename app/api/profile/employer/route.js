@@ -30,7 +30,8 @@ export async function GET(request) {
         }
         ,
         verificationDocuments: true,
-        authorizedRepresentatives: true
+        authorizedRepresentatives: true,
+        employerTypeUser: true // Include employer type
       }
     });
 
@@ -68,6 +69,17 @@ export async function GET(request) {
         // Business Details
         licenseNumber: userProfile.licenseNumber || '',
         licenseExpirationDate: userProfile.licenseExpirationDate,
+        employerType: userProfile.employerTypeUser ? {
+          id: userProfile.employerTypeUser.id,
+          code: userProfile.employerTypeUser.code,
+          label: userProfile.employerTypeUser.label,
+          category: userProfile.employerTypeUser.category,
+          type: userProfile.employerTypeUser.type,
+          subtype: userProfile.employerTypeUser.subtype,
+          description: userProfile.employerTypeUser.description
+        } : null,
+        authorizedRepEmail: userProfile.authorizedRepEmail || '',
+        authorizedRepEmailValidated: userProfile.authorizedRepEmailValidated,
         
         // Profile Settings
         showContactOnProfile: userProfile.showContactOnProfile || false,
@@ -108,6 +120,17 @@ export async function GET(request) {
         showContactOnProfile: false,
         allowDirectContact: true,
         profileVisibility: 'public',
+        employerType: userProfile.employerTypeUser ? {
+          id: userProfile.employerTypeUser.id,
+          code: userProfile.employerTypeUser.code,
+          label: userProfile.employerTypeUser.label,
+          category: userProfile.employerTypeUser.category,
+          type: userProfile.employerTypeUser.type,
+          subtype: userProfile.employerTypeUser.subtype,
+          description: userProfile.employerTypeUser.description
+        } : null,
+        authorizedRepEmail: userProfile.authorizedRepEmail || '',
+        authorizedRepEmailValidated: userProfile.authorizedRepEmailValidated,
         verificationDocuments: userProfile.verificationDocuments ? userProfile.verificationDocuments.map(d => d.url).filter(Boolean) : [],
         taxId: userProfile.taxId || null,
         authorizedRepresentatives: userProfile.authorizedRepresentatives ? userProfile.authorizedRepresentatives.map(ar => ({ name: ar.name, email: ar.email, designation: ar.designation, phone: ar.phone })) : []
@@ -149,6 +172,8 @@ export async function PUT(request) {
       licenseNumber: profileData.licenseNumber,
       licenseExpirationDate: profileData.licenseExpirationDate ? new Date(profileData.licenseExpirationDate) : null,
       taxId: profileData.taxId || profileData.tax_id || null,
+      employerTypeId: profileData.employerTypeId || null,
+      authorizedRepEmail: profileData.authorizedRepEmail || null,
       showContactOnProfile: profileData.showContactOnProfile,
       allowDirectContact: profileData.allowDirectContact,
       profileVisibility: profileData.profileVisibility,

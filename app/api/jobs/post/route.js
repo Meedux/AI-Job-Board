@@ -1,5 +1,6 @@
 import { NextResponse } from 'next/server';
 import { PrismaClient } from '@prisma/client';
+import { canCreateJob } from '@/utils/policy';
 import { cookies } from 'next/headers';
 import jwt from 'jsonwebtoken';
 
@@ -79,6 +80,14 @@ export async function POST(request) {
       existingJob = await prisma.job.findFirst({
         where: { slug: uniqueSlug }
       });
+    }
+
+    // Policy enforcement: check placement/fee limits and active posting limits for unverified accounts
+    const verifiedDoc = await prisma.verificationDocument.findFirst({ where: { userId: userId, status: 'verified' } });
+    const activeCount = await prisma.job.count({ where: { postedById: userId, NOT: { status: 'closed' } } });
+    const decision = canCreateJob({ user, verified: !!verifiedDoc, activeCount, jobData });
+    if (!decision.allowed) {
+      return NextResponse.json({ error: decision.message || 'Not allowed to create job' }, { status: 403 });
     }
 
     // Create the job posting
@@ -170,6 +179,14 @@ export async function PUT(request) {
 
     if (!existingJob) {
       return NextResponse.json({ error: 'Job not found or unauthorized' }, { status: 404 });
+    }
+
+    // Policy enforcement on update: prevent unverified users from setting placement fees or placement jobs
+    const verifiedDoc = await prisma.verificationDocument.findFirst({ where: { userId, status: 'verified' } });
+    const activeCount = await prisma.job.count({ where: { postedById: userId, NOT: { status: 'closed', id: jobId } } });
+    const decision = canCreateJob({ user, verified: !!verifiedDoc, activeCount, jobData });
+    if (!decision.allowed) {
+      return NextResponse.json({ error: decision.message || 'Not allowed to update job' }, { status: 403 });
     }
 
     // Update the job

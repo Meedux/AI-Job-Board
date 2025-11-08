@@ -666,7 +666,17 @@ export default function EmployerAdminDashboard() {
         {/* Sub-Users Table */}
         <div className="bg-gray-800 rounded-lg border border-gray-700 overflow-hidden">
           <div className="px-6 py-4 border-b border-gray-700">
-            <h2 className="text-lg font-semibold text-white">Sub-User Management</h2>
+            <div className="flex justify-between items-center">
+              <h2 className="text-lg font-semibold text-white">Sub-User Management</h2>
+              {canCreateSubs && (
+                <button
+                  onClick={() => setShowCreateModal(true)}
+                  className="px-4 py-2 bg-indigo-600 text-white rounded-lg hover:bg-indigo-700 transition-colors text-sm font-medium"
+                >
+                  Add Sub-User
+                </button>
+              )}
+            </div>
           </div>
           
           {loading ? (

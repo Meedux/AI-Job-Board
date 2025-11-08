@@ -5,6 +5,9 @@ import ComprehensiveJobPostingForm from '@/components/ComprehensiveJobPostingFor
 import JobPreview from '@/components/JobPreview';
 import { ArrowLeft, Zap, FileText, CheckCircle, AlertCircle } from 'lucide-react';
 
+// Force dynamic rendering to prevent prerendering issues
+export const dynamic = 'force-dynamic';
+
 const ComprehensiveJobPostingDemo = () => {
   const [mode, setMode] = useState('manual');
   const [currentStep, setCurrentStep] = useState('form'); // 'form' or 'preview'

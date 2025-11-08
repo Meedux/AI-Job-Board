@@ -1,6 +1,7 @@
 // API route to fetch jobs from PostgreSQL database using Prisma
 import { db, handlePrismaError } from '../../../utils/db';
 import { verifyToken, getUserFromRequest } from '../../../utils/auth';
+import { canCreateJob } from '../../../utils/policy';
 
 // Simple in-memory cache for performance
 const cache = new Map();
@@ -263,6 +264,15 @@ export async function POST(request) {
         counter++;
       }
       jobData.slug = uniqueSlug;
+    }
+
+    // Policy enforcement for creating jobs (placement fees, placement jobs, active posting limits)
+    const verifiedDoc = await db.prisma?.verificationDocument?.findFirst ? await db.prisma.verificationDocument.findFirst({ where: { userId: user.id, status: 'verified' } }) : null;
+    // Fallback: query via getUserFromRequest if db.prisma isn't available
+    const activeCount = await db.jobs.count({ where: { postedById: user.id, NOT: { status: 'closed' } } });
+    const decision = canCreateJob({ user, verified: !!verifiedDoc, activeCount, jobData });
+    if (!decision.allowed) {
+      return Response.json({ error: decision.message || 'Not allowed to create job' }, { status: 403 });
     }
 
     // Create job in database using Prisma

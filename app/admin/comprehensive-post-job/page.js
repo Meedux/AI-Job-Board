@@ -114,7 +114,6 @@ const ComprehensivePostJobPage = () => {
       });
 
       const result = await response.json();
-
       if (result.success) {
         setJobData({ ...jobPayload, id: result.job.id });
         setMessage('Job prepared successfully! Review your posting below.');
@@ -122,6 +121,9 @@ const ComprehensivePostJobPage = () => {
       } else {
         setMessage(result.error || 'Failed to create job posting');
       }
+
+      // Return API result so caller (form) can surface errors if needed
+      return result;
     } catch (error) {
       console.error('Error creating job:', error);
       setMessage('An error occurred while creating the job posting');

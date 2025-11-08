@@ -1,6 +1,7 @@
 import { NextResponse } from 'next/server';
 import { PrismaClient } from '@prisma/client';
 import { cookies } from 'next/headers';
+import { canCreateJob } from '@/utils/policy';
 
 const prisma = new PrismaClient();
 
@@ -61,6 +62,15 @@ export async function PATCH(request, { params }) {
 
     if (!canUpdate) {
       return NextResponse.json({ error: 'Insufficient permissions' }, { status: 403 });
+    }
+
+    // If activating the job, enforce policy to prevent unverified accounts publishing placement jobs or fees
+    if (status === 'active') {
+      const verifiedDoc = await prisma.verificationDocument.findFirst({ where: { userId: user.id, status: 'verified' } });
+      const decision = canCreateJob({ user, verified: !!verifiedDoc, activeCount: 0, jobData: { hasPlacementFee: job.hasPlacementFee, isPlacement: job.isPlacement } });
+      if (!decision.allowed) {
+        return NextResponse.json({ error: decision.message || 'Not allowed to publish job' }, { status: 403 });
+      }
     }
 
     // Update job status

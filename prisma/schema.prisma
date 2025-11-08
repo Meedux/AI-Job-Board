@@ -15,6 +15,12 @@ model Company {
   name        String   @unique
   logoUrl     String?  @map("logo_url")
   websiteUrl  String?  @map("website_url")
+  officialName String? @map("official_name")
+  tin          String? @map("tin")
+  legalEntityType String? @map("legal_entity_type")
+  primaryContactEmail String? @map("primary_contact_email")
+  companySize  String? @map("company_size")
+  foundedYear  Int?    @map("founded_year")
   description String?
   location    String?
   industry    String   @default("Technology")
@@ -50,6 +56,7 @@ model Job {
   id              String    @id @default(cuid())
   title           String
   slug            String    @unique
+  shortUrl         String?   @unique @map("short_url")
   description     String?
   requirements    String?   // Job requirements section
   benefits        String?   // Job benefits section
@@ -113,7 +120,17 @@ model Job {
   // Additional features
   allowPreview            Boolean   @default(true) @map("allow_preview")
   generateQRCode          Boolean   @default(false) @map("generate_qr_code")
+  qrImagePath             String?   @map("qr_image_path")
   generateSocialTemplate  Boolean   @default(false) @map("generate_social_template")
+  
+  // New employer type specific fields
+  functionalRole          String?   @map("functional_role")
+  specialization          String?   @map("specialization")
+  course                  String?   @map("course")
+  region                  String?   @map("region")
+  mandatoryStatement      Boolean   @default(false) @map("mandatory_statement")
+  principalEmployer       String?   @map("principal_employer")
+  validPassport           Boolean   @default(false) @map("valid_passport")
   
   // Mode and employer type tracking
   mode                    String?   @map("mode") // "manual", "ai"
@@ -212,6 +229,11 @@ model User {
   // Verification flag set by admin when documents are approved
   isVerified     Boolean  @default(false) @map("is_verified")
   verifiedAt     DateTime? @map("verified_at")
+  // New verification/status fields
+  verificationStatus   String?  @map("verification_status") @default("unverified")
+  authorizedRepEmail   String?  @map("authorized_rep_email")
+  authorizedRepEmailValidated Boolean @default(false) @map("authorized_rep_email_validated")
+  tin                   String?  @map("tin")
   
   // Enhanced Role System
   role         String    @default("job_seeker") // "super_admin", "employer_admin", "sub_user", "job_seeker"
@@ -317,16 +339,21 @@ model User {
 
 // Normalized employer types for validation and display
 model EmployerType {
-  id        String  @id @default(cuid())
-  code      String  @unique
-  label     String
+  id          String   @id @default(cuid())
+  code        String   @unique
+  label       String
+  category    String   // "local", "abroad", "both"
+  type        String   // "direct", "agency", "sub_agency", "manpower", "peo"
+  subtype     String?  // "single_entity", "corporate", "pea", "lb", "ma", "poea", "dmw"
+  description String?
+  isActive    Boolean  @default(true) @map("is_active")
 
   // Relations
-  jobs      Job[]    @relation("JobEmployerType")
-  users     User[]   @relation("UserEmployerType")
+  jobs        Job[]    @relation("JobEmployerType")
+  users       User[]   @relation("UserEmployerType")
 
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
 
   @@map("employer_types")
 }

@@ -1,5 +1,6 @@
 import { NextResponse } from 'next/server';
 import { PrismaClient } from '@prisma/client';
+import { canCreateJob } from '@/utils/policy';
 import { cookies } from 'next/headers';
 import jwt from 'jsonwebtoken';
 
@@ -178,6 +179,14 @@ export async function POST(request) {
         { error: 'Title and description are required' },
         { status: 400 }
       );
+    }
+
+    // Policy checks for unverified accounts (placement fees, placement jobs, active posting limits)
+    const verifiedDoc = await prisma.verificationDocument.findFirst({ where: { userId: user.id, status: 'verified' } });
+    const activeCount = await prisma.job.count({ where: { postedById: user.id, NOT: { status: 'closed' } } });
+    const decision = canCreateJob({ user, verified: !!verifiedDoc, activeCount, jobData });
+    if (!decision.allowed) {
+      return NextResponse.json({ error: decision.message || 'Not allowed to create job' }, { status: 403 });
     }
 
     // Generate slug

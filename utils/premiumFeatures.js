@@ -26,7 +26,10 @@ export const PREMIUM_FEATURES = {
   UNLIMITED_APPLICATIONS: 'unlimited_applications',
   JOB_ALERTS: 'job_alerts',
   COMPANY_INSIGHTS: 'company_insights',
-  SALARY_INSIGHTS: 'salary_insights'
+  SALARY_INSIGHTS: 'salary_insights',
+  
+  // Job posting features
+  PRESCREEN_QUESTIONS: 'prescreen_questions'
 };
 
 // Vulgar words list (still used for content moderation)
@@ -100,7 +103,8 @@ export function hasPremiumFeature(feature, user, subscription) {
         PREMIUM_FEATURES.LAZY_APPLY,
         PREMIUM_FEATURES.UNLIMITED_APPLICATIONS,
         PREMIUM_FEATURES.COMPANY_INSIGHTS,
-        PREMIUM_FEATURES.SALARY_INSIGHTS
+        PREMIUM_FEATURES.SALARY_INSIGHTS,
+        PREMIUM_FEATURES.PRESCREEN_QUESTIONS
       ].includes(feature);
       
     case 'enterprise':
@@ -149,7 +153,8 @@ export function getAvailablePremiumFeatures(user, subscription) {
         PREMIUM_FEATURES.LAZY_APPLY,
         PREMIUM_FEATURES.UNLIMITED_APPLICATIONS,
         PREMIUM_FEATURES.COMPANY_INSIGHTS,
-        PREMIUM_FEATURES.SALARY_INSIGHTS
+        PREMIUM_FEATURES.SALARY_INSIGHTS,
+        PREMIUM_FEATURES.PRESCREEN_QUESTIONS
       ];
       
     case 'enterprise':
@@ -327,6 +332,11 @@ export function getPremiumFeatureDescriptions() {
       title: 'Salary Insights',
       description: 'View salary ranges and compensation data',
       icon: '💰'
+    },
+    [PREMIUM_FEATURES.PRESCREEN_QUESTIONS]: {
+      title: 'Prescreen Questions',
+      description: 'Add custom questions for candidates to answer',
+      icon: '❓'
     }
   };
 }

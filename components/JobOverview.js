@@ -100,7 +100,9 @@ const JobOverview = ({ job, showApplicationForm = false, onApply }) => {
               <span className="px-3 py-1 bg-blue-500 rounded-full text-sm">{job.jobType}</span>
               <span className="px-3 py-1 bg-purple-500 rounded-full text-sm">{job.workMode}</span>
               <span className="px-3 py-1 bg-green-500 rounded-full text-sm">{job.experienceLevel}</span>
-              {/* employerType removed */}
+              {job.employerType && (
+                <span className="px-3 py-1 bg-orange-500 rounded-full text-sm">{job.employerType.label}</span>
+              )}
             </div>
           </div>
 
@@ -268,6 +270,13 @@ const JobOverview = ({ job, showApplicationForm = false, onApply }) => {
                   </div>
                 )}
                 
+                {job.employerType && (
+                  <div className="flex justify-between">
+                    <span className="text-gray-400">Employer Type:</span>
+                    <span className="text-white">{job.employerType.label}</span>
+                  </div>
+                )}
+                
                 {job.industry && (
                   <div className="flex justify-between">
                     <span className="text-gray-400">Industry:</span>
@@ -323,6 +332,20 @@ const JobOverview = ({ job, showApplicationForm = false, onApply }) => {
                       {job.licenseExpirationDate && (
                         <div>Expires: {new Date(job.licenseExpirationDate).toLocaleDateString()}</div>
                       )}
+                    </div>
+                  </div>
+                )}
+
+                {/* Placement Fee Information for DMW Agencies */}
+                {job.hasPlacementFee && job.employerType?.subtype === 'dmw' && (
+                  <div className="mt-4 p-3 bg-yellow-900/20 border border-yellow-500/30 rounded">
+                    <div className="flex items-center gap-2 text-yellow-400 mb-1">
+                      <DollarSign size={14} />
+                      <span className="font-medium text-xs">Placement Fee Required</span>
+                    </div>
+                    <div className="text-xs text-gray-300">
+                      This position includes a placement fee as per DMW/POEA regulations.
+                      The fee amount will be discussed during the application process.
                     </div>
                   </div>
                 )}

@@ -1,6 +1,7 @@
 import { NextResponse } from 'next/server';
 import { cookies } from 'next/headers';
 import { verifyToken } from '@/utils/auth';
+import { canRevealResume } from '@/utils/policy';
 import { PrismaClient } from '@prisma/client';
 import { USER_ROLES, hasPermission, PERMISSIONS } from '@/utils/roleSystem';
 import { useCredit, getUserCredits, checkUserUsageLimits } from '@/utils/newSubscriptionService';
@@ -149,7 +150,7 @@ export async function POST(request) {
       // Enforce verification restrictions: unverified employers cannot reveal resumes from the public/database
       if (resumeId) {
         const revealActor = creditUser; // the account that will be charged/used
-        if (!revealActor.isVerified) {
+        if (!canRevealResume({ user: revealActor })) {
           return NextResponse.json({ error: 'Account not verified — verify company to reveal resumes from the database' }, { status: 403 });
         }
       }

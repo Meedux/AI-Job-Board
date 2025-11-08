@@ -101,11 +101,11 @@ export default function SuperAdminDashboard() {
       color: 'purple'
     },
     {
-      title: 'Company Management',
-      description: 'Oversee all companies and employers',
+      title: 'Employer Types',
+      description: 'Manage employer type categories and classifications',
       icon: Building2,
-      href: '/super-admin/companies',
-      color: 'orange'
+      href: '/super-admin/employer-types',
+      color: 'indigo'
     },
     {
       title: 'Analytics & Reports',

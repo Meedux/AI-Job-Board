@@ -28,6 +28,8 @@ const JobPreview = ({
 }) => {
   const [viewMode, setViewMode] = useState('card'); // 'card' or 'overview'
   const [showQRCode, setShowQRCode] = useState(false);
+  const [qrPath, setQrPath] = useState(jobData?.qrImagePath || null);
+  const [qrLoading, setQrLoading] = useState(false);
 
   // Format salary for card view
   const formatSalaryCard = (job) => {
@@ -247,14 +249,46 @@ const JobPreview = ({
                 <div>
                   <h3 className="text-lg font-medium text-white mb-3">QR Code</h3>
                   <div className="bg-white p-4 rounded-lg inline-block">
-                    <div className="w-32 h-32 bg-gray-200 flex items-center justify-center text-gray-500 text-sm">
-                      QR Code Preview
-                    </div>
+                    {qrPath ? (
+                      <img src={qrPath} alt="Job QR" className="w-32 h-32 object-cover" />
+                    ) : (
+                      <div className="w-32 h-32 bg-gray-200 flex items-center justify-center text-gray-500 text-sm">
+                        QR Code Preview
+                      </div>
+                    )}
                   </div>
-                  <button className="ml-4 flex items-center gap-2 px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700">
-                    <Download size={16} />
-                    Download QR Code
-                  </button>
+
+                  <div className="inline-flex items-center gap-2 ml-4">
+                    {!qrPath && (
+                      <button
+                        onClick={async () => {
+                          try {
+                            setQrLoading(true);
+                            const res = await fetch(`/api/jobs/${jobData.id}/qr`, { method: 'POST' });
+                            const data = await res.json();
+                            if (res.ok && data.qrPath) setQrPath(data.qrPath);
+                            else alert(data.error || 'Failed to generate QR');
+                          } catch (e) {
+                            console.error(e);
+                            alert('Failed to generate QR');
+                          } finally {
+                            setQrLoading(false);
+                          }
+                        }}
+                        disabled={qrLoading}
+                        className="flex items-center gap-2 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700"
+                      >
+                        {qrLoading ? 'Generating...' : 'Generate QR'}
+                      </button>
+                    )}
+
+                    {qrPath && (
+                      <a href={qrPath} download className="flex items-center gap-2 px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700">
+                        <Download size={16} />
+                        Download QR Code
+                      </a>
+                    )}
+                  </div>
                 </div>
               )}
             </div>

@@ -25,12 +25,15 @@ export default function DynamicAuthForm() {
     password: '',
     name: '', // For jobseekers
     companyName: '', // For hirers
-    companyType: '', // e.g., direct, agency
-    employerCategory: '', // local, abroad, both
+    employerTypeId: '', // Reference to EmployerType model
     taxId: '',
     authorizedRepresentatives: [],
     agreeToTerms: false
   });
+
+  // Employer types state
+  const [employerTypes, setEmployerTypes] = useState([]);
+  const [loadingEmployerTypes, setLoadingEmployerTypes] = useState(false);
 
   // Check if user came from job posting
   const redirectToJobPost = searchParams.get('redirect') === 'post-job';
@@ -41,7 +44,27 @@ export default function DynamicAuthForm() {
       setUserType('hirer');
       setIsLogin(false); // Show registration form
     }
-  }, [redirectToJobPost]);
+
+    // Load employer types for hirer registration
+    if (!isLogin && userType === 'hirer') {
+      loadEmployerTypes();
+    }
+  }, [redirectToJobPost, userType, isLogin]);
+
+  const loadEmployerTypes = async () => {
+    setLoadingEmployerTypes(true);
+    try {
+      const response = await fetch('/api/employer-types');
+      if (response.ok) {
+        const data = await response.json();
+        setEmployerTypes(data.employerTypes || []);
+      }
+    } catch (error) {
+      console.error('Error loading employer types:', error);
+    } finally {
+      setLoadingEmployerTypes(false);
+    }
+  };
 
   const handleInputChange = (e) => {
     const { name, value, type, checked } = e.target;
@@ -150,8 +173,7 @@ export default function DynamicAuthForm() {
         } else {
           registrationData.companyName = formData.companyName;
           registrationData.fullName = formData.companyName; // Use company name as full name initially
-          registrationData.companyType = formData.companyType;
-          registrationData.employerCategory = formData.employerCategory;
+          registrationData.employerTypeId = formData.employerTypeId;
           registrationData.taxId = formData.taxId;
           registrationData.authorizedRepresentatives = formData.authorizedRepresentatives;
         }
@@ -317,19 +339,34 @@ export default function DynamicAuthForm() {
                 />
                 {userType === 'hirer' && (
                   <div className="mt-3 space-y-3">
-                    <div className="grid grid-cols-2 gap-3">
-                      <select name="companyType" value={formData.companyType} onChange={handleInputChange} className="w-full px-3 py-2 bg-gray-700 border border-gray-600 rounded-md text-white">
-                        <option value="">Company Type</option>
-                        <option value="direct">Direct Employer</option>
-                        <option value="agency">Agency</option>
-                        <option value="sub_agency">Sub-Agency</option>
-                      </select>
-                      <select name="employerCategory" value={formData.employerCategory} onChange={handleInputChange} className="w-full px-3 py-2 bg-gray-700 border border-gray-600 rounded-md text-white">
-                        <option value="">Category</option>
-                        <option value="local">Local</option>
-                        <option value="abroad">Abroad</option>
-                        <option value="both">Both</option>
-                      </select>
+                    <div>
+                      <label className="block text-sm font-medium text-gray-300 mb-2">
+                        Employer Type *
+                      </label>
+                      {loadingEmployerTypes ? (
+                        <div className="flex items-center gap-2 text-gray-400">
+                          <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-indigo-500"></div>
+                          Loading employer types...
+                        </div>
+                      ) : (
+                        <select
+                          name="employerTypeId"
+                          value={formData.employerTypeId}
+                          onChange={handleInputChange}
+                          className="w-full px-3 py-2 bg-gray-700 border border-gray-600 rounded-md text-white focus:outline-none focus:ring-2 focus:ring-indigo-500"
+                          required={!isLogin && userType === 'hirer'}
+                        >
+                          <option value="">Select Employer Type</option>
+                          {employerTypes.map((type) => (
+                            <option key={type.id} value={type.id}>
+                              {type.label} ({type.category})
+                            </option>
+                          ))}
+                        </select>
+                      )}
+                      <p className="text-xs text-gray-400 mt-1">
+                        Choose the type of employer you represent
+                      </p>
                     </div>
                     <input type="text" name="taxId" value={formData.taxId} onChange={handleInputChange} placeholder="Tax Identification Number (TIN)" className="w-full px-3 py-2 bg-gray-700 border border-gray-600 rounded-md text-white" />
                     <textarea name="authorizedReps" value={(formData.authorizedRepresentatives || []).map(a => `${a.name} <${a.email}>`).join('\n')} onChange={(e) => {

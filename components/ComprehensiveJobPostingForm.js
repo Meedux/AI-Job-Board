@@ -3,6 +3,12 @@
 
 import { useState, useEffect } from 'react';
 import { useAuth } from '@/contexts/AuthContext';
+import { useSubscription } from '@/contexts/SubscriptionContext';
+import { 
+  hasPremiumFeature,
+  PREMIUM_FEATURES
+} from '@/utils/premiumFeatures';
+
 import { 
   
   EDUCATION_LEVELS, 
@@ -49,8 +55,27 @@ const ComprehensiveJobPostingForm = ({
   user: propUser = null,
   isDemo = false
 }) => {
-  const { user: contextUser } = useAuth();
+  // Get user from props (for demo) or context
+  const contextUser = (() => {
+    try {
+      const { user } = useAuth();
+      return user;
+    } catch (error) {
+      // Fallback for when useAuth is not available (e.g., during build)
+      return null;
+    }
+  })();
+  
   const user = propUser || contextUser;
+  const subscriptionContext = (() => {
+    try {
+      return useSubscription();
+    } catch (error) {
+      // Fallback for when useSubscription is not available (e.g., during build)
+      return { subscription: null };
+    }
+  })();
+  const { subscription } = subscriptionContext;
   const [currentStep, setCurrentStep] = useState(1);
   const [loading, setLoading] = useState(false);
   const [errors, setErrors] = useState({});
@@ -104,8 +129,18 @@ const ComprehensiveJobPostingForm = ({
     licenseNumber: '',
     licenseExpirationDate: '',
     overseasStatement: '',
-  // Placement fees and agency-specific fields
-  placementFee: '',
+    // Placement fees and agency-specific fields
+    hasPlacementFee: false,
+    isPlacement: false,
+    // New fields from requirements
+    functionalRole: '',
+    specialization: '',
+    dealBreakers: [],
+    course: '',
+    region: '',
+    mandatoryStatement: false,
+    principalEmployer: '',
+    validPassport: false,
     
     // Application Settings
     applicationDeadline: '',
@@ -172,6 +207,26 @@ const ComprehensiveJobPostingForm = ({
   const isOverseasEmployer = employerCategory === 'abroad' || employerCategory === 'both';
   const isVerified = !!user?.isVerified;
 
+  // Normalized employer type object attached to user (if available)
+  const employerType = user?.employerTypeUser || null;
+  const employerSubtype = employerType?.subtype || null; // e.g. 'dmw', 'poea', 'ma', 'lb', 'pea'
+  const isDMWAgency = employerSubtype === 'dmw' || employerSubtype === 'poea';
+  const isAgency = companyType === 'agency' || companyType === 'manpower' || companyType === 'sub_agency';
+  const canSetPlacementFee = isDMWAgency && isVerified;
+  const companyNameReadOnly = !!user?.companyName;
+
+  // When user context loads, pre-fill some form values and enforce defaults
+  useEffect(() => {
+    if (user) {
+      setFormData(prev => ({
+        ...prev,
+        companyName: user.companyName || prev.companyName,
+        // Unverified accounts should not show contact info by default
+        showContactOnPosting: user && user.isVerified ? prev.showContactOnPosting : false
+      }));
+    }
+  }, [user]);
+
   // Form submission handler
   const handleFormSubmit = async (e) => {
     e.preventDefault();
@@ -234,18 +289,33 @@ const ComprehensiveJobPostingForm = ({
         
         // Include all comprehensive fields for the new system
         ...formData,
-        // Normalize placement fee to number if provided
-        placementFee: formData.placementFee ? parseFloat(formData.placementFee) : null,
+        // Normalize placement fee to boolean
+        hasPlacementFee: !!formData.hasPlacementFee,
         isPlacement: !!formData.isPlacement,
+        // Only include prescreen questions for premium users
+        prescreenQuestions: hasPremiumFeature(PREMIUM_FEATURES.PRESCREEN_QUESTIONS, user, subscription) 
+          ? formData.prescreenQuestions 
+          : [],
         postedById: user?.id,
         status: 'draft'
       };
       
-      onSubmit(submissionData);
-      
-      // Clear saved prescreen questions from localStorage after successful submission
-      const key = `job-posting-prescreen-${user?.id || 'anonymous'}`;
-      localStorage.removeItem(key);
+      // If onSubmit returns a promise/result, await it so we can surface server messages here.
+      let result;
+      try {
+        result = onSubmit ? onSubmit(submissionData) : null;
+        if (result && typeof result.then === 'function') {
+          result = await result;
+        }
+
+        if (result && result.error) {
+          setErrors(prev => ({ ...prev, submit: result.error }));
+        }
+      } finally {
+        // Clear saved prescreen questions from localStorage after attempted submission
+        const key = `job-posting-prescreen-${user?.id || 'anonymous'}`;
+        localStorage.removeItem(key);
+      }
     } catch (error) {
       console.error('Form submission error:', error);
       setErrors({ submit: 'An error occurred while submitting the form' });
@@ -516,6 +586,43 @@ const ComprehensiveJobPostingForm = ({
         {errors.jobTitle && <p className="mt-1 text-sm text-red-400">{errors.jobTitle}</p>}
       </div>
 
+      {/* Functional Role */}
+      <div>
+        <label className="flex items-center gap-2 text-sm font-medium text-gray-300 mb-2">
+          <Building2 size={16} />
+          Functional Role
+        </label>
+        <select
+          value={formData.functionalRole}
+          onChange={(e) => handleInputChange('functionalRole', e.target.value)}
+          className="w-full px-3 py-2 bg-gray-800 border border-gray-700 rounded-lg text-white focus:outline-none focus:ring-2 focus:ring-blue-500"
+        >
+          <option value="">Select Functional Role</option>
+          <option value="engineering">Engineering</option>
+          <option value="sales">Sales</option>
+          <option value="marketing">Marketing</option>
+          <option value="finance">Finance</option>
+          <option value="hr">Human Resources</option>
+          <option value="operations">Operations</option>
+          <option value="other">Other</option>
+        </select>
+      </div>
+
+      {/* Specialization */}
+      <div>
+        <label className="flex items-center gap-2 text-sm font-medium text-gray-300 mb-2">
+          <Building2 size={16} />
+          Specialization
+        </label>
+        <input
+          type="text"
+          value={formData.specialization}
+          onChange={(e) => handleInputChange('specialization', e.target.value)}
+          className="w-full px-3 py-2 bg-gray-800 border border-gray-700 rounded-lg text-white placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-blue-500"
+          placeholder="e.g., Frontend Development, Digital Marketing"
+        />
+      </div>
+
       {/* Number of Openings */}
       <div>
         <Tooltip text={FORM_TOOLTIPS.numberOfOpenings}>
@@ -545,9 +652,13 @@ const ComprehensiveJobPostingForm = ({
           type="text"
           value={formData.companyName}
           onChange={(e) => handleInputChange('companyName', e.target.value)}
-          className="w-full px-3 py-2 bg-gray-800 border border-gray-700 rounded-lg text-white placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-blue-500"
+          readOnly={companyNameReadOnly}
+          className={`w-full px-3 py-2 ${companyNameReadOnly ? 'bg-gray-900 cursor-not-allowed' : 'bg-gray-800'} border border-gray-700 rounded-lg text-white placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-blue-500`}
           placeholder="Your company name"
         />
+        {companyNameReadOnly && (
+          <p className="mt-1 text-xs text-gray-400">Company name is set from your account registration and cannot be changed here. Manage company details on the Manage Company page.</p>
+        )}
         {errors.companyName && <p className="mt-1 text-sm text-red-400">{errors.companyName}</p>}
       </div>
 
@@ -737,6 +848,34 @@ const ComprehensiveJobPostingForm = ({
       </div>
 
       <div>
+        <label className="text-sm font-medium text-gray-300 mb-2 block">Region</label>
+        <select
+          value={formData.region}
+          onChange={(e) => handleInputChange('region', e.target.value)}
+          className="w-full md:w-1/3 px-3 py-2 bg-gray-800 border border-gray-700 rounded-lg text-white focus:outline-none focus:ring-2 focus:ring-blue-500"
+        >
+          <option value="">Select Region</option>
+          <option value="NCR">National Capital Region (NCR)</option>
+          <option value="Region I">Region I (Ilocos Region)</option>
+          <option value="Region II">Region II (Cagayan Valley)</option>
+          <option value="Region III">Region III (Central Luzon)</option>
+          <option value="Region IV-A">Region IV-A (CALABARZON)</option>
+          <option value="Region IV-B">Region IV-B (MIMAROPA)</option>
+          <option value="Region V">Region V (Bicol Region)</option>
+          <option value="Region VI">Region VI (Western Visayas)</option>
+          <option value="Region VII">Region VII (Central Visayas)</option>
+          <option value="Region VIII">Region VIII (Eastern Visayas)</option>
+          <option value="Region IX">Region IX (Zamboanga Peninsula)</option>
+          <option value="Region X">Region X (Northern Mindanao)</option>
+          <option value="Region XI">Region XI (Davao Region)</option>
+          <option value="Region XII">Region XII (SOCCSKSARGEN)</option>
+          <option value="Region XIII">Region XIII (Caraga)</option>
+          <option value="BARMM">BARMM (Bangsamoro)</option>
+          <option value="Overseas">Overseas</option>
+        </select>
+      </div>
+
+      <div>
         <label className="text-sm font-medium text-gray-300 mb-2 block">Country</label>
         <select
           value={formData.country}
@@ -857,19 +996,46 @@ const ComprehensiveJobPostingForm = ({
 
         {/* Show Compensation Toggle */}
         <div className="mt-4">
-          <Tooltip text={FORM_TOOLTIPS.showCompensation}>
-            <label className="flex items-center gap-2 text-sm font-medium text-gray-300">
-              <input
-                type="checkbox"
-                checked={formData.showCompensation}
-                onChange={(e) => handleInputChange('showCompensation', e.target.checked)}
-                className="w-4 h-4 text-blue-600 bg-gray-700 border-gray-600 rounded focus:ring-blue-500"
-              />
-              Show compensation in job posting
-              <Info size={14} className="text-gray-400" />
-            </label>
-          </Tooltip>
+          <label className="flex items-center gap-2 text-sm font-medium text-gray-300">
+            <input
+              type="checkbox"
+              checked={formData.showCompensation}
+              onChange={(e) => handleInputChange('showCompensation', e.target.checked)}
+              className="w-4 h-4 text-blue-600 bg-gray-700 border-gray-600 rounded focus:ring-blue-500"
+            />
+            Show compensation in job posting
+            <Info size={14} className="text-gray-400" />
+          </label>
         </div>
+
+        {/* Placement Fee Section - Only for DMW Agencies */}
+        {canSetPlacementFee && (
+          <div className="mt-6 p-4 bg-blue-900/20 border border-blue-500/30 rounded-lg">
+            <div className="flex items-center gap-2 text-blue-400 mb-3">
+              <DollarSign size={16} />
+              <span className="font-medium">Placement Fee Information</span>
+            </div>
+
+            <div className="space-y-4">
+              <div className="flex items-center gap-2">
+                <input
+                  type="checkbox"
+                  id="hasPlacementFee"
+                  checked={!!formData.hasPlacementFee}
+                  onChange={(e) => handleInputChange('hasPlacementFee', e.target.checked)}
+                  className="w-4 h-4 text-blue-600 bg-gray-700 border-gray-600 rounded focus:ring-blue-500"
+                />
+                <label htmlFor="hasPlacementFee" className="text-sm font-medium text-gray-300">
+                  This job posting includes a placement fee
+                </label>
+              </div>
+
+              <p className="text-xs text-gray-400">
+                Check this box if your agency charges a placement fee for this position. Only verified DMW agencies can indicate placement fees.
+              </p>
+            </div>
+          </div>
+        )}
       </div>
     </div>
   );
@@ -987,6 +1153,18 @@ const ComprehensiveJobPostingForm = ({
         )}
       </div>
 
+      {/* Course */}
+      <div>
+        <label className="text-sm font-medium text-gray-300 mb-2 block">Required Course/Degree</label>
+        <input
+          type="text"
+          value={formData.course}
+          onChange={(e) => handleInputChange('course', e.target.value)}
+          className="w-full px-3 py-2 bg-gray-800 border border-gray-700 rounded-lg text-white placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-blue-500"
+          placeholder="e.g., Bachelor of Science in Computer Science"
+        />
+      </div>
+
       {/* Skills Required */}
       <div>
         <div className="flex items-center justify-between mb-2">
@@ -1020,6 +1198,18 @@ const ComprehensiveJobPostingForm = ({
           onRemove={(index) => handleArrayRemove('preferredSkills', index)}
           placeholder="Type a preferred skill and press Enter"
         />
+      </div>
+
+      {/* Deal Breakers */}
+      <div>
+        <label className="text-sm font-medium text-gray-300 mb-2 block">Deal Breakers (Optional)</label>
+        <SkillsInput
+          skills={formData.dealBreakers}
+          onAdd={(skill) => handleArrayAdd('dealBreakers', skill)}
+          onRemove={(index) => handleArrayRemove('dealBreakers', index)}
+          placeholder="Type a deal breaker and press Enter"
+        />
+        <p className="text-xs text-gray-400 mt-1">Skills or requirements that are absolutely necessary</p>
       </div>
 
       {/* Benefits */}
@@ -1150,21 +1340,27 @@ const ComprehensiveJobPostingForm = ({
         
         <div className="space-y-4">
           <div>
-            <Tooltip text={FORM_TOOLTIPS.showContact}>
-              <label className="flex items-center gap-2 text-sm font-medium text-gray-300">
-                <input
-                  type="checkbox"
-                  checked={formData.showContactOnPosting}
-                  onChange={(e) => handleInputChange('showContactOnPosting', e.target.checked)}
-                  className="w-4 h-4 text-blue-600 bg-gray-700 border-gray-600 rounded focus:ring-blue-500"
-                />
-                Show contact information on job posting
-                <Info size={14} className="text-gray-400" />
-              </label>
-            </Tooltip>
+            {isVerified ? (
+              <Tooltip text={FORM_TOOLTIPS.showContact}>
+                <label className="flex items-center gap-2 text-sm font-medium text-gray-300">
+                  <input
+                    type="checkbox"
+                    checked={formData.showContactOnPosting}
+                    onChange={(e) => handleInputChange('showContactOnPosting', e.target.checked)}
+                    className="w-4 h-4 text-blue-600 bg-gray-700 border-gray-600 rounded focus:ring-blue-500"
+                  />
+                  Show contact information on job posting
+                  <Info size={14} className="text-gray-400" />
+                </label>
+              </Tooltip>
+            ) : (
+              <div className="text-sm text-gray-400">
+                Contact information is hidden until your account is verified. Upload required documents and validate the Authorized Representative's email to enable contact display.
+              </div>
+            )}
           </div>
-          
-          {formData.showContactOnPosting && user?.role === 'premium' && (
+
+          {isVerified && formData.showContactOnPosting && user?.role === 'premium' && (
             <div className="ml-6">
               <label className="flex items-center gap-2 text-sm font-medium text-gray-300">
                 <input
@@ -1189,80 +1385,95 @@ const ComprehensiveJobPostingForm = ({
   const renderStep5 = () => (
     <div className="space-y-6">
       <h3 className="text-xl font-semibold text-white mb-4">Prescreen Questions & Final Settings</h3>
-      
-      {/* Prescreen Questions */}
-      <div>
-        <div className="flex items-center justify-between mb-4">
-          <div>
-            <Tooltip text={FORM_TOOLTIPS.prescreenQuestions}>
-              <h4 className="flex items-center gap-2 text-lg font-medium text-white">
-                Prescreen Questions
-                <Info size={14} className="text-gray-400" />
-              </h4>
-            </Tooltip>
-            <p className="text-sm text-gray-400">
-              Add up to {mode === 'ai' ? '5' : '3'} questions to filter candidates effectively
-            </p>
-            {formData.prescreenQuestions.length > 0 && (
-              <p className="text-sm text-green-400">
-                ✓ {formData.prescreenQuestions.length} question{formData.prescreenQuestions.length !== 1 ? 's' : ''} added
-              </p>
-            )}
-          </div>
-          
-          <div className="flex gap-2">
-            {!formData.useDefaultQuestions && (
-              <button
-                type="button"
-                onClick={loadDefaultQuestions}
-                className="flex items-center gap-2 px-3 py-1 bg-green-600 text-white rounded text-sm hover:bg-green-700"
-              >
-                Use Default Questions
-              </button>
-            )}
-            
-            {mode === 'ai' && (
-              <button
-                type="button"
-                onClick={() => generateAIContent('questions')}
-                disabled={loading}
-                className="flex items-center gap-2 px-3 py-1 bg-purple-600 text-white rounded text-sm hover:bg-purple-700 disabled:opacity-50"
-              >
-                <Sparkles size={14} />
-                AI Generate
-              </button>
-            )}
-          </div>
-        </div>
 
-        <div className="space-y-4">
-          {formData.prescreenQuestions.map((question, index) => (
-            <PrescreenQuestionBuilder
-              key={question.id}
-              question={question}
-              index={index}
-              onUpdate={(field, value) => updatePrescreenQuestion(index, field, value)}
-              onRemove={() => removePrescreenQuestion(index)}
-            />
-          ))}
-          
-          {formData.prescreenQuestions.length < (mode === 'ai' ? 5 : 3) && (
-            <button
-              type="button"
-              onClick={addPrescreenQuestion}
-              className="flex items-center gap-2 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors"
-            >
-              <Plus size={16} />
-              Add Question
-            </button>
-          )}
+      {/* Prescreen Questions */}
+      {hasPremiumFeature(PREMIUM_FEATURES.PRESCREEN_QUESTIONS, user, subscription) ? (
+        <div>
+          <div className="flex items-center justify-between mb-4">
+            <div>
+              <Tooltip text={FORM_TOOLTIPS.prescreenQuestions}>
+                <h4 className="flex items-center gap-2 text-lg font-medium text-white">
+                  Prescreen Questions
+                  <Info size={14} className="text-gray-400" />
+                </h4>
+              </Tooltip>
+              <p className="text-sm text-gray-400">
+                Add up to {mode === 'ai' ? '5' : '3'} questions to filter candidates effectively
+              </p>
+              {formData.prescreenQuestions.length > 0 && (
+                <p className="text-sm text-green-400">
+                  ✓ {formData.prescreenQuestions.length} question{formData.prescreenQuestions.length !== 1 ? 's' : ''} added
+                </p>
+              )}
+            </div>
+
+            <div className="flex gap-2">
+              {!formData.useDefaultQuestions && (
+                <button
+                  type="button"
+                  onClick={loadDefaultQuestions}
+                  className="flex items-center gap-2 px-3 py-1 bg-green-600 text-white rounded text-sm hover:bg-green-700"
+                >
+                  Use Default Questions
+                </button>
+              )}
+
+              {mode === 'ai' && (
+                <button
+                  type="button"
+                  onClick={() => generateAIContent('questions')}
+                  disabled={loading}
+                  className="flex items-center gap-2 px-3 py-1 bg-purple-600 text-white rounded text-sm hover:bg-purple-700 disabled:opacity-50"
+                >
+                  <Sparkles size={14} />
+                  AI Generate
+                </button>
+              )}
+            </div>
+          </div>
+
+          <div className="space-y-4">
+            {formData.prescreenQuestions.map((question, index) => (
+              <PrescreenQuestionBuilder
+                key={question.id}
+                question={question}
+                index={index}
+                onUpdate={(field, value) => updatePrescreenQuestion(index, field, value)}
+                onRemove={() => removePrescreenQuestion(index)}
+              />
+            ))}
+
+            {formData.prescreenQuestions.length < (mode === 'ai' ? 5 : 3) && (
+              <button
+                type="button"
+                onClick={addPrescreenQuestion}
+                className="flex items-center gap-2 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors"
+              >
+                <Plus size={16} />
+                Add Question
+              </button>
+            )}
+          </div>
         </div>
-      </div>
+      ) : (
+        <div className="bg-yellow-900/20 border border-yellow-600/30 rounded-lg p-4">
+          <div className="flex items-center gap-2 text-yellow-400 mb-2">
+            <Sparkles size={16} />
+            <h4 className="text-lg font-medium">Prescreen Questions (Premium Feature)</h4>
+          </div>
+          <p className="text-yellow-300 text-sm mb-3">
+            Add custom questions to filter candidates before they apply. This helps you identify the most qualified applicants.
+          </p>
+          <p className="text-yellow-200 text-sm">
+            Upgrade to Premium to add up to {mode === 'ai' ? '5' : '3'} prescreen questions per job posting.
+          </p>
+        </div>
+      )}
 
       {/* Final Settings */}
       <div className="border-t border-gray-700 pt-6">
         <h4 className="text-lg font-medium text-white mb-4">Additional Features</h4>
-        
+
         <div className="space-y-4">
           <label className="flex items-center gap-2 text-sm font-medium text-gray-300">
             <input
@@ -1273,7 +1484,7 @@ const ComprehensiveJobPostingForm = ({
             />
             Enable job preview for candidates
           </label>
-          
+
           <label className="flex items-center gap-2 text-sm font-medium text-gray-300">
             <input
               type="checkbox"
@@ -1283,7 +1494,7 @@ const ComprehensiveJobPostingForm = ({
             />
             Generate QR code for easy sharing
           </label>
-          
+
           <label className="flex items-center gap-2 text-sm font-medium text-gray-300">
             <input
               type="checkbox"
@@ -1297,30 +1508,74 @@ const ComprehensiveJobPostingForm = ({
             )}
           </label>
         </div>
+
         <div className="mt-4">
-          <label className="block text-sm font-medium text-gray-300 mb-2">Placement Fee (optional)</label>
-          <div className="flex items-center gap-2">
-            <input
-              type="number"
-              min="0"
-              step="0.01"
-              value={formData.placementFee}
-              onChange={(e) => handleInputChange('placementFee', e.target.value)}
-              className="w-32 px-3 py-2 bg-gray-800 border border-gray-700 rounded-lg text-white placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-blue-500"
-              placeholder="0.00"
-            />
-            <label className="flex items-center gap-2 text-sm text-gray-300 ml-2">
-              <input
-                type="checkbox"
-                checked={!!formData.isPlacement}
-                onChange={(e) => handleInputChange('isPlacement', e.target.checked)}
-                className="w-4 h-4 text-blue-600 bg-gray-700 border-gray-600 rounded focus:ring-blue-500"
-              />
-              Placement job
+          {isOverseasEmployer && (
+            <div>
+              <label className="block text-sm font-medium text-gray-300 mb-2">Valid Passport Required</label>
+              <label className="flex items-center gap-2 text-sm text-gray-300">
+                <input
+                  type="checkbox"
+                  checked={!!formData.validPassport}
+                  onChange={(e) => handleInputChange('validPassport', e.target.checked)}
+                  className="w-4 h-4 text-blue-600 bg-gray-700 border-gray-600 rounded focus:ring-blue-500"
+                />
+                Require candidates to have valid passport (for abroad agencies)
+              </label>
+            </div>
+          )}
+
+          <div className="mt-4">
+            <label className="flex items-center justify-between gap-2 text-sm font-medium text-gray-300 mb-2">
+              <span>Principal/Employer</span>
+              <a href="/profile/employer/manage-company" className="text-xs text-blue-400 hover:underline">Add</a>
             </label>
-            <span className="text-sm text-gray-400">Set a placement fee (optional). Unverified accounts cannot set placement fees.</span>
+            <input
+              type="text"
+              value={formData.principalEmployer}
+              onChange={(e) => handleInputChange('principalEmployer', e.target.value)}
+              className="w-full px-3 py-2 bg-gray-800 border border-gray-700 rounded-lg text-white placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-blue-500"
+              placeholder="Name of the principal employer or company"
+            />
           </div>
-          {errors.placementFee && <p className="mt-1 text-sm text-red-400">{errors.placementFee}</p>}
+
+          {isDMWAgency && (
+            <div>
+              <div className="mt-4">
+                <label className="block text-sm font-medium text-gray-300 mb-2">Mandatory Statement</label>
+                <label className="flex items-start gap-2 text-sm text-gray-300">
+                  <input
+                    type="checkbox"
+                    checked={!!formData.mandatoryStatement}
+                    onChange={(e) => handleInputChange('mandatoryStatement', e.target.checked)}
+                    className="w-4 h-4 mt-0.5 text-blue-600 bg-gray-700 border-gray-600 rounded focus:ring-blue-500"
+                  />
+                  <div>
+                    <div className="font-medium">Include mandatory statement for manpower pooling (DMW/POEA requirement)</div>
+                    {formData.mandatoryStatement && (
+                      <div className="mt-2 p-3 bg-red-900/20 border border-red-700 rounded-lg text-xs text-red-300">
+                        "For manpower pooling only. No fees in any form and/or purpose will be collected from the applicants. Beware of illegal recruiters and human traffickers."
+                      </div>
+                    )}
+                  </div>
+                </label>
+              </div>
+
+              <div className="mt-4">
+                <label className="flex items-center gap-2 text-sm font-medium text-gray-300">
+                  <input
+                    type="checkbox"
+                    checked={!!formData.hasPlacementFee}
+                    onChange={(e) => handleInputChange('hasPlacementFee', e.target.checked)}
+                    className="w-4 h-4 text-blue-600 bg-gray-700 border-gray-600 rounded focus:ring-blue-500"
+                    disabled={!canSetPlacementFee}
+                  />
+                  Has Placement Fee (DMW Agencies Only)
+                </label>
+                <p className="text-sm text-gray-400 mt-1">Check if this job posting includes a placement fee. Only verified DMW agencies can set placement fees.</p>
+              </div>
+            </div>
+          )}
         </div>
       </div>
     </div>
@@ -1391,7 +1646,7 @@ const ComprehensiveJobPostingForm = ({
     };
 
     const removeOption = (optionIndex) => {
-      const newOptions = question.options.filter((_, i) => i !== optionIndex);
+      const newOptions = (question.options || []).filter((_, i) => i !== optionIndex);
       onUpdate('options', newOptions);
     };
 
@@ -1407,7 +1662,7 @@ const ComprehensiveJobPostingForm = ({
             <Minus size={16} />
           </button>
         </div>
-        
+
         <div className="space-y-3">
           <div>
             <label className="text-sm text-gray-400 mb-1 block">Question Type</label>
@@ -1422,7 +1677,7 @@ const ComprehensiveJobPostingForm = ({
               <option value="number">Number</option>
             </select>
           </div>
-          
+
           <div>
             <label className="text-sm text-gray-400 mb-1 block">Question</label>
             <input
@@ -1433,7 +1688,7 @@ const ComprehensiveJobPostingForm = ({
               placeholder="Enter your question..."
             />
           </div>
-          
+
           {question.type === 'select' && (
             <div>
               <label className="text-sm text-gray-400 mb-1 block">Options</label>
@@ -1455,7 +1710,7 @@ const ComprehensiveJobPostingForm = ({
                 </button>
               </div>
               <div className="space-y-1">
-                {question.options?.map((option, optionIndex) => (
+                {(question.options || []).map((option, optionIndex) => (
                   <div key={optionIndex} className="flex items-center justify-between p-2 bg-gray-700 rounded">
                     <span className="text-sm text-white">{option}</span>
                     <button
@@ -1470,7 +1725,7 @@ const ComprehensiveJobPostingForm = ({
               </div>
             </div>
           )}
-          
+
           <label className="flex items-center gap-2 text-sm text-gray-300">
             <input
               type="checkbox"

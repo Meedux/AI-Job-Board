@@ -18,7 +18,8 @@ import {
   X,
   Shield,
   Star,
-  ExternalLink
+  ExternalLink,
+  CheckCircle
 } from 'lucide-react';
 
 export default function EmployerProfile() {
@@ -33,26 +34,28 @@ export default function EmployerProfile() {
     // Company Information
     companyName: '',
     companyDescription: '',
-    industry: '',
-    companySize: '',
-    foundedYear: '',
-    websiteUrl: '',
+    industry: 'Technology',
     logoUrl: '',
+    websiteUrl: '',
+    businessAddress: '',
+    businessPhone: '',
+    businessEmail: '',
+    licenseNumber: '',
+    licenseExpirationDate: '',
+    employerType: null,
+    authorizedRepEmail: '',
+    authorizedRepEmailValidated: false,
     
     // Contact Information
-    businessAddress: '',
     city: '',
     state: '',
     country: 'Philippines',
     postalCode: '',
-    businessPhone: '',
-    businessEmail: '',
-    
-  // Business Details
-  businessRegistrationNumber: '',
-  taxId: '',
-  licenseNumber: '',
-  licenseExpirationDate: '',
+    companySize: '',
+    foundedYear: '',
+    taxId: '',
+    authorizedRepresentatives: [],
+    verificationDocuments: [],
     
     // Profile Settings
     showContactOnProfile: false,
@@ -71,6 +74,9 @@ export default function EmployerProfile() {
     memberSince: null
     // verificationDocuments will be loaded from the profile API when available
   });
+  const [employerTypes, setEmployerTypes] = useState([]);
+  const [toast, setToast] = useState(null);
+  const [verificationModal, setVerificationModal] = useState(false);
 
   useEffect(() => {
     if (!user) {
@@ -84,7 +90,21 @@ export default function EmployerProfile() {
     }
 
     fetchProfile();
+    fetchEmployerTypes();
   }, [user, router]);
+
+  const showToast = (message, type = 'info') => {
+    setToast({ message, type });
+    setTimeout(() => setToast(null), 5000);
+  };
+
+  const showVerificationModal = () => {
+    setVerificationModal(true);
+  };
+
+  const hideVerificationModal = () => {
+    setVerificationModal(false);
+  };
 
   const fetchProfile = async () => {
     try {
@@ -105,7 +125,30 @@ export default function EmployerProfile() {
     }
   };
 
+  const fetchEmployerTypes = async () => {
+    try {
+      const response = await fetch('/api/employer-types');
+      if (response.ok) {
+        const data = await response.json();
+        setEmployerTypes(data.employerTypes || []);
+      }
+    } catch (error) {
+      console.error('Error fetching employer types:', error);
+    }
+  };
+
   const handleSave = async () => {
+    // Check verification requirements
+    if (!profile.employerType && profile.verificationStatus !== 'verified') {
+      showToast('Please select an employer type to complete verification.', 'warning');
+      return;
+    }
+    
+    if (!profile.authorizedRepEmail && profile.verificationStatus !== 'verified') {
+      showToast('Please provide an authorized representative email for verification.', 'warning');
+      return;
+    }
+
     setSaving(true);
     try {
       const response = await fetch('/api/profile/employer', {
@@ -119,10 +162,16 @@ export default function EmployerProfile() {
 
       if (response.ok) {
         setEditing(false);
-        // Show success message
+        showToast('Profile updated successfully!', 'success');
+        // Refresh profile data
+        fetchProfile();
+      } else {
+        const error = await response.json();
+        showToast(error.error || 'Failed to update profile.', 'error');
       }
     } catch (error) {
       console.error('Error saving profile:', error);
+      showToast('An error occurred while saving. Please try again.', 'error');
     } finally {
       setSaving(false);
     }
@@ -130,6 +179,19 @@ export default function EmployerProfile() {
 
   const handleInputChange = (field, value) => {
     setProfile(prev => ({ ...prev, [field]: value }));
+
+    // Show verification prompts for required fields when not verified
+    if (profile.verificationStatus !== 'verified') {
+      if (field === 'employerType' && value) {
+        showToast('Employer type selected. Complete verification to unlock all features.', 'info');
+      }
+      if (field === 'authorizedRepEmail' && value) {
+        showToast('Authorized rep email updated. Please verify this email to complete verification.', 'warning');
+      }
+      if (field === 'licenseNumber' && value && profile.employerType?.subtype === 'dmw') {
+        showToast('DMW license information added. Upload verification documents to complete verification.', 'info');
+      }
+    }
   };
 
   // Logo upload handler
@@ -505,22 +567,28 @@ export default function EmployerProfile() {
                   </div>
                   
                   <div>
-                    <label className="block text-sm font-medium text-gray-300 mb-1">Company Size</label>
+                    <label className="block text-sm font-medium text-gray-300 mb-1">
+                      Employer Type {!profile.employerType && profile.verificationStatus !== 'verified' && <span className="text-red-400">*</span>}
+                    </label>
                     {editing ? (
                       <select
-                        value={profile.companySize}
-                        onChange={(e) => handleInputChange('companySize', e.target.value)}
+                        value={profile.employerType?.id || ''}
+                        onChange={(e) => {
+                          const selectedType = employerTypes.find(type => type.id === e.target.value);
+                          handleInputChange('employerType', selectedType || null);
+                          handleInputChange('employerTypeId', e.target.value || null);
+                        }}
                         className="w-full px-3 py-2 bg-gray-700 border border-gray-600 rounded-lg text-white"
                       >
-                        <option value="">Select Size</option>
-                        <option value="1-10">1-10 employees</option>
-                        <option value="11-50">11-50 employees</option>
-                        <option value="51-200">51-200 employees</option>
-                        <option value="201-500">201-500 employees</option>
-                        <option value="501+">501+ employees</option>
+                        <option value="">Select Employer Type</option>
+                        {employerTypes.map(type => (
+                          <option key={type.id} value={type.id}>
+                            {type.label} {type.description && `(${type.description})`}
+                          </option>
+                        ))}
                       </select>
                     ) : (
-                      <p className="text-white">{profile.companySize || 'Not provided'}</p>
+                      <p className="text-white">{profile.employerType?.label || 'Not selected'}</p>
                     )}
                   </div>
                 </div>
@@ -569,8 +637,79 @@ export default function EmployerProfile() {
                     </div>
                   )}
                 </div>
+
+                <div>
+                  <label className="block text-sm font-medium text-gray-300 mb-1">
+                    Authorized Representative Email {!profile.authorizedRepEmailValidated && profile.verificationStatus !== 'verified' && <span className="text-red-400">*</span>}
+                  </label>
+                  {editing ? (
+                    <div className="space-y-2">
+                      <input
+                        type="email"
+                        value={profile.authorizedRepEmail || ''}
+                        onChange={(e) => handleInputChange('authorizedRepEmail', e.target.value)}
+                        className="w-full px-3 py-2 bg-gray-700 border border-gray-600 rounded-lg text-white"
+                        placeholder="Enter authorized representative email"
+                      />
+                      <p className="text-xs text-gray-400">This email will be used for verification purposes and must be validated.</p>
+                    </div>
+                  ) : (
+                    <div className="flex items-center gap-2">
+                      <p className="text-white">{profile.authorizedRepEmail || 'Not provided'}</p>
+                      {profile.authorizedRepEmailValidated && (
+                        <span className="text-green-400 text-sm flex items-center gap-1">
+                          <CheckCircle className="w-4 h-4" />
+                          Validated
+                        </span>
+                      )}
+                    </div>
+                  )}
+                </div>
               </div>
             </div>
+
+            {/* Employer Type Specific Fields */}
+            {profile.employerType && profile.employerType.subtype === 'dmw' && (
+              <div className="bg-gray-800 rounded-lg p-6 border border-gray-700">
+                <h2 className="text-lg font-semibold text-white mb-4">DMW License Information</h2>
+                <div className="space-y-4">
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    <div>
+                      <label className="block text-sm font-medium text-gray-300 mb-1">
+                        DMW License Number {!profile.licenseNumber && profile.verificationStatus !== 'verified' && <span className="text-red-400">*</span>}
+                      </label>
+                      {editing ? (
+                        <input
+                          type="text"
+                          value={profile.licenseNumber || ''}
+                          onChange={(e) => handleInputChange('licenseNumber', e.target.value)}
+                          className="w-full px-3 py-2 bg-gray-700 border border-gray-600 rounded-lg text-white"
+                          placeholder="Enter DMW license number"
+                        />
+                      ) : (
+                        <p className="text-white">{profile.licenseNumber || 'Not provided'}</p>
+                      )}
+                    </div>
+                    
+                    <div>
+                      <label className="block text-sm font-medium text-gray-300 mb-1">License Expiration Date</label>
+                      {editing ? (
+                        <input
+                          type="date"
+                          value={profile.licenseExpirationDate ? new Date(profile.licenseExpirationDate).toISOString().split('T')[0] : ''}
+                          onChange={(e) => handleInputChange('licenseExpirationDate', e.target.value)}
+                          className="w-full px-3 py-2 bg-gray-700 border border-gray-600 rounded-lg text-white"
+                        />
+                      ) : (
+                        <p className="text-white">
+                          {profile.licenseExpirationDate ? new Date(profile.licenseExpirationDate).toLocaleDateString() : 'Not provided'}
+                        </p>
+                      )}
+                    </div>
+                  </div>
+                </div>
+              </div>
+            )}
 
             {/* Contact Information */}
             <div className="bg-gray-800 rounded-lg p-6 border border-gray-700">
@@ -729,7 +868,9 @@ export default function EmployerProfile() {
 
             {/* Verification Documents */}
             <div className="bg-gray-800 rounded-lg p-6 border border-gray-700">
-              <h2 className="text-lg font-semibold text-white mb-4">Verification Documents</h2>
+              <h2 className="text-lg font-semibold text-white mb-4">
+                Verification Documents {(profile.verificationDocuments || []).length === 0 && profile.verificationStatus !== 'verified' && <span className="text-red-400">*</span>}
+              </h2>
               <div className="space-y-3">
                 <p className="text-gray-400 text-sm">Upload company documents (BIR, SEC, licenses). Files are private until reviewed by admins.</p>
                 {editing && (
@@ -750,9 +891,200 @@ export default function EmployerProfile() {
                 </div>
               </div>
             </div>
+
+            {/* Verification Status */}
+            <div className="bg-gray-800 rounded-lg p-6 border border-gray-700">
+              <h2 className="text-lg font-semibold text-white mb-4 flex items-center gap-2">
+                <Shield className="w-5 h-5" className={profile.verificationStatus === 'verified' ? 'text-green-400' : 'text-yellow-400'} />
+                Verification Status
+              </h2>
+              <div className="space-y-3">
+                <div className="flex items-center gap-2">
+                  {profile.verificationStatus === 'verified' ? (
+                    <>
+                      <CheckCircle className="w-5 h-5 text-green-400" />
+                      <span className="text-green-400 font-medium">Verified</span>
+                    </>
+                  ) : profile.verificationStatus === 'pending' ? (
+                    <>
+                      <div className="w-5 h-5 border-2 border-yellow-400 border-t-transparent rounded-full animate-spin"></div>
+                      <span className="text-yellow-400 font-medium">Under Review</span>
+                    </>
+                  ) : (
+                    <>
+                      <X className="w-5 h-5 text-red-400" />
+                      <span className="text-red-400 font-medium">Unverified</span>
+                    </>
+                  )}
+                </div>
+                
+                {profile.verificationStatus !== 'verified' && (
+                  <div className="bg-yellow-900/20 border border-yellow-600/30 rounded-lg p-3">
+                    <p className="text-yellow-200 text-sm font-medium mb-1">Complete Verification</p>
+                    <p className="text-yellow-300 text-xs mb-3">
+                      To post jobs and access premium features, please complete your profile verification.
+                      Required: Employer Type, Authorized Rep Email, and verification documents.
+                    </p>
+                    <button
+                      onClick={showVerificationModal}
+                      className="w-full bg-yellow-600 text-white rounded-lg px-3 py-2 text-sm hover:bg-yellow-700 transition-colors"
+                    >
+                      View Verification Requirements
+                    </button>
+                  </div>
+                )}
+                
+                {profile.employerType && (
+                  <div className="text-gray-300 text-sm">
+                    <strong>Type:</strong> {profile.employerType.label}
+                  </div>
+                )}
+                
+                {profile.authorizedRepEmail && (
+                  <div className="text-gray-300 text-sm">
+                    <strong>Auth Rep:</strong> {profile.authorizedRepEmail}
+                    {profile.authorizedRepEmailValidated ? (
+                      <span className="text-green-400 ml-1">✓</span>
+                    ) : (
+                      <span className="text-yellow-400 ml-1">⚠</span>
+                    )}
+                  </div>
+                )}
+              </div>
+            </div>
           </div>
         </div>
       </div>
+
+      {/* Verification Requirements Modal */}
+      {verificationModal && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
+          <div className="bg-gray-900 rounded-2xl max-w-lg w-full mx-4 border border-gray-700 shadow-2xl">
+            {/* Header */}
+            <div className="flex items-center justify-between p-6 border-b border-gray-700">
+              <h2 className="text-xl font-bold text-white">Complete Your Verification</h2>
+              <button
+                onClick={hideVerificationModal}
+                className="text-gray-400 hover:text-white transition-colors"
+              >
+                <X className="w-6 h-6" />
+              </button>
+            </div>
+
+            {/* Content */}
+            <div className="p-6 space-y-4">
+              <p className="text-gray-300">
+                To post jobs and access all features, please complete the following verification requirements:
+              </p>
+
+              <div className="space-y-3">
+                <div className="flex items-start gap-3">
+                  <div className={`w-5 h-5 rounded-full flex items-center justify-center mt-0.5 ${
+                    profile.employerType ? 'bg-green-600' : 'bg-gray-600'
+                  }`}>
+                    {profile.employerType ? (
+                      <CheckCircle className="w-3 h-3 text-white" />
+                    ) : (
+                      <div className="w-2 h-2 bg-gray-400 rounded-full"></div>
+                    )}
+                  </div>
+                  <div>
+                    <p className="text-white font-medium">Select Employer Type</p>
+                    <p className="text-gray-400 text-sm">Choose your employer category (Direct Employer, Agency, etc.)</p>
+                  </div>
+                </div>
+
+                <div className="flex items-start gap-3">
+                  <div className={`w-5 h-5 rounded-full flex items-center justify-center mt-0.5 ${
+                    profile.authorizedRepEmail ? 'bg-green-600' : 'bg-gray-600'
+                  }`}>
+                    {profile.authorizedRepEmail ? (
+                      <CheckCircle className="w-3 h-3 text-white" />
+                    ) : (
+                      <div className="w-2 h-2 bg-gray-400 rounded-full"></div>
+                    )}
+                  </div>
+                  <div>
+                    <p className="text-white font-medium">Authorized Representative Email</p>
+                    <p className="text-gray-400 text-sm">Provide email for official communications and verification</p>
+                  </div>
+                </div>
+
+                <div className="flex items-start gap-3">
+                  <div className={`w-5 h-5 rounded-full flex items-center justify-center mt-0.5 ${
+                    (profile.verificationDocuments || []).length > 0 ? 'bg-green-600' : 'bg-gray-600'
+                  }`}>
+                    {(profile.verificationDocuments || []).length > 0 ? (
+                      <CheckCircle className="w-3 h-3 text-white" />
+                    ) : (
+                      <div className="w-2 h-2 bg-gray-400 rounded-full"></div>
+                    )}
+                  </div>
+                  <div>
+                    <p className="text-white font-medium">Verification Documents</p>
+                    <p className="text-gray-400 text-sm">Upload BIR forms, licenses, or company documents</p>
+                  </div>
+                </div>
+
+                {profile.employerType?.subtype === 'dmw' && (
+                  <div className="flex items-start gap-3">
+                    <div className={`w-5 h-5 rounded-full flex items-center justify-center mt-0.5 ${
+                      profile.licenseNumber ? 'bg-green-600' : 'bg-gray-600'
+                    }`}>
+                      {profile.licenseNumber ? (
+                        <CheckCircle className="w-3 h-3 text-white" />
+                      ) : (
+                        <div className="w-2 h-2 bg-gray-400 rounded-full"></div>
+                      )}
+                    </div>
+                    <div>
+                      <p className="text-white font-medium">DMW License Information</p>
+                      <p className="text-gray-400 text-sm">Provide your DMW license number and expiration date</p>
+                    </div>
+                  </div>
+                )}
+              </div>
+
+              <div className="bg-blue-900/20 border border-blue-500/30 rounded-lg p-4">
+                <p className="text-blue-300 text-sm">
+                  <strong>Why verify?</strong> Verification ensures trust and compliance. Verified employers can post unlimited jobs,
+                  access premium features, and build credibility with job seekers.
+                </p>
+              </div>
+            </div>
+
+            {/* Footer */}
+            <div className="flex gap-3 p-6 border-t border-gray-700">
+              <button
+                onClick={hideVerificationModal}
+                className="flex-1 bg-gray-700 text-white rounded-lg px-4 py-2 hover:bg-gray-600 transition-colors"
+              >
+                Close
+              </button>
+              <button
+                onClick={() => {
+                  hideVerificationModal();
+                  setEditing(true);
+                }}
+                className="flex-1 bg-blue-600 text-white rounded-lg px-4 py-2 hover:bg-blue-700 transition-colors"
+              >
+                Complete Profile
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Toast Notification */}
+      {toast && (
+        <div className={`fixed bottom-4 right-4 z-50 p-4 rounded-lg shadow-lg max-w-sm ${
+          toast.type === 'success' ? 'bg-green-600' :
+          toast.type === 'error' ? 'bg-red-600' :
+          toast.type === 'warning' ? 'bg-yellow-600' : 'bg-blue-600'
+        } text-white`}>
+          <p className="text-sm">{toast.message}</p>
+        </div>
+      )}
     </div>
   );
 }

@@ -1,5 +1,6 @@
 import { NextResponse } from 'next/server';
 import { verifyToken, getUserFromRequest } from '../../../../../utils/auth';
+import { canCreateJob } from '../../../../../utils/policy';
 import { PrismaClient } from '@prisma/client';
 
 const prisma = new PrismaClient();
@@ -41,6 +42,13 @@ export async function POST(request, { params }) {
       );
     }
 
+    // Policy enforcement: publishing should honor placement/fee restrictions for unverified accounts
+    const verifiedDoc = await prisma.verificationDocument.findFirst({ where: { userId: user.id, status: 'verified' } });
+    const decision = canCreateJob({ user, verified: !!verifiedDoc, activeCount: 0, jobData: { hasPlacementFee: job.hasPlacementFee, isPlacement: job.isPlacement } });
+    if (!decision.allowed) {
+      return NextResponse.json({ error: decision.message || 'Not allowed to publish this job' }, { status: 403 });
+    }
+
     // Publish the job
     const publishedJob = await prisma.job.update({
       where: { id: jobId },
@@ -51,7 +59,7 @@ export async function POST(request, { params }) {
     });
 
     // Log the publication
-    console.log(`🚀 Job published: ${publishedJob.title} (${publishedJob.id}) by ${session.user.email}`);
+    console.log(`🚀 Job published: ${publishedJob.title} (${publishedJob.id}) by ${user.email}`);
 
     // TODO: Send notifications to subscribers
     // TODO: Index for search

@@ -1,5 +1,6 @@
 import { NextResponse } from 'next/server';
 import { verifyToken, getUserFromRequest } from '../../../../utils/auth';
+import { canCreateJob } from '../../../../utils/policy';
 import { PrismaClient } from '@prisma/client';
 
 const prisma = new PrismaClient();
@@ -26,24 +27,13 @@ export async function POST(request) {
 
     const jobData = await request.json();
 
-    // Enforce verification-based posting limits: unverified employers can only have one non-closed job
+    // Centralized policy check for posting rules (verification, placement fees, limits)
     const verifiedDoc = await prisma.verificationDocument.findFirst({ where: { userId: user.id, status: 'verified' } });
-    if (!verifiedDoc && user.role !== 'super_admin') {
-      const activeCount = await prisma.job.count({ where: { postedById: user.id, NOT: { status: 'closed' } } });
-      if (activeCount >= 1) {
-        return NextResponse.json({ error: 'Account not verified — limit of 1 active posting for unverified accounts' }, { status: 403 });
-      }
-    }
+    const activeCount = await prisma.job.count({ where: { postedById: user.id, NOT: { status: 'closed' } } });
 
-    // Stronger enforcement: disallow placement fees or placement-only postings for unverified accounts
-    const placementFee = jobData.placementFee ? parseFloat(jobData.placementFee) : 0;
-    if (!verifiedDoc && user.role !== 'super_admin') {
-      if (placementFee > 0) {
-        return NextResponse.json({ error: 'Account not verified — placement fees are restricted to verified employers' }, { status: 403 });
-      }
-      if (jobData.isPlacement && jobData.isPlacement === true) {
-        return NextResponse.json({ error: 'Account not verified — placement job types require verification' }, { status: 403 });
-      }
+    const decision = canCreateJob({ user, verified: !!verifiedDoc, activeCount, jobData });
+    if (!decision.allowed) {
+      return NextResponse.json({ error: decision.message || 'Not allowed to create job' }, { status: 403 });
     }
     
     // Validate required fields - check both old and new field names
@@ -162,7 +152,8 @@ export async function POST(request) {
         salaryPeriod: jobData.salaryPeriod,
         salaryRange: jobData.salaryRange,
         showCompensation: jobData.showCompensation,
-        
+          // Optional short link generation: set shortUrl if requested (token will be generated client-side or by separate API)
+          shortUrl: jobData.generateShortLink && jobData.shortUrl ? jobData.shortUrl : null,
         // Application settings
         applicationMethod: jobData.applicationMethod,
         externalApplicationUrl: jobData.externalApplicationUrl,

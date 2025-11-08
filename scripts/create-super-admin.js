@@ -21,7 +21,7 @@ async function createSuperAdmin() {
     
     // Super admin credentials
     const email = 'admin@getgethired.com';
-    const password = 'SuperAdmin123!'; // Change this to your desired password
+    const password = 'admin123'; // Change this to your desired password
     const fullName = 'Super Administrator';
     
     // Hash password

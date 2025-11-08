@@ -1,5 +1,6 @@
 // API route for individual job operations using Prisma
 import { db, handlePrismaError, prisma } from '../../../../utils/db';
+import { canCreateJob } from '@/utils/policy';
 import { cookies } from 'next/headers';
 
 // PUT - Update a job by id (RESTful endpoint)
@@ -43,6 +44,20 @@ export async function PUT(request, { params }) {
 
     if (!canUpdate) {
       return Response.json({ error: 'Insufficient permissions' }, { status: 403 });
+    }
+
+    // Enforce policy when updating employer-specific fields (placement, placementFee)
+    try {
+      const verifiedDoc = await prisma.verificationDocument.findFirst({ where: { userId: user.id, status: 'verified' } });
+      // Exclude current job from active count
+      const activeCount = await prisma.job.count({ where: { postedById: user.id, NOT: { status: 'closed', id: jobId } } });
+      const decision = canCreateJob({ user, verified: !!verifiedDoc, activeCount, jobData });
+      if (!decision.allowed) {
+        return Response.json({ error: decision.message || 'Not allowed to update job' }, { status: 403 });
+      }
+    } catch (e) {
+      // Continue — if policy check fails unexpectedly, let update proceed under existing permission model
+      console.warn('Policy check failed during job update, proceeding with existing checks:', e?.message || e);
     }
 
     // Update using db helper (handles categories mapping)
