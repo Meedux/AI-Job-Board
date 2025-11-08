@@ -99,7 +99,15 @@ const JobCard = ({ job }) => {
     if (!salaryData?.from && !salaryData?.to) return null;
     
     const currencySymbol = salaryData.currency === 'USD' ? '$' : '₱';
-    const periodText = salaryData.period ? `/${salaryData.period.slice(0, 1)}` : '';
+    
+    // Use consistent period labels
+    const periodLabels = {
+      'hourly': '/hour',
+      'daily': '/day', 
+      'monthly': '/month',
+      'annually': '/year'
+    };
+    const periodText = salaryData.period ? periodLabels[salaryData.period] || '' : '';
     
     if (salaryData.from && salaryData.to) {
       return `${currencySymbol}${salaryData.from.toLocaleString()} - ${currencySymbol}${salaryData.to.toLocaleString()}${periodText}`;
@@ -285,7 +293,7 @@ const JobCard = ({ job }) => {
                       />
                     </div>
                     <div className="absolute -bottom-1 -right-1">
-                      <VerifiedCheckmark isVerified={job.company_verified || false} />
+                      <VerifiedCheckmark isVerified={job.company?.verified || false} />
                     </div>
                   </div>
                   
@@ -296,7 +304,7 @@ const JobCard = ({ job }) => {
                     </h3>
                     <div className="flex items-center gap-1 text-gray-400 text-sm mb-1">
                       <span className="font-medium text-gray-300 truncate">{companyName}</span>
-                      <VerifiedCheckmark isVerified={job.company_verified || false} />
+                      <VerifiedCheckmark isVerified={job.company?.verified || false} />
                     </div>
                     <div className="flex items-center gap-1 text-gray-400 text-xs">
                       <svg className="w-3 h-3 flex-shrink-0" fill="currentColor" viewBox="0 0 20 20">
@@ -404,7 +412,7 @@ const JobCard = ({ job }) => {
                 />
               </div>
               <div className="absolute -bottom-1 -right-1">
-                <VerifiedCheckmark isVerified={job.company_verified || false} />
+                <VerifiedCheckmark isVerified={job.company?.verified || false} />
               </div>
             </div>
 
@@ -420,7 +428,7 @@ const JobCard = ({ job }) => {
                 <div className="flex items-center gap-3 text-gray-400 mb-2 flex-wrap">
                   <div className="flex items-center gap-2">
                     <span className="font-medium text-gray-300">{companyName}</span>
-                    <VerifiedCheckmark isVerified={job.company_verified || false} />
+                    <VerifiedCheckmark isVerified={job.company?.verified || false} />
                   </div>
                   <span className="text-gray-600 hidden lg:inline">•</span>
                   <span className="inline-flex items-center gap-1">

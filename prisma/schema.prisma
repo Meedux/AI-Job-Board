@@ -333,6 +333,7 @@ model User {
   // New relations for verification and representatives
   authorizedRepresentatives AuthorizedRepresentative[]
   verificationDocuments VerificationDocument[]
+  reviewedDocuments VerificationDocument[] @relation("DocumentReviewer")
 
   @@map("users")
 }
@@ -374,27 +375,6 @@ model AuthorizedRepresentative {
   updatedAt   DateTime @updatedAt
 
   @@map("authorized_representatives")
-}
-
-// Documents uploaded for verification (BIR forms, licenses, IDs)
-model VerificationDocument {
-  id          String   @id @default(cuid())
-  userId      String?  @map("user_id")
-  user        User?    @relation(fields: [userId], references: [id])
-
-  filename    String
-  url         String
-  fileType    String
-  size        Int
-  uploadedAt  DateTime @default(now()) @map("uploaded_at")
-  category    String?  // e.g., bir_form, dole_license, dmw_license, company_id
-  // Review workflow
-  status      String   @default("pending") // "pending", "verified", "rejected"
-  reviewedBy  String?  @map("reviewed_by")
-  reviewedAt  DateTime? @map("reviewed_at")
-  reviewerNotes String? @map("reviewer_notes")
-
-  @@map("verification_documents")
 }
 
 model JobApplication {
@@ -1240,4 +1220,27 @@ model ResumeContactReveal {
   // Ensure one reveal per user per target
   @@unique([revealedBy, targetUserId, applicationId])
   @@map("resume_contact_reveals")
+}
+
+// Verification documents for employer compliance
+model VerificationDocument {
+  id          String   @id @default(cuid())
+  userId      String   @map("user_id")
+  filename    String
+  url         String
+  fileType    String   @map("file_type")
+  size        Int
+  category    String?  // 'license', 'bir', 'business_permit', 'other'
+  status      String   @default("pending") @map("status") // 'pending', 'approved', 'rejected'
+  reviewedAt  DateTime? @map("reviewed_at")
+  reviewedBy  String?  @map("reviewed_by")
+  notes       String?
+  createdAt   DateTime @default(now()) @map("created_at")
+  updatedAt   DateTime @updatedAt @map("updated_at")
+
+  // Relations
+  user        User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  reviewer    User?    @relation("DocumentReviewer", fields: [reviewedBy], references: [id])
+
+  @@map("verification_documents")
 }

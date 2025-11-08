@@ -407,9 +407,36 @@ export default function EmployerProfile() {
                 )}
               </div>
               <div>
-                <h1 className="text-2xl font-bold text-white">
-                  {profile.companyName || 'Company Name'}
-                </h1>
+                <div className="flex items-center gap-3 mb-2">
+                  <h1 className="text-2xl font-bold text-white">
+                    {profile.companyName || 'Company Name'}
+                  </h1>
+                  {/* Verification Status Badge */}
+                  <div className={`px-3 py-1 rounded-full text-sm font-medium flex items-center gap-2 ${
+                    profile.verificationStatus === 'verified' 
+                      ? 'bg-green-600/20 text-green-400 border border-green-600/30' 
+                      : profile.verificationStatus === 'pending' 
+                      ? 'bg-yellow-600/20 text-yellow-400 border border-yellow-600/30'
+                      : 'bg-red-600/20 text-red-400 border border-red-600/30'
+                  }`}>
+                    {profile.verificationStatus === 'verified' ? (
+                      <>
+                        <CheckCircle className="w-4 h-4" />
+                        Verified Employer
+                      </>
+                    ) : profile.verificationStatus === 'pending' ? (
+                      <>
+                        <Shield className="w-4 h-4" />
+                        Verification Pending
+                      </>
+                    ) : (
+                      <>
+                        <Shield className="w-4 h-4" />
+                        Unverified
+                      </>
+                    )}
+                  </div>
+                </div>
                 <div className="flex items-center gap-4 text-gray-400 mt-1">
                   <span className="flex items-center gap-1">
                     <MapPin className="w-4 h-4" />
@@ -419,6 +446,13 @@ export default function EmployerProfile() {
                     <Users className="w-4 h-4" />
                     {profile.companySize || 'Company Size'}
                   </span>
+                  {/* Employer Type Display */}
+                  {profile.employerType && (
+                    <span className="flex items-center gap-1">
+                      <Building2 className="w-4 h-4" />
+                      {profile.employerType.label}
+                    </span>
+                  )}
                 </div>
               </div>
             </div>
@@ -819,28 +853,82 @@ export default function EmployerProfile() {
               </div>
             </div>
 
-            {/* Quick Actions */}
+            {/* Verification Status */}
             <div className="bg-gray-800 rounded-lg p-6 border border-gray-700">
-              <h2 className="text-lg font-semibold text-white mb-4">Quick Actions</h2>
+              <h2 className="text-lg font-semibold text-white mb-4 flex items-center gap-2">
+                <Shield className="w-5 h-5 text-blue-400" />
+                Verification Status
+              </h2>
               <div className="space-y-3">
-                <a
-                  href="/admin/post-job"
-                  className="block w-full bg-blue-600 text-white rounded-lg px-4 py-2 text-center hover:bg-blue-700 transition-colors"
-                >
-                  Post New Job
-                </a>
-                <a
-                  href="/admin/jobs"
-                  className="block w-full bg-gray-700 text-white rounded-lg px-4 py-2 text-center hover:bg-gray-600 transition-colors"
-                >
-                  Manage Jobs
-                </a>
-                <a
-                  href="/ats"
-                  className="block w-full bg-purple-600 text-white rounded-lg px-4 py-2 text-center hover:bg-purple-700 transition-colors"
-                >
-                  Open ATS
-                </a>
+                <div className={`p-3 rounded-lg border ${
+                  profile.verificationStatus === 'verified' 
+                    ? 'bg-green-600/10 border-green-600/30 text-green-400' 
+                    : profile.verificationStatus === 'pending' 
+                    ? 'bg-yellow-600/10 border-yellow-600/30 text-yellow-400'
+                    : 'bg-red-600/10 border-red-600/30 text-red-400'
+                }`}>
+                  <div className="flex items-center gap-2 mb-2">
+                    {profile.verificationStatus === 'verified' ? (
+                      <CheckCircle className="w-5 h-5" />
+                    ) : profile.verificationStatus === 'pending' ? (
+                      <Shield className="w-5 h-5" />
+                    ) : (
+                      <Shield className="w-5 h-5" />
+                    )}
+                    <span className="font-medium">
+                      {profile.verificationStatus === 'verified' 
+                        ? 'Verified Employer' 
+                        : profile.verificationStatus === 'pending' 
+                        ? 'Verification in Progress'
+                        : 'Verification Required'}
+                    </span>
+                  </div>
+                  <p className="text-sm">
+                    {profile.verificationStatus === 'verified' 
+                      ? 'Your employer account has been verified. You can now post jobs and access all premium features.'
+                      : profile.verificationStatus === 'pending' 
+                      ? 'Your verification documents are being reviewed. This usually takes 1-3 business days.'
+                      : 'Complete your verification to unlock job posting and premium features.'}
+                  </p>
+                </div>
+
+                {/* Employer Type Info */}
+                {profile.employerType && (
+                  <div className="p-3 bg-gray-700/50 rounded-lg">
+                    <h4 className="text-white font-medium mb-1">Employer Type</h4>
+                    <p className="text-gray-300 text-sm">{profile.employerType.label}</p>
+                    {profile.employerType.description && (
+                      <p className="text-gray-400 text-xs mt-1">{profile.employerType.description}</p>
+                    )}
+                  </div>
+                )}
+
+                {/* Verification Documents */}
+                {profile.verificationDocuments && profile.verificationDocuments.length > 0 && (
+                  <div className="p-3 bg-gray-700/50 rounded-lg">
+                    <h4 className="text-white font-medium mb-2">Submitted Documents</h4>
+                    <div className="space-y-1">
+                      {profile.verificationDocuments.map((doc, index) => (
+                        <div key={index} className="flex items-center gap-2 text-gray-300 text-sm">
+                          <CheckCircle className="w-4 h-4 text-green-400" />
+                          <span>Document {index + 1}</span>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                )}
+
+                {/* Verification Actions */}
+                {profile.verificationStatus !== 'verified' && (
+                  <button
+                    onClick={showVerificationModal}
+                    className="w-full bg-blue-600 text-white rounded-lg px-4 py-2 text-sm hover:bg-blue-700 transition-colors"
+                  >
+                    {profile.verificationDocuments && profile.verificationDocuments.length > 0 
+                      ? 'Update Verification Documents' 
+                      : 'Submit for Verification'}
+                  </button>
+                )}
               </div>
             </div>
 
@@ -895,7 +983,7 @@ export default function EmployerProfile() {
             {/* Verification Status */}
             <div className="bg-gray-800 rounded-lg p-6 border border-gray-700">
               <h2 className="text-lg font-semibold text-white mb-4 flex items-center gap-2">
-                <Shield className="w-5 h-5" className={profile.verificationStatus === 'verified' ? 'text-green-400' : 'text-yellow-400'} />
+                <Shield className={profile.verificationStatus === 'verified' ? 'text-green-400 w-5 h-5' : 'text-yellow-400 w-5 h-5'} />
                 Verification Status
               </h2>
               <div className="space-y-3">

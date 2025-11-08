@@ -81,6 +81,10 @@ export async function GET(request) {
         authorizedRepEmail: userProfile.authorizedRepEmail || '',
         authorizedRepEmailValidated: userProfile.authorizedRepEmailValidated,
         
+        // Verification status
+        isVerified: userProfile.isVerified,
+        verificationStatus: userProfile.verificationStatus,
+        
         // Profile Settings
         showContactOnProfile: userProfile.showContactOnProfile || false,
         allowDirectContact: userProfile.allowDirectContact || true,
@@ -133,7 +137,10 @@ export async function GET(request) {
         authorizedRepEmailValidated: userProfile.authorizedRepEmailValidated,
         verificationDocuments: userProfile.verificationDocuments ? userProfile.verificationDocuments.map(d => d.url).filter(Boolean) : [],
         taxId: userProfile.taxId || null,
-        authorizedRepresentatives: userProfile.authorizedRepresentatives ? userProfile.authorizedRepresentatives.map(ar => ({ name: ar.name, email: ar.email, designation: ar.designation, phone: ar.phone })) : []
+        authorizedRepresentatives: userProfile.authorizedRepresentatives ? userProfile.authorizedRepresentatives.map(ar => ({ name: ar.name, email: ar.email, designation: ar.designation, phone: ar.phone })) : [],
+        // Verification status
+        isVerified: userProfile.isVerified,
+        verificationStatus: userProfile.verificationStatus
       };
     }
 

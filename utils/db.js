@@ -88,7 +88,17 @@ export const db = {
       const results = await prisma.job.findMany({
         where,
         include: {
-          company: true,
+          company: {
+            include: {
+              createdBy: {
+                select: {
+                  id: true,
+                  isVerified: true,
+                  verificationStatus: true
+                }
+              }
+            }
+          },
           categories: {
             include: {
               category: true
@@ -197,9 +207,22 @@ export const db = {
               id: true,
               fullName: true,
               email: true,
+              verificationStatus: true,
+              isVerified: true,
               verificationDocuments: {
                 where: { status: 'verified' },
                 select: { id: true }
+              },
+              employerTypeUser: {
+                select: {
+                  id: true,
+                  code: true,
+                  label: true,
+                  category: true,
+                  type: true,
+                  subtype: true,
+                  description: true
+                }
               }
             }
           },

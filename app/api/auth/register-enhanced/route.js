@@ -27,6 +27,8 @@ export async function POST(request) {
       userType,
       taxId,
       authorizedRepresentatives,
+      employerTypeId,
+      verificationDocuments,
       enableTwoFactor,
       captchaToken 
     } = await request.json();
@@ -153,6 +155,7 @@ export async function POST(request) {
       userData.companyType = companyType || null;
       userData.employerCategory = employerCategory || null;
       userData.taxId = taxId || null;
+      userData.employerTypeId = employerTypeId || null;
       // Give hirers default credits
       userData.allocatedResumeCredits = 50;
       userData.allocatedAiCredits = 25;
@@ -195,6 +198,19 @@ export async function POST(request) {
             designation: ar.designation || null,
             phone: ar.phone || null,
             documentId: ar.documentId || null
+          }
+        });
+      }
+    }
+
+    // If verification documents were uploaded, link them to the user
+    if (userType === 'hirer' && Array.isArray(verificationDocuments) && verificationDocuments.length > 0) {
+      for (const doc of verificationDocuments) {
+        await prisma.verificationDocument.update({
+          where: { id: doc.id },
+          data: {
+            userId: newUser.id,
+            category: doc.category
           }
         });
       }

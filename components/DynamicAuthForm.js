@@ -31,6 +31,16 @@ export default function DynamicAuthForm() {
     agreeToTerms: false
   });
 
+  // Document upload state
+  const [uploadedDocuments, setUploadedDocuments] = useState({
+    birForm: null,
+    doleLicense: null,
+    dmwLicense: null,
+    businessPermit: null,
+    companyId: null
+  });
+  const [uploadingDocuments, setUploadingDocuments] = useState({});
+
   // Employer types state
   const [employerTypes, setEmployerTypes] = useState([]);
   const [loadingEmployerTypes, setLoadingEmployerTypes] = useState(false);
@@ -75,6 +85,86 @@ export default function DynamicAuthForm() {
     setError(''); // Clear error when user types
   };
 
+  const handleDocumentUpload = async (documentType, file) => {
+    if (!file) return;
+
+    // Validate file type and size
+    const allowedTypes = ['application/pdf', 'image/jpeg', 'image/png', 'image/jpg'];
+    const maxSize = 10 * 1024 * 1024; // 10MB
+
+    if (!allowedTypes.includes(file.type)) {
+      setError('Please upload PDF, JPEG, or PNG files only');
+      return;
+    }
+
+    if (file.size > maxSize) {
+      setError('File size must be less than 10MB');
+      return;
+    }
+
+    setUploadingDocuments(prev => ({ ...prev, [documentType]: true }));
+
+    try {
+      // Prepare upload
+      const prepareResponse = await fetch('/api/verification/upload/prepare', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${localStorage.getItem('token') || ''}`
+        },
+        body: JSON.stringify({
+          filename: file.name,
+          fileType: file.type,
+          size: file.size,
+          category: documentType
+        })
+      });
+
+      if (!prepareResponse.ok) {
+        throw new Error('Failed to prepare upload');
+      }
+
+      const prepareData = await prepareResponse.json();
+      const { uploadUrl, documentId } = prepareData;
+
+      // Upload file to blob storage
+      const uploadResponse = await fetch(uploadUrl, {
+        method: 'PUT',
+        body: file,
+        headers: {
+          'Content-Type': file.type
+        }
+      });
+
+      if (!uploadResponse.ok) {
+        throw new Error('Failed to upload file');
+      }
+
+      // Update document state
+      setUploadedDocuments(prev => ({
+        ...prev,
+        [documentType]: {
+          id: documentId,
+          filename: file.name,
+          url: prepareData.blobUrl || uploadUrl.split('?')[0]
+        }
+      }));
+
+    } catch (error) {
+      console.error('Document upload error:', error);
+      setError('Failed to upload document. Please try again.');
+    } finally {
+      setUploadingDocuments(prev => ({ ...prev, [documentType]: false }));
+    }
+  };
+
+  const removeDocument = (documentType) => {
+    setUploadedDocuments(prev => ({
+      ...prev,
+      [documentType]: null
+    }));
+  };
+
   const validateForm = () => {
     if (!formData.email || !formData.password) {
       setError('Email and password are required');
@@ -89,6 +179,27 @@ export default function DynamicAuthForm() {
       if (userType === 'hirer' && !formData.companyName.trim()) {
         setError('Company name is required for hirers');
         return false;
+      }
+      if (userType === 'hirer' && !formData.employerTypeId) {
+        setError('Employer type is required for hirers');
+        return false;
+      }
+      if (userType === 'hirer') {
+        // Check required documents for hirers
+        const requiredDocs = ['birForm', 'doleLicense', 'businessPermit', 'companyId'];
+        const missingDocs = requiredDocs.filter(doc => !uploadedDocuments[doc]);
+        if (missingDocs.length > 0) {
+          setError(`Please upload the following required documents: ${missingDocs.map(doc => {
+            const labels = {
+              birForm: 'BIR Form',
+              doleLicense: 'DOLE License',
+              businessPermit: 'Business Permit',
+              companyId: 'Company ID'
+            };
+            return labels[doc];
+          }).join(', ')}`);
+          return false;
+        }
       }
       if (!formData.agreeToTerms) {
         setError('You must agree to the Terms & Conditions');
@@ -176,6 +287,14 @@ export default function DynamicAuthForm() {
           registrationData.employerTypeId = formData.employerTypeId;
           registrationData.taxId = formData.taxId;
           registrationData.authorizedRepresentatives = formData.authorizedRepresentatives;
+          
+          // Add uploaded document IDs for verification
+          registrationData.verificationDocuments = Object.entries(uploadedDocuments)
+            .filter(([_, doc]) => doc !== null)
+            .map(([type, doc]) => ({
+              id: doc.id,
+              category: type
+            }));
         }
 
         const response = await fetch('/api/auth/register-enhanced', {
@@ -378,6 +497,208 @@ export default function DynamicAuthForm() {
                       });
                       setFormData(prev => ({ ...prev, authorizedRepresentatives: ars }));
                     }} placeholder="Authorized reps: One per line: Full Name <email@example.com>" className="w-full px-3 py-2 bg-gray-700 border border-gray-600 rounded-md text-white" rows={3} />
+                    
+                    {/* Document Upload Section */}
+                    <div className="mt-4">
+                      <label className="block text-sm font-medium text-gray-300 mb-3">
+                        Verification Documents (Required for Compliance)
+                      </label>
+                      <p className="text-xs text-gray-400 mb-4">
+                        Upload the following documents to verify your employer's legitimacy. All documents are required for account approval.
+                      </p>
+                      
+                      <div className="space-y-3">
+                        {/* BIR Form */}
+                        <div>
+                          <label className="block text-sm text-gray-300 mb-1">
+                            BIR Form 2303 or 1706 *
+                          </label>
+                          <div className="flex items-center gap-2">
+                            <input
+                              type="file"
+                              accept=".pdf,.jpg,.jpeg,.png"
+                              onChange={(e) => handleDocumentUpload('birForm', e.target.files[0])}
+                              className="hidden"
+                              id="birForm"
+                              disabled={uploadingDocuments.birForm}
+                            />
+                            <label
+                              htmlFor="birForm"
+                              className="flex-1 px-3 py-2 bg-gray-700 border border-gray-600 rounded-md text-gray-300 cursor-pointer hover:bg-gray-600 transition-colors flex items-center justify-between"
+                            >
+                              <span>
+                                {uploadedDocuments.birForm ? uploadedDocuments.birForm.filename : 'Choose BIR Form file...'}
+                              </span>
+                              {uploadingDocuments.birForm && (
+                                <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-indigo-500"></div>
+                              )}
+                            </label>
+                            {uploadedDocuments.birForm && (
+                              <button
+                                type="button"
+                                onClick={() => removeDocument('birForm')}
+                                className="px-2 py-1 text-red-400 hover:text-red-300 text-sm"
+                              >
+                                ✕
+                              </button>
+                            )}
+                          </div>
+                        </div>
+
+                        {/* DOLE License */}
+                        <div>
+                          <label className="block text-sm text-gray-300 mb-1">
+                            DOLE License *
+                          </label>
+                          <div className="flex items-center gap-2">
+                            <input
+                              type="file"
+                              accept=".pdf,.jpg,.jpeg,.png"
+                              onChange={(e) => handleDocumentUpload('doleLicense', e.target.files[0])}
+                              className="hidden"
+                              id="doleLicense"
+                              disabled={uploadingDocuments.doleLicense}
+                            />
+                            <label
+                              htmlFor="doleLicense"
+                              className="flex-1 px-3 py-2 bg-gray-700 border border-gray-600 rounded-md text-gray-300 cursor-pointer hover:bg-gray-600 transition-colors flex items-center justify-between"
+                            >
+                              <span>
+                                {uploadedDocuments.doleLicense ? uploadedDocuments.doleLicense.filename : 'Choose DOLE License file...'}
+                              </span>
+                              {uploadingDocuments.doleLicense && (
+                                <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-indigo-500"></div>
+                              )}
+                            </label>
+                            {uploadedDocuments.doleLicense && (
+                              <button
+                                type="button"
+                                onClick={() => removeDocument('doleLicense')}
+                                className="px-2 py-1 text-red-400 hover:text-red-300 text-sm"
+                              >
+                                ✕
+                              </button>
+                            )}
+                          </div>
+                        </div>
+
+                        {/* DMW License */}
+                        <div>
+                          <label className="block text-sm text-gray-300 mb-1">
+                            DMW License (if applicable)
+                          </label>
+                          <div className="flex items-center gap-2">
+                            <input
+                              type="file"
+                              accept=".pdf,.jpg,.jpeg,.png"
+                              onChange={(e) => handleDocumentUpload('dmwLicense', e.target.files[0])}
+                              className="hidden"
+                              id="dmwLicense"
+                              disabled={uploadingDocuments.dmwLicense}
+                            />
+                            <label
+                              htmlFor="dmwLicense"
+                              className="flex-1 px-3 py-2 bg-gray-700 border border-gray-600 rounded-md text-gray-300 cursor-pointer hover:bg-gray-600 transition-colors flex items-center justify-between"
+                            >
+                              <span>
+                                {uploadedDocuments.dmwLicense ? uploadedDocuments.dmwLicense.filename : 'Choose DMW License file...'}
+                              </span>
+                              {uploadingDocuments.dmwLicense && (
+                                <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-indigo-500"></div>
+                              )}
+                            </label>
+                            {uploadedDocuments.dmwLicense && (
+                              <button
+                                type="button"
+                                onClick={() => removeDocument('dmwLicense')}
+                                className="px-2 py-1 text-red-400 hover:text-red-300 text-sm"
+                              >
+                                ✕
+                              </button>
+                            )}
+                          </div>
+                        </div>
+
+                        {/* Business Permit */}
+                        <div>
+                          <label className="block text-sm text-gray-300 mb-1">
+                            Business Permit/Mayor's Permit *
+                          </label>
+                          <div className="flex items-center gap-2">
+                            <input
+                              type="file"
+                              accept=".pdf,.jpg,.jpeg,.png"
+                              onChange={(e) => handleDocumentUpload('businessPermit', e.target.files[0])}
+                              className="hidden"
+                              id="businessPermit"
+                              disabled={uploadingDocuments.businessPermit}
+                            />
+                            <label
+                              htmlFor="businessPermit"
+                              className="flex-1 px-3 py-2 bg-gray-700 border border-gray-600 rounded-md text-gray-300 cursor-pointer hover:bg-gray-600 transition-colors flex items-center justify-between"
+                            >
+                              <span>
+                                {uploadedDocuments.businessPermit ? uploadedDocuments.businessPermit.filename : 'Choose Business Permit file...'}
+                              </span>
+                              {uploadingDocuments.businessPermit && (
+                                <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-indigo-500"></div>
+                              )}
+                            </label>
+                            {uploadedDocuments.businessPermit && (
+                              <button
+                                type="button"
+                                onClick={() => removeDocument('businessPermit')}
+                                className="px-2 py-1 text-red-400 hover:text-red-300 text-sm"
+                              >
+                                ✕
+                              </button>
+                            )}
+                          </div>
+                        </div>
+
+                        {/* Company ID */}
+                        <div>
+                          <label className="block text-sm text-gray-300 mb-1">
+                            Company ID or SEC Certificate *
+                          </label>
+                          <div className="flex items-center gap-2">
+                            <input
+                              type="file"
+                              accept=".pdf,.jpg,.jpeg,.png"
+                              onChange={(e) => handleDocumentUpload('companyId', e.target.files[0])}
+                              className="hidden"
+                              id="companyId"
+                              disabled={uploadingDocuments.companyId}
+                            />
+                            <label
+                              htmlFor="companyId"
+                              className="flex-1 px-3 py-2 bg-gray-700 border border-gray-600 rounded-md text-gray-300 cursor-pointer hover:bg-gray-600 transition-colors flex items-center justify-between"
+                            >
+                              <span>
+                                {uploadedDocuments.companyId ? uploadedDocuments.companyId.filename : 'Choose Company ID file...'}
+                              </span>
+                              {uploadingDocuments.companyId && (
+                                <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-indigo-500"></div>
+                              )}
+                            </label>
+                            {uploadedDocuments.companyId && (
+                              <button
+                                type="button"
+                                onClick={() => removeDocument('companyId')}
+                                className="px-2 py-1 text-red-400 hover:text-red-300 text-sm"
+                              >
+                                ✕
+                              </button>
+                            )}
+                          </div>
+                        </div>
+                      </div>
+                      
+                      <p className="text-xs text-gray-400 mt-3">
+                        Supported formats: PDF, JPEG, PNG. Maximum file size: 10MB each.
+                        Your documents will be reviewed by our compliance team for verification.
+                      </p>
+                    </div>
                   </div>
                 )}
               </div>

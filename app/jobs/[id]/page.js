@@ -6,7 +6,7 @@ import { useAuth } from '@/contexts/AuthContext';
 import Header from '@/components/Header';
 import Footer from '@/components/Footer';
 import CompanyReviewSystem from '@/components/CompanyReviewSystem';
-import { MapPin, Clock, DollarSign, Building, Users, Star, ExternalLink, ArrowLeft } from 'lucide-react';
+import { MapPin, Clock, DollarSign, Building, Users, Star, ExternalLink, ArrowLeft, CheckCircle, Shield, Building2 } from 'lucide-react';
 
 export default function JobDetailsPage() {
   const { id } = useParams();
@@ -52,23 +52,49 @@ export default function JobDetailsPage() {
     router.push(`/apply/${id}`);
   };
 
-  const formatSalary = (from, to, currency) => {
+  const formatSalary = (from, to, currency, period) => {
     if (!from && !to) return 'Salary not specified';
     
+    // Map currency codes to symbols
+    const currencySymbols = {
+      'PHP': '₱',
+      'USD': '$',
+      'EUR': '€',
+      'GBP': '£',
+      'SGD': 'S$',
+      'AUD': 'A$',
+      'CAD': 'C$',
+      'JPY': '¥'
+    };
+    
+    const symbol = currencySymbols[currency] || currencySymbols['PHP'];
+    
     const formatter = new Intl.NumberFormat('en-US', {
-      style: 'currency',
-      currency: currency || 'PHP',
       minimumFractionDigits: 0,
       maximumFractionDigits: 0,
     });
 
+    let salaryText = '';
     if (from && to) {
-      return `${formatter.format(from)} - ${formatter.format(to)}`;
+      salaryText = `${symbol}${formatter.format(from)} - ${symbol}${formatter.format(to)}`;
     } else if (from) {
-      return `From ${formatter.format(from)}`;
+      salaryText = `From ${symbol}${formatter.format(from)}`;
     } else {
-      return `Up to ${formatter.format(to)}`;
+      salaryText = `Up to ${symbol}${formatter.format(to)}`;
     }
+
+    // Add period information if available
+    if (period) {
+      const periodLabels = {
+        'hourly': '/hour',
+        'daily': '/day', 
+        'monthly': '/month',
+        'annually': '/year'
+      };
+      salaryText += ` ${periodLabels[period] || ''}`;
+    }
+
+    return salaryText;
   };
 
   const formatDate = (date) => {
@@ -150,7 +176,7 @@ export default function JobDetailsPage() {
                         </span>
                         <span className="flex items-center">
                           <DollarSign className="w-4 h-4 mr-1" />
-                          {formatSalary(job.salaryFrom, job.salaryTo, job.salaryCurrency)}
+                          {formatSalary(job.salary.from, job.salary.to, job.salary.currency, job.salary.period)}
                         </span>
                       </div>
                     </div>
@@ -261,9 +287,47 @@ export default function JobDetailsPage() {
               
               <div className="space-y-4">
                 <div>
-                  <h4 className="font-medium text-gray-900">{job.company.name}</h4>
+                  <div className="flex items-center gap-3 mb-2">
+                    <h4 className="font-medium text-gray-900">{job.company.name}</h4>
+                    {/* Verification Status Badge */}
+                    <div className={`px-2 py-1 rounded-full text-xs font-medium flex items-center gap-1 ${
+                      job.company.verificationStatus === 'verified' 
+                        ? 'bg-green-100 text-green-800' 
+                        : job.company.verificationStatus === 'pending' 
+                        ? 'bg-yellow-100 text-yellow-800'
+                        : 'bg-red-100 text-red-800'
+                    }`}>
+                      {job.company.verificationStatus === 'verified' ? (
+                        <>
+                          <CheckCircle className="w-3 h-3" />
+                          Verified
+                        </>
+                      ) : job.company.verificationStatus === 'pending' ? (
+                        <>
+                          <Shield className="w-3 h-3" />
+                          Pending
+                        </>
+                      ) : (
+                        <>
+                          <Shield className="w-3 h-3" />
+                          Unverified
+                        </>
+                      )}
+                    </div>
+                  </div>
                   <p className="text-sm text-gray-600">{job.company.industry}</p>
                 </div>
+
+                {/* Employer Type */}
+                {job.company.employerType && (
+                  <div>
+                    <h4 className="font-medium text-gray-900 mb-1">Employer Type</h4>
+                    <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-blue-100 text-blue-800">
+                      <Building2 className="w-3 h-3 mr-1" />
+                      {job.company.employerType.label}
+                    </span>
+                  </div>
+                )}
 
                 {job.company.description && (
                   <div>
@@ -294,6 +358,24 @@ export default function JobDetailsPage() {
                       Visit Website
                       <ExternalLink className="w-3 h-3 ml-1" />
                     </a>
+                  </div>
+                )}
+
+                {/* QR Code for Sharing */}
+                {job.generate_qr_code && job.qr_image_path && (
+                  <div>
+                    <h4 className="font-medium text-gray-900 mb-2">Share this Job</h4>
+                    <div className="flex items-center space-x-3">
+                      <img
+                        src={job.qr_image_path}
+                        alt="QR Code for job sharing"
+                        className="w-20 h-20 border border-gray-200 rounded"
+                      />
+                      <div className="text-xs text-gray-600">
+                        <p>Scan to share this job posting</p>
+                        <p className="mt-1">Easy sharing via mobile devices</p>
+                      </div>
+                    </div>
                   </div>
                 )}
               </div>

@@ -3,6 +3,7 @@
 import { useState, useEffect } from 'react';
 import { useAuth } from '@/contexts/AuthContext';
 import JobPostingForm from './JobPostingForm';
+import FormBuilder from './FormBuilder';
 import {
   MoreHorizontal,
   Edit3,
@@ -22,9 +23,8 @@ export default function JobManagement() {
   const [error, setError] = useState('');
   const [searchTerm, setSearchTerm] = useState('');
   const [filterStatus, setFilterStatus] = useState('all');
-  const [showJobForm, setShowJobForm] = useState(false);
-  const [editingJob, setEditingJob] = useState(null);
-  const [duplicatingJob, setDuplicatingJob] = useState(null);
+  const [showApplicationFormEditor, setShowApplicationFormEditor] = useState(false);
+  const [editingApplicationForm, setEditingApplicationForm] = useState(null);
 
   useEffect(() => {
     fetchJobs();
@@ -46,9 +46,33 @@ export default function JobManagement() {
     }
   };
 
-  const handleEditJob = (job) => {
-    setEditingJob(job);
-    setShowJobForm(true);
+  const handleEditApplicationForm = async (job) => {
+    try {
+      setLoading(true);
+      
+      // Fetch the application form for this job
+      const response = await fetch(`/api/application-forms?jobId=${job.id}`);
+      if (!response.ok) {
+        throw new Error('Failed to fetch application form');
+      }
+      
+      const data = await response.json();
+      if (data.form) {
+        setEditingApplicationForm({
+          ...data.form,
+          jobId: job.id,
+          jobTitle: job.title
+        });
+        setShowApplicationFormEditor(true);
+      } else {
+        alert('No custom application form found for this job. You can create one from the job posting interface.');
+      }
+    } catch (err) {
+      console.error('Error fetching application form:', err);
+      alert(`Failed to load application form: ${err.message}`);
+    } finally {
+      setLoading(false);
+    }
   };
 
   const handleDuplicateJob = async (job) => {
@@ -238,6 +262,17 @@ export default function JobManagement() {
                       View Job Page
                     </a>
                   
+                    <button
+                      onClick={() => {
+                        handleEditApplicationForm(job);
+                        setShowActions(false);
+                      }}
+                      className="w-full px-4 py-2 text-left text-sm hover:bg-neutral-700 flex items-center gap-2 text-gray-100"
+                    >
+                      <Edit3 className="w-4 h-4 text-gray-100" />
+                      Edit Application Form
+                    </button>
+                  
                     <div className="border-t border-neutral-700">
                     <select
                       value={job.status}
@@ -359,6 +394,67 @@ export default function JobManagement() {
               onCancel={() => {
                 setShowJobForm(false);
                 setEditingJob(null);
+              }}
+            />
+          </div>
+        </div>
+      </div>
+    );
+  }
+
+  if (showApplicationFormEditor) {
+    return (
+      <div className="fixed inset-0 bg-black bg-opacity-50 z-50 flex items-center justify-center p-4">
+        <div className="bg-neutral-800 rounded-lg w-full max-w-4xl max-h-screen overflow-y-auto text-white">
+          <div className="p-6">
+            <div className="flex items-center justify-between mb-4">
+              <h2 className="text-xl font-semibold text-white">
+                Edit Application Form - {editingApplicationForm?.jobTitle}
+              </h2>
+              <button
+                onClick={() => {
+                  setShowApplicationFormEditor(false);
+                  setEditingApplicationForm(null);
+                }}
+                className="p-2 hover:bg-neutral-700 rounded-lg transition-colors"
+              >
+                <X className="w-5 h-5 text-gray-300" />
+              </button>
+            </div>
+            
+            <FormBuilder
+              initialForm={editingApplicationForm}
+              jobId={editingApplicationForm?.jobId}
+              onSave={async (formData) => {
+                try {
+                  setLoading(true);
+                  const response = await fetch(`/api/application-forms?id=${editingApplicationForm.id}`, {
+                    method: 'PUT',
+                    headers: {
+                      'Content-Type': 'application/json',
+                    },
+                    body: JSON.stringify(formData),
+                  });
+
+                  if (!response.ok) {
+                    const errorData = await response.json();
+                    throw new Error(errorData.error || 'Failed to update application form');
+                  }
+
+                  setShowApplicationFormEditor(false);
+                  setEditingApplicationForm(null);
+                  alert('Application form updated successfully!');
+                  
+                } catch (err) {
+                  console.error('Error updating application form:', err);
+                  alert(`Failed to update application form: ${err.message}`);
+                } finally {
+                  setLoading(false);
+                }
+              }}
+              onPreview={(formData) => {
+                // Handle preview - could open in new window or modal
+                console.log('Preview form:', formData);
               }}
             />
           </div>

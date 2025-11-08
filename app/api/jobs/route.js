@@ -149,7 +149,9 @@ export async function GET(request) {
           name: job.company.name,
           logo: job.company.logoUrl,
           website: job.company.websiteUrl,
-          location: job.company.location
+          location: job.company.location,
+          verified: job.company.createdBy?.isVerified || false,
+          verificationStatus: job.company.createdBy?.verificationStatus || 'unverified'
         },
         company_name: job.company.name, // Backward compatibility
         company_logo: job.company.logoUrl, // Backward compatibility

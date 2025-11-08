@@ -152,27 +152,27 @@ export default function ATSKanbanCard({ candidate, index }) {
             </div>
           </div>
 
-          {/* Contact Information - Hidden by default, revealed on hover/expand */}
-          {isExpanded && (
-            <motion.div
-              initial={{ opacity: 0, height: 0 }}
-              animate={{ opacity: 1, height: 'auto' }}
-              className="mb-3 p-2 bg-gray-700/30 rounded text-xs space-y-1"
-            >
-              {candidate.applicant?.email && (
-                <div className="flex items-center gap-2 text-gray-300">
-                  <Mail className="w-3 h-3" />
-                  <span className="truncate">{candidate.applicant.email}</span>
-                </div>
-              )}
-              {candidate.applicant?.phone && (
-                <div className="flex items-center gap-2 text-gray-300">
-                  <Phone className="w-3 h-3" />
-                  <span>{candidate.applicant.phone}</span>
-                </div>
-              )}
-            </motion.div>
-          )}
+          {/* Contact Info - Always visible */}
+          <div className="mb-3 space-y-1">
+            {candidate.applicant?.email && (
+              <div className="flex items-center gap-2 text-gray-300 text-xs">
+                <Mail className="w-3 h-3 text-gray-400" />
+                <span className="truncate">{candidate.applicant.email}</span>
+              </div>
+            )}
+            {candidate.applicant?.phone && (
+              <div className="flex items-center gap-2 text-gray-300 text-xs">
+                <Phone className="w-3 h-3 text-gray-400" />
+                <span>{candidate.applicant.phone}</span>
+              </div>
+            )}
+            {candidate.applicant?.location && (
+              <div className="flex items-center gap-2 text-gray-300 text-xs">
+                <MapPin className="w-3 h-3 text-gray-400" />
+                <span className="truncate">{candidate.applicant.location}</span>
+              </div>
+            )}
+          </div>
 
           {/* Status and Last Activity */}
           <div className="flex items-center justify-between mb-3">
@@ -254,11 +254,11 @@ export default function ATSKanbanCard({ candidate, index }) {
             </div>
           )}
 
-          {/* Skills Preview */}
+          {/* Skills Preview - Always visible */}
           {candidate.applicant?.skills && candidate.applicant.skills.length > 0 && (
             <div className="mb-3">
               <div className="flex flex-wrap gap-1">
-                {candidate.applicant.skills.slice(0, isExpanded ? candidate.applicant.skills.length : 3).map((skill, index) => (
+                {candidate.applicant.skills.slice(0, 4).map((skill, index) => (
                   <span
                     key={index}
                     className="px-2 py-1 bg-blue-600/20 text-blue-300 text-xs rounded"
@@ -266,12 +266,29 @@ export default function ATSKanbanCard({ candidate, index }) {
                     {skill}
                   </span>
                 ))}
-                {!isExpanded && candidate.applicant.skills.length > 3 && (
+                {candidate.applicant.skills.length > 4 && (
                   <span className="px-2 py-1 bg-gray-600/20 text-gray-400 text-xs rounded">
-                    +{candidate.applicant.skills.length - 3}
+                    +{candidate.applicant.skills.length - 4}
                   </span>
                 )}
               </div>
+            </div>
+          )}
+
+          {/* Resume Download - Always visible if available */}
+          {(candidate.resumeUrl || candidate.fileData?.resume?.url || candidate.applicant?.resumeUrl) && (
+            <div className="mb-3">
+              <a
+                href={candidate.resumeUrl || candidate.fileData?.resume?.url || candidate.applicant?.resumeUrl}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="inline-flex items-center gap-2 px-3 py-2 bg-green-600/20 hover:bg-green-600/30 
+                         text-green-400 text-xs rounded-lg transition-colors duration-200 border border-green-600/30 w-full justify-center"
+                onClick={(e) => e.stopPropagation()}
+              >
+                <FileText className="w-4 h-4" />
+                Download Resume
+              </a>
             </div>
           )}
 
@@ -340,22 +357,7 @@ export default function ATSKanbanCard({ candidate, index }) {
                   </div>
                 )}
 
-                {/* Resume/CV Link */}
-                {(candidate.resumeUrl || candidate.fileData?.resume?.url) && (
-                  <div>
-                    <a
-                      href={candidate.resumeUrl || candidate.fileData?.resume?.url}
-                      target="_blank"
-                      rel="noopener noreferrer"
-                      className="inline-flex items-center gap-2 px-3 py-1 bg-blue-600/20 hover:bg-blue-600/30 
-                               text-blue-400 text-xs rounded transition-colors duration-200 border border-blue-600/30"
-                      onClick={(e) => e.stopPropagation()}
-                    >
-                      <FileText className="w-3 h-3" />
-                      View Resume
-                    </a>
-                  </div>
-                )}
+                {/* Resume/CV Link - Removed since it's now always visible above */}
 
                 {/* Quick Actions */}
                 <div className="flex gap-2 pt-2">

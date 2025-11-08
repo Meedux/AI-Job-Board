@@ -685,6 +685,7 @@ const ComprehensiveJobPostingForm = ({
           content={formData.jobDescription}
           onChange={(content) => handleInputChange('jobDescription', content)}
           placeholder="Describe the role, responsibilities, and what makes this position exciting..."
+          showMediaButtons={false}
         />
         {errors.jobDescription && <p className="mt-1 text-sm text-red-400">{errors.jobDescription}</p>}
       </div>

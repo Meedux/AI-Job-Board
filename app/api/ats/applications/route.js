@@ -76,7 +76,14 @@ export async function GET(request) {
               firstName: true,
               lastName: true,
               email: true,
-              profileVisibility: true
+              profileVisibility: true,
+              profilePicture: true,
+              resumeUrl: true,
+              skills: true,
+              location: true,
+              phone: true,
+              dateOfBirth: true,
+              age: true
             }
           },
           job: {

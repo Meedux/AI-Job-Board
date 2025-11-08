@@ -42,7 +42,16 @@ const JobOverview = ({ job, showApplicationForm = false, onApply }) => {
     }
     
     if (job.customSalaryMin && job.customSalaryMax) {
-      return `${symbol}${parseInt(job.customSalaryMin).toLocaleString()} - ${symbol}${parseInt(job.customSalaryMax).toLocaleString()} ${job.salaryPeriod}`;
+      // Use consistent period labels
+      const periodLabels = {
+        'hourly': '/hour',
+        'daily': '/day', 
+        'monthly': '/month',
+        'annually': '/year'
+      };
+      const periodText = job.salaryPeriod ? periodLabels[job.salaryPeriod] || job.salaryPeriod : '';
+      
+      return `${symbol}${parseInt(job.customSalaryMin).toLocaleString()} - ${symbol}${parseInt(job.customSalaryMax).toLocaleString()} ${periodText}`;
     }
     
     return 'Competitive salary';

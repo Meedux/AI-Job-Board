@@ -3,11 +3,14 @@
 import { useEditor, EditorContent } from '@tiptap/react';
 import { useEffect } from 'react';
 import StarterKit from '@tiptap/starter-kit';
-import Link from '@tiptap/extension-link';
-import Image from '@tiptap/extension-image';
 import BulletList from '@tiptap/extension-bullet-list';
 import OrderedList from '@tiptap/extension-ordered-list';
 import ListItem from '@tiptap/extension-list-item';
+import TextAlign from '@tiptap/extension-text-align';
+import { TextStyle } from '@tiptap/extension-text-style';
+import { Color } from '@tiptap/extension-color';
+import Link from '@tiptap/extension-link';
+import Image from '@tiptap/extension-image';
 import { 
   Bold, 
   Italic, 
@@ -20,7 +23,13 @@ import {
   Type,
   Heading1,
   Heading2,
-  Heading3
+  Heading3,
+  AlignLeft,
+  AlignCenter,
+  AlignRight,
+  Indent,
+  Outdent,
+  Palette
 } from 'lucide-react';
 
 const RichTextEditor = ({ content, onChange, placeholder = "Start typing...", showMediaButtons = true }) => {
@@ -30,6 +39,11 @@ const RichTextEditor = ({ content, onChange, placeholder = "Start typing...", sh
       BulletList,
       OrderedList,
       ListItem,
+      TextStyle,
+      Color,
+      TextAlign.configure({
+        types: ['heading', 'paragraph'],
+      }),
       Link.configure({
         openOnClick: false,
         HTMLAttributes: {
@@ -117,11 +131,17 @@ const RichTextEditor = ({ content, onChange, placeholder = "Start typing...", sh
     }
   };
 
-  const setHeading = (level) => {
-    if (level === 0) {
-      editor.chain().focus().setParagraph().run();
-    } else {
-      editor.chain().focus().toggleHeading({ level }).run();
+  const setTextColor = (color) => {
+    editor.chain().focus().setColor(color).run();
+  };
+
+  const setTextAlignment = (alignment) => {
+    if (alignment === 'left') {
+      editor.chain().focus().setTextAlign('left').run();
+    } else if (alignment === 'center') {
+      editor.chain().focus().setTextAlign('center').run();
+    } else if (alignment === 'right') {
+      editor.chain().focus().setTextAlign('right').run();
     }
   };
 
@@ -205,28 +225,67 @@ const RichTextEditor = ({ content, onChange, placeholder = "Start typing...", sh
 
         <div className="w-px h-8 bg-gray-600 mx-1" />
 
-        {/* Lists */}
+        {/* Text Color */}
         <div className="flex gap-1">
           <button
             type="button"
-            onClick={() => editor.chain().focus().toggleBulletList().run()}
-            className={`p-2 rounded hover:bg-gray-700 transition-colors ${
-              editor.isActive('bulletList') ? 'bg-blue-600 text-white' : 'text-gray-300'
-            }`}
-            title="Bullet List"
-          >
-            <List size={16} />
-          </button>
-
+            onClick={() => setTextColor('#000000')}
+            className="w-6 h-6 rounded border border-gray-600 bg-black hover:bg-gray-800"
+            title="Black Text"
+          />
           <button
             type="button"
-            onClick={() => editor.chain().focus().toggleOrderedList().run()}
+            onClick={() => setTextColor('#374151')}
+            className="w-6 h-6 rounded border border-gray-600 bg-gray-700 hover:bg-gray-600"
+            title="Gray Text"
+          />
+          <button
+            type="button"
+            onClick={() => setTextColor('#60a5fa')}
+            className="w-6 h-6 rounded border border-gray-600 bg-blue-500 hover:bg-blue-400"
+            title="Blue Text"
+          />
+          <button
+            type="button"
+            onClick={() => setTextColor('#10b981')}
+            className="w-6 h-6 rounded border border-gray-600 bg-green-500 hover:bg-green-400"
+            title="Green Text"
+          />
+        </div>
+
+        <div className="w-px h-8 bg-gray-600 mx-1" />
+
+        {/* Text Alignment */}
+        <div className="flex gap-1">
+          <button
+            type="button"
+            onClick={() => setTextAlignment('left')}
             className={`p-2 rounded hover:bg-gray-700 transition-colors ${
-              editor.isActive('orderedList') ? 'bg-blue-600 text-white' : 'text-gray-300'
+              editor.isActive({ textAlign: 'left' }) ? 'bg-blue-600 text-white' : 'text-gray-300'
             }`}
-            title="Numbered List"
+            title="Align Left"
           >
-            <ListOrdered size={16} />
+            <AlignLeft size={16} />
+          </button>
+          <button
+            type="button"
+            onClick={() => setTextAlignment('center')}
+            className={`p-2 rounded hover:bg-gray-700 transition-colors ${
+              editor.isActive({ textAlign: 'center' }) ? 'bg-blue-600 text-white' : 'text-gray-300'
+            }`}
+            title="Align Center"
+          >
+            <AlignCenter size={16} />
+          </button>
+          <button
+            type="button"
+            onClick={() => setTextAlignment('right')}
+            className={`p-2 rounded hover:bg-gray-700 transition-colors ${
+              editor.isActive({ textAlign: 'right' }) ? 'bg-blue-600 text-white' : 'text-gray-300'
+            }`}
+            title="Align Right"
+          >
+            <AlignRight size={16} />
           </button>
         </div>
 

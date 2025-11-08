@@ -302,16 +302,31 @@ export async function PUT(request) {
 
     const formData = await request.json();
 
-    // Check if user owns this form
+    // Get user info to check role
+    const user = await prisma.user.findUnique({
+      where: { id: userId }
+    });
+
+    if (!user) {
+      return NextResponse.json({ error: 'User not found' }, { status: 404 });
+    }
+
+    // Check if user owns this form or is super admin
     const existingForm = await prisma.applicationForm.findFirst({
       where: { 
-        id: parseInt(formId),
-        createdBy: userId 
+        id: parseInt(formId)
       }
     });
 
     if (!existingForm) {
-      return NextResponse.json({ error: 'Form not found or unauthorized' }, { status: 404 });
+      return NextResponse.json({ error: 'Form not found' }, { status: 404 });
+    }
+
+    // Allow update if user owns the form or is super admin
+    const canUpdate = existingForm.createdBy === userId || user.role === 'super_admin';
+
+    if (!canUpdate) {
+      return NextResponse.json({ error: 'Unauthorized to update this form' }, { status: 403 });
     }
 
     // Update the form

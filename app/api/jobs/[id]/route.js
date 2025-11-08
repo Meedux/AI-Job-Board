@@ -40,7 +40,8 @@ export async function PUT(request, { params }) {
     }
 
     const canUpdate = existingJob.postedById === user.id ||
-      (user.role === 'employer_admin' && existingJob.postedBy.parentUserId === user.id);
+      (user.role === 'employer_admin' && existingJob.postedBy.parentUserId === user.id) ||
+      user.role === 'super_admin';
 
     if (!canUpdate) {
       return Response.json({ error: 'Insufficient permissions' }, { status: 403 });
@@ -114,6 +115,7 @@ export async function GET(request, { params }) {
         from: job.salaryFrom,
         to: job.salaryTo,
         currency: job.salaryCurrency,
+        period: job.salaryPeriod,
         range: job.salaryFrom && job.salaryTo 
           ? `${job.salaryFrom} - ${job.salaryTo}` 
           : (job.salaryFrom || job.salaryTo || null)
@@ -133,7 +135,18 @@ export async function GET(request, { params }) {
         logo: job.company.logoUrl,
         website: job.company.websiteUrl,
         location: job.company.location,
-        description: job.company.description
+        description: job.company.description,
+        verificationStatus: job.postedBy?.verificationStatus || 'unverified',
+        isVerified: job.postedBy?.isVerified || false,
+        employerType: job.postedBy?.employerTypeUser ? {
+          id: job.postedBy.employerTypeUser.id,
+          code: job.postedBy.employerTypeUser.code,
+          label: job.postedBy.employerTypeUser.label,
+          category: job.postedBy.employerTypeUser.category,
+          type: job.postedBy.employerTypeUser.type,
+          subtype: job.postedBy.employerTypeUser.subtype,
+          description: job.postedBy.employerTypeUser.description
+        } : null
       },
       company_name: job.company.name, // Backward compatibility
       company_logo: job.company.logoUrl, // Backward compatibility
@@ -144,6 +157,8 @@ export async function GET(request, { params }) {
       status: job.status,
       required_skills: job.requiredSkills || [],
       preferred_skills: job.preferredSkills || [],
+      generate_qr_code: job.generateQRCode,
+      qr_image_path: job.qrImagePath,
       postedAt: job.postedAt,
     };
 
