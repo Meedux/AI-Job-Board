@@ -1,20 +1,9 @@
 import { NextResponse } from 'next/server';
-import { verifyToken } from '../../../../utils/auth';
+import { getUserFromRequest } from '../../../../utils/auth';
 
 export async function GET(request) {
   try {
-    // Get token from cookies
-    const token = request.cookies.get('auth-token')?.value;
-
-    if (!token) {
-      return NextResponse.json(
-        { authenticated: false },
-        { status: 401 }
-      );
-    }
-
-    // Verify token
-    const user = verifyToken(token);
+    const user = getUserFromRequest(request);
     if (!user) {
       return NextResponse.json(
         { authenticated: false },

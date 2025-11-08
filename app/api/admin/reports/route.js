@@ -1,31 +1,19 @@
 import { NextResponse } from 'next/server';
-import { verifyToken } from '../../../../utils/auth';
+import { getUserFromRequest } from '../../../../utils/auth';
 import { PrismaClient } from '@prisma/client';
 
 const prisma = new PrismaClient();
 
 export async function GET(request) {
   try {
-    // Get token from cookies
-    const token = request.cookies.get('auth-token')?.value;
-
-    if (!token) {
-      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
-    }
-
-    // Verify token
-    const userFromToken = verifyToken(token);
-    if (!userFromToken) {
+    // Verify user authentication
+    const user = getUserFromRequest(request);
+    if (!user) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
 
     // Check if user is admin
-    const user = await prisma.user.findUnique({
-      where: { id: userFromToken.id },
-      select: { role: true },
-    });
-
-    if (!user || user.role !== 'admin') {
+    if (user.role !== 'admin') {
       return NextResponse.json({ error: 'Forbidden' }, { status: 403 });
     }
 

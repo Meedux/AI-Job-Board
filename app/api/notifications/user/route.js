@@ -1,5 +1,5 @@
 import { NextResponse } from 'next/server';
-import { verifyToken } from '../../../../utils/auth';
+import { getUserFromRequest } from '../../../../utils/auth';
 import { logAPIRequest, logError, getRequestInfo } from '../../../../utils/dataLogger';
 import { 
   createNotification,
@@ -18,21 +18,10 @@ export async function GET(request) {
     // Log API request
     await logAPIRequest('GET', '/api/notifications/user', null, ipAddress);
     
-    // Get token from cookies
-    const token = request.cookies.get('auth-token')?.value;
-
-    if (!token) {
-      return NextResponse.json(
-        { error: 'Unauthorized' },
-        { status: 401 }
-      );
-    }
-
-    // Verify token
-    const user = verifyToken(token);
+    const user = getUserFromRequest(request);
     if (!user) {
       return NextResponse.json(
-        { error: 'Invalid token' },
+        { error: 'Unauthorized' },
         { status: 401 }
       );
     }
@@ -98,21 +87,10 @@ export async function POST(request) {
     // Log API request
     await logAPIRequest('POST', '/api/notifications/user', null, ipAddress);
 
-    // Get token from cookies
-    const token = request.cookies.get('auth-token')?.value;
-
-    if (!token) {
-      return NextResponse.json(
-        { error: 'Unauthorized' },
-        { status: 401 }
-      );
-    }
-
-    // Verify token
-    const user = verifyToken(token);
+    const user = getUserFromRequest(request);
     if (!user) {
       return NextResponse.json(
-        { error: 'Invalid token' },
+        { error: 'Unauthorized' },
         { status: 401 }
       );
     }

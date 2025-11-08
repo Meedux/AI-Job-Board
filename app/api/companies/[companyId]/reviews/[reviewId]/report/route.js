@@ -1,26 +1,18 @@
 import { NextResponse } from 'next/server';
-import { verifyToken } from '../../../../../../../utils/auth';
+import { getUserFromRequest } from '../../../../../../../utils/auth';
 import { PrismaClient } from '@prisma/client';
 
 const prisma = new PrismaClient();
 
 export async function POST(request, { params }) {
   try {
-    // Get token from cookies
-    const token = request.cookies.get('auth-token')?.value;
-
-    if (!token) {
-      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
-    }
-
-    // Verify token
-    const userFromToken = verifyToken(token);
+    const userFromToken = getUserFromRequest(request);
     if (!userFromToken) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
 
     const { companyId, reviewId } = await params;
-    const userId = session.user.id;
+    const userId = userFromToken.id;
     const { reason, details } = await request.json();
 
     if (!reason) {

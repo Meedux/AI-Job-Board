@@ -1,6 +1,6 @@
 import { NextResponse } from 'next/server';
 import { PrismaClient } from '@prisma/client';
-import { verifyToken } from '@/utils/auth';
+import { getUserFromRequest } from '@/utils/auth';
 
 const prisma = new PrismaClient();
 
@@ -8,16 +8,10 @@ const prisma = new PrismaClient();
 export async function GET(request, { params }) {
   try {
     // Verify super admin access
-    const authHeader = request.headers.get('authorization');
-    if (!authHeader || !authHeader.startsWith('Bearer ')) {
+    const user = getUserFromRequest(request);
+
+    if (!user || user.role !== 'super_admin') {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
-    }
-
-    const token = authHeader.substring(7);
-    const decoded = verifyToken(token);
-
-    if (!decoded || decoded.role !== 'super_admin') {
-      return NextResponse.json({ error: 'Super admin access required' }, { status: 403 });
     }
 
     const { id } = params;
@@ -51,16 +45,10 @@ export async function GET(request, { params }) {
 export async function PUT(request, { params }) {
   try {
     // Verify super admin access
-    const authHeader = request.headers.get('authorization');
-    if (!authHeader || !authHeader.startsWith('Bearer ')) {
+    const user = getUserFromRequest(request);
+
+    if (!user || user.role !== 'super_admin') {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
-    }
-
-    const token = authHeader.substring(7);
-    const decoded = verifyToken(token);
-
-    if (!decoded || decoded.role !== 'super_admin') {
-      return NextResponse.json({ error: 'Super admin access required' }, { status: 403 });
     }
 
     const { id } = params;
@@ -121,15 +109,9 @@ export async function PUT(request, { params }) {
 export async function PATCH(request, { params }) {
   try {
     // Verify super admin access
-    const authHeader = request.headers.get('authorization');
-    if (!authHeader || !authHeader.startsWith('Bearer ')) {
-      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
-    }
-
-    const token = authHeader.substring(7);
-    const decoded = verifyToken(token);
-
-    if (!decoded || decoded.role !== 'super_admin') {
+    const user = getUserFromRequest(request);
+    
+    if (!user || user.role !== 'super_admin') {
       return NextResponse.json({ error: 'Super admin access required' }, { status: 403 });
     }
 
@@ -159,16 +141,10 @@ export async function PATCH(request, { params }) {
 export async function DELETE(request, { params }) {
   try {
     // Verify super admin access
-    const authHeader = request.headers.get('authorization');
-    if (!authHeader || !authHeader.startsWith('Bearer ')) {
+    const user = getUserFromRequest(request);
+
+    if (!user || user.role !== 'super_admin') {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
-    }
-
-    const token = authHeader.substring(7);
-    const decoded = verifyToken(token);
-
-    if (!decoded || decoded.role !== 'super_admin') {
-      return NextResponse.json({ error: 'Super admin access required' }, { status: 403 });
     }
 
     const { id } = params;

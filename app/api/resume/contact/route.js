@@ -1,21 +1,13 @@
 // API Route: /api/resume/contact
 import { NextResponse } from 'next/server';
-import { getUserFromRequest, verifyToken } from '@/utils/auth';
+import { getUserFromRequest } from '@/utils/auth';
 import { prisma } from '@/utils/db';
 import { useCredit, getUserCredits, checkUserUsageLimits } from '@/utils/newSubscriptionService';
 import { USER_ROLES, hasPermission, PERMISSIONS } from '@/utils/roleSystem';
 
 export async function POST(request) {
   try {
-    // Accept auth token either via cookie or Authorization header
-    let tokenPayload = await getUserFromRequest(request);
-    if (!tokenPayload) {
-      const header = request.headers.get('authorization') || request.headers.get('Authorization');
-      if (header && header.startsWith('Bearer ')) {
-        const token = header.replace('Bearer ', '');
-        tokenPayload = verifyToken(token);
-      }
-    }
+    const tokenPayload = getUserFromRequest(request);
 
     if (!tokenPayload) {
       return NextResponse.json({ success: false, error: 'Unauthorized' }, { status: 401 });

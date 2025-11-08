@@ -1,5 +1,5 @@
 import { NextResponse } from 'next/server';
-import { verifyToken } from '../../../../../utils/auth';
+import { getUserFromRequest } from '../../../../../utils/auth';
 import { logAPIRequest, getRequestInfo } from '../../../../../utils/dataLogger';
 import { 
   createNotification,
@@ -36,21 +36,11 @@ export async function POST(request) {
     // Log API request
     await logAPIRequest('POST', '/api/admin/notifications/test-system', null, ipAddress);
     
-    // Get token from cookies
-    const token = request.cookies.get('auth-token')?.value;
-
-    if (!token) {
-      return NextResponse.json(
-        { error: 'Unauthorized' },
-        { status: 401 }
-      );
-    }
-
-    // Verify token
-    const user = verifyToken(token);
+    // Verify user authentication
+    const user = getUserFromRequest(request);
     if (!user) {
       return NextResponse.json(
-        { error: 'Invalid token' },
+        { error: 'Unauthorized' },
         { status: 401 }
       );
     }

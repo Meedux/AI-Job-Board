@@ -211,30 +211,9 @@ export async function GET(request) {
 export async function POST(request) {
   try {
     // Verify authentication for posting jobs
-    // Accept token from Authorization header OR auth-token cookie
-    let token = null;
-    try {
-      // Prefer cookie-based token for browser requests
-      token = request.cookies?.get('auth-token')?.value || null;
-    } catch (err) {
-      // some runtimes may not support request.cookies - fall back
-      token = null;
-    }
-
-    if (!token) {
-      const authHeader = request.headers.get('authorization');
-      if (authHeader && authHeader.startsWith('Bearer ')) {
-        token = authHeader.substring(7);
-      }
-    }
-
-    if (!token) {
-      return Response.json({ error: 'Authentication required' }, { status: 401 });
-    }
-
-    const user = verifyToken(token);
+    const user = getUserFromRequest(request);
     if (!user) {
-      return Response.json({ error: 'Invalid token' }, { status: 401 });
+      return Response.json({ error: 'Authentication required' }, { status: 401 });
     }
 
     const jobData = await request.json();

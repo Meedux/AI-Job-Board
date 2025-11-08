@@ -1,5 +1,4 @@
-import { cookies } from 'next/headers';
-import { verifyToken } from '@/utils/auth';
+import { getUserFromRequest } from '@/utils/auth';
 import { PrismaClient } from '@prisma/client';
 import { 
   USER_ROLES, 
@@ -14,14 +13,7 @@ const prisma = new PrismaClient();
 // GET - Fetch users (with role-based filtering)
 export async function GET(request) {
   try {
-    const cookieStore = await cookies();
-    const token = cookieStore.get('auth-token')?.value;
-
-    if (!token) {
-      return Response.json({ error: 'Not authenticated' }, { status: 401 });
-    }
-
-    const decoded = verifyToken(token);
+    const decoded = getUserFromRequest(request);
     if (!decoded || !decoded.id) {
       return Response.json({ error: 'Invalid token' }, { status: 401 });
     }
@@ -107,14 +99,7 @@ export async function GET(request) {
 // POST - Create new user
 export async function POST(request) {
   try {
-    const cookieStore = await cookies();
-    const token = cookieStore.get('auth-token')?.value;
-
-    if (!token) {
-      return Response.json({ error: 'Not authenticated' }, { status: 401 });
-    }
-
-    const decoded = verifyToken(token);
+    const decoded = getUserFromRequest(request);
     if (!decoded || !decoded.id) {
       return Response.json({ error: 'Invalid token' }, { status: 401 });
     }

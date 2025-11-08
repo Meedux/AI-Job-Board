@@ -1,7 +1,6 @@
 import { NextResponse } from 'next/server';
 import { PrismaClient } from '@prisma/client';
-import { cookies } from 'next/headers';
-import { verifyToken } from '@/utils/auth';
+import { getUserFromRequest } from '@/utils/auth';
 import { useCredit, checkUserUsageLimits, getUserCredits } from '@/utils/newSubscriptionService';
 import { USER_ROLES } from '@/utils/roleSystem';
 
@@ -10,16 +9,9 @@ const prisma = new PrismaClient();
 // GET - Search resume database
 export async function GET(request) {
   try {
-    const cookieStore = cookies();
-    const token = cookieStore.get('auth-token')?.value;
-
-    if (!token) {
-      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
-    }
-
-    const decoded = verifyToken(token);
+    const decoded = getUserFromRequest(request);
     if (!decoded || !decoded.id) {
-      return NextResponse.json({ error: 'Invalid token' }, { status: 401 });
+      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
 
     // Load full user (include parentUser when applicable)

@@ -1,7 +1,6 @@
 // API Route for Notification Settings
 import { NextResponse } from 'next/server';
 import { PrismaClient } from '@prisma/client';
-import { verifyToken } from '../../../../utils/auth';
 
 
 const prisma = new PrismaClient();

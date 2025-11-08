@@ -1,6 +1,6 @@
 import { NextResponse } from 'next/server';
 import { PrismaClient } from '@prisma/client';
-import { verifyToken } from '@/utils/auth';
+import { getUserFromRequest } from '@/utils/auth';
 
 const prisma = new PrismaClient();
 
@@ -8,16 +8,10 @@ const prisma = new PrismaClient();
 export async function GET(request) {
   try {
     // Verify super admin access
-    const authHeader = request.headers.get('authorization');
-    if (!authHeader || !authHeader.startsWith('Bearer ')) {
+    const user = getUserFromRequest(request);
+
+    if (!user || user.role !== 'super_admin') {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
-    }
-
-    const token = authHeader.substring(7);
-    const decoded = verifyToken(token);
-
-    if (!decoded || decoded.role !== 'super_admin') {
-      return NextResponse.json({ error: 'Super admin access required' }, { status: 403 });
     }
 
     const employerTypes = await prisma.employerType.findMany({
@@ -46,16 +40,10 @@ export async function GET(request) {
 export async function POST(request) {
   try {
     // Verify super admin access
-    const authHeader = request.headers.get('authorization');
-    if (!authHeader || !authHeader.startsWith('Bearer ')) {
+    const user = getUserFromRequest(request);
+
+    if (!user || user.role !== 'super_admin') {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
-    }
-
-    const token = authHeader.substring(7);
-    const decoded = verifyToken(token);
-
-    if (!decoded || decoded.role !== 'super_admin') {
-      return NextResponse.json({ error: 'Super admin access required' }, { status: 403 });
     }
 
     const body = await request.json();

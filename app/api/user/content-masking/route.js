@@ -1,5 +1,4 @@
-import { cookies } from 'next/headers';
-import { verifyToken } from '@/utils/auth';
+import { getUserFromRequest } from '@/utils/auth';
 import { PrismaClient } from '@prisma/client';
 import { canUseContentMasking } from '@/utils/userContentMasking';
 
@@ -7,18 +6,10 @@ const prisma = new PrismaClient();
 
 export async function GET(request) {
   try {
-    const cookieStore = await cookies();
-    const token = cookieStore.get('auth-token')?.value;
+    const decoded = getUserFromRequest(request);
 
-    if (!token) {
-      return Response.json({ error: 'Not authenticated' }, { status: 401 });
-    }
-
-    // Verify JWT token using the auth utility
-    const decoded = verifyToken(token);
-    
     if (!decoded || !decoded.id) {
-      return Response.json({ error: 'Invalid token' }, { status: 401 });
+      return Response.json({ error: 'Not authenticated' }, { status: 401 });
     }
 
     const userId = decoded.id;
@@ -71,18 +62,10 @@ export async function GET(request) {
 
 export async function POST(request) {
   try {
-    const cookieStore = await cookies();
-    const token = cookieStore.get('auth-token')?.value;
+    const decoded = getUserFromRequest(request);
 
-    if (!token) {
-      return Response.json({ error: 'Not authenticated' }, { status: 401 });
-    }
-
-    // Verify JWT token using the auth utility
-    const decoded = verifyToken(token);
-    
     if (!decoded || !decoded.id) {
-      return Response.json({ error: 'Invalid token' }, { status: 401 });
+      return Response.json({ error: 'Not authenticated' }, { status: 401 });
     }
 
     const userId = decoded.id;

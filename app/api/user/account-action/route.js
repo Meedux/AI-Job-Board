@@ -1,7 +1,6 @@
 // API Route for Account Actions (Deactivate/Delete)
 import { NextResponse } from 'next/server';
 import { PrismaClient } from '@prisma/client';
-import { verifyToken } from '../../../../utils/auth';
 
 import { logSystemEvent } from '../../../../utils/dataLogger';
 

@@ -1,5 +1,5 @@
 import { NextResponse } from 'next/server';
-import { verifyToken } from '../../../../../utils/auth';
+import { getUserFromRequest } from '../../../../../utils/auth';
 import { addAdminNotification } from '../route';
 
 // Admin email list (should match AuthContext)
@@ -21,21 +21,11 @@ const isAdmin = (email) => {
 
 export async function POST(request) {
   try {
-    // Get token from cookies
-    const token = request.cookies.get('auth-token')?.value;
-
-    if (!token) {
-      return NextResponse.json(
-        { error: 'Unauthorized' },
-        { status: 401 }
-      );
-    }
-
-    // Verify token
-    const user = verifyToken(token);
+    // Verify user authentication
+    const user = getUserFromRequest(request);
     if (!user) {
       return NextResponse.json(
-        { error: 'Invalid token' },
+        { error: 'Unauthorized' },
         { status: 401 }
       );
     }

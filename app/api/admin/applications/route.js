@@ -1,7 +1,6 @@
 import { NextResponse } from 'next/server';
-import jwt from 'jsonwebtoken';
 import { PrismaClient } from '@prisma/client';
-import { cookies } from 'next/headers';
+import { getUserFromRequest } from '@/utils/auth';
 
 const prisma = new PrismaClient();
 
@@ -9,41 +8,13 @@ export async function GET(request) {
   try {
     console.log('📊 Admin Applications API - GET request received');
 
-    // Get token from cookies or Authorization header
-    const cookieStore = cookies();
-    const token = cookieStore.get('auth-token')?.value || 
-                  cookieStore.get('token')?.value ||
-                  request.headers.get('authorization')?.replace('Bearer ', '');
-
-    console.log('📊 Admin Applications API - Token found:', !!token);
-    console.log('📊 Admin Applications API - Token length:', token?.length || 0);
-
-    if (!token) {
-      console.log('📊 Admin Applications API - No token provided');
-      return NextResponse.json({ error: 'Authentication required' }, { status: 401 });
-    }
-
-    let decoded;
-    try {
-      decoded = jwt.verify(token, process.env.JWT_SECRET);
-      console.log('📊 Admin Applications API - Token decoded successfully, user ID:', decoded.id);
-    } catch (error) {
-      console.log('📊 Admin Applications API - Token verification failed:', error.message);
-      return NextResponse.json({ error: 'Invalid token' }, { status: 401 });
-    }
-
-    const userId = decoded.id;
-    console.log('📊 Admin Applications API - User ID:', userId);
-
-    // Get user details to check role
-    const user = await prisma.user.findUnique({
-      where: { id: userId },
-      select: { id: true, role: true, parentUserId: true }
-    });
-
+    const user = getUserFromRequest(request);
+    
     if (!user || !['employer_admin', 'super_admin'].includes(user.role)) {
       return NextResponse.json({ error: 'Unauthorized access' }, { status: 403 });
     }
+
+    console.log('📊 Admin Applications API - User authenticated, ID:', user.id);
 
     // Get query parameters
     const url = new URL(request.url);

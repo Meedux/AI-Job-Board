@@ -1,6 +1,6 @@
 import { NextResponse } from 'next/server';
 import { cookies } from 'next/headers';
-import { verifyToken } from '@/utils/auth';
+import { getUserFromRequest } from '@/utils/auth';
 import { canRevealResume } from '@/utils/policy';
 import { PrismaClient } from '@prisma/client';
 import { USER_ROLES, hasPermission, PERMISSIONS } from '@/utils/roleSystem';
@@ -11,24 +11,10 @@ const prisma = new PrismaClient();
 // POST - Reveal resume contact information with credit tracking
 export async function POST(request) {
   try {
-    const cookieStore = await cookies();
-    const token = cookieStore.get('auth-token')?.value;
-
-    if (!token) {
+    const currentUser = getUserFromRequest(request);
+    if (!currentUser || !currentUser.id) {
       return NextResponse.json({ error: 'Not authenticated' }, { status: 401 });
     }
-
-    const decoded = verifyToken(token);
-    if (!decoded || !decoded.id) {
-      return NextResponse.json({ error: 'Invalid token' }, { status: 401 });
-    }
-
-    const currentUser = await prisma.user.findUnique({
-      where: { id: decoded.id },
-      include: {
-        parentUser: true
-      }
-    });
 
     if (!currentUser) {
       return NextResponse.json({ error: 'User not found' }, { status: 404 });

@@ -1,5 +1,5 @@
 import { NextResponse } from 'next/server';
-import { verifyToken } from '../../../../utils/auth';
+import { getUserFromRequest } from '../../../../utils/auth';
 import { logAdminActivity, logAPIRequest, logError, getRequestInfo } from '../../../../utils/dataLogger';
 import { v4 as uuidv4 } from 'uuid';
 
@@ -105,26 +105,16 @@ export async function GET(request) {
     // Log API request
     await logAPIRequest('GET', '/api/admin/embeds', null, ipAddress);
     
-    // Get token from cookies
-    const token = request.cookies.get('auth-token')?.value;
-
-    if (!token) {
+    // Verify user authentication
+    const user = getUserFromRequest(request);
+    if (!user) {
       return NextResponse.json(
         { error: 'Unauthorized' },
         { status: 401 }
       );
     }
 
-    // Verify token
-    const user = verifyToken(token);
-    if (!user) {
-      return NextResponse.json(
-        { error: 'Invalid token' },
-        { status: 401 }
-      );
-    }
-
-    userId = user.uid;
+    userId = user.id;
 
     // Check if user is admin
     if (!isAdmin(user.email)) {
@@ -211,26 +201,16 @@ export async function POST(request) {
     // Log API request
     await logAPIRequest('POST', '/api/admin/embeds', null, ipAddress);
 
-    // Get token from cookies
-    const token = request.cookies.get('auth-token')?.value;
-
-    if (!token) {
+    // Verify user authentication
+    const user = getUserFromRequest(request);
+    if (!user) {
       return NextResponse.json(
         { error: 'Unauthorized' },
         { status: 401 }
       );
     }
 
-    // Verify token
-    const user = verifyToken(token);
-    if (!user) {
-      return NextResponse.json(
-        { error: 'Invalid token' },
-        { status: 401 }
-      );
-    }
-
-    userId = user.uid;
+    userId = user.id;
 
     // Check if user is admin
     if (!isAdmin(user.email)) {
@@ -348,26 +328,16 @@ export async function DELETE(request) {
     // Log API request
     await logAPIRequest('DELETE', '/api/admin/embeds', null, ipAddress);
 
-    // Get token from cookies
-    const token = request.cookies.get('auth-token')?.value;
-
-    if (!token) {
+    // Verify user authentication
+    const user = getUserFromRequest(request);
+    if (!user) {
       return NextResponse.json(
         { error: 'Unauthorized' },
         { status: 401 }
       );
     }
 
-    // Verify token
-    const user = verifyToken(token);
-    if (!user) {
-      return NextResponse.json(
-        { error: 'Invalid token' },
-        { status: 401 }
-      );
-    }
-
-    userId = user.uid;
+    userId = user.id;
 
     // Check if user is admin
     if (!isAdmin(user.email)) {
