@@ -1,6 +1,6 @@
 import { NextResponse } from 'next/server';
-import { verifyToken, getUserFromRequest } from '../../../../utils/auth';
-import { canCreateJob } from '../../../../utils/policy';
+import { getUserFromRequest } from '@/utils/auth';
+import { canCreateJob } from '@/utils/policy';
 import { PrismaClient } from '@prisma/client';
 
 const prisma = new PrismaClient();
@@ -112,6 +112,40 @@ export async function POST(request) {
       }
     }
 
+    // Determine premium vs free (simple heuristic: verified OR active subscription plan containing 'premium')
+    const userWithSubs = await prisma.user.findUnique({
+      where: { id: user.id },
+      include: { subscriptions: { include: { plan: true }, where: { status: 'active' } }, employerTypeUser: true }
+    });
+    const hasPremiumSub = !!(userWithSubs?.subscriptions?.find(s => (s.plan?.name || '').toLowerCase().includes('premium')));
+    const isPremium = hasPremiumSub || !!verifiedDoc;
+    const durationDays = isPremium ? 60 : 30;
+    const now = new Date();
+    const computedExpiresAt = jobData.endPostingOn ? new Date(jobData.endPostingOn) : new Date(now.getTime() + durationDays * 24 * 60 * 60 * 1000);
+    const computedApplicationDeadline = jobData.applicationDeadline ? new Date(jobData.applicationDeadline) : computedExpiresAt;
+
+    // DMW / overseas compliance checks
+    const employerSubtype = userWithSubs?.employerTypeUser?.subtype || '';
+    const isDMW = employerSubtype === 'dmw';
+    const isOverseas = userWithSubs?.employerTypeUser?.category === 'abroad';
+    if ((isDMW || isOverseas) && !jobData.mandatoryStatement && !jobData.dmwMandatoryStatement) {
+      return NextResponse.json({ error: 'Mandatory statement required for DMW/overseas postings' }, { status: 400 });
+    }
+    if (isDMW && jobData.isSeaBased) {
+      if (!jobData.vesselName || !jobData.vesselType) {
+        return NextResponse.json({ error: 'Vessel name and type required for sea-based DMW job' }, { status: 400 });
+      }
+    }
+    if (isDMW && !jobData.isSeaBased) {
+      if (!jobData.landBasedCountry) {
+        return NextResponse.json({ error: 'Country required for land-based DMW job' }, { status: 400 });
+      }
+    }
+    // Placement fee restriction for unverified
+    if (!verifiedDoc && (jobData.isPlacement || jobData.placementFee)) {
+      return NextResponse.json({ error: 'Placement fee features restricted until verification' }, { status: 403 });
+    }
+
     // Create job posting
     const job = await prisma.job.create({
       data: {
@@ -130,7 +164,7 @@ export async function POST(request) {
         experienceLevel: jobData.experienceLevel,
         requiredSkills: jobData.requiredSkills || jobData.skillsRequired || [],
         preferredSkills: jobData.preferredSkills || [],
-        expiresAt: jobData.endPostingOn ? new Date(jobData.endPostingOn) : null,
+        expiresAt: computedExpiresAt,
         status: 'draft', // Start as draft, publish later
         companyId: company.id,
         postedById: user.id,
@@ -158,7 +192,7 @@ export async function POST(request) {
         applicationMethod: jobData.applicationMethod,
         externalApplicationUrl: jobData.externalApplicationUrl,
         applicationEmail: jobData.applicationEmail,
-        applicationDeadline: jobData.applicationDeadline ? new Date(jobData.applicationDeadline) : null,
+        applicationDeadline: computedApplicationDeadline,
         
         // Contact settings
         showContactOnPosting: jobData.showContactOnPosting,
@@ -169,6 +203,8 @@ export async function POST(request) {
   licenseExpirationDate: jobData.licenseExpirationDate ? new Date(jobData.licenseExpirationDate) : null,
   overseasStatement: jobData.overseasStatement,
   placementFee: jobData.placementFee ? parseFloat(jobData.placementFee) : null,
+  placementFeeCurrency: jobData.placementFeeCurrency || jobData.currency || null,
+  placementFeeNotes: jobData.placementFeeNotes || null,
   isPlacement: jobData.isPlacement || false,
         
         // Additional features
@@ -178,6 +214,22 @@ export async function POST(request) {
         
   // Mode
   mode: jobData.mode,
+  // Functional & specialization fields
+  functionalRole: jobData.functionalRole || null,
+  specialization: jobData.specialization || null,
+  course: jobData.course || null,
+  region: jobData.region || null,
+  mandatoryStatement: !!(jobData.mandatoryStatement || jobData.dmwMandatoryStatement),
+  dmwMandatoryStatement: jobData.dmwMandatoryStatement || null,
+  principalEmployer: jobData.principalEmployer || jobData.principal || null,
+  validPassport: !!jobData.validPassport,
+  isSeaBased: !!jobData.isSeaBased,
+  vesselName: jobData.vesselName || null,
+  vesselType: jobData.vesselType || null,
+  vesselFlag: jobData.vesselFlag || null,
+  landBasedCountry: jobData.landBasedCountry || null,
+  landBasedLicenseNumber: jobData.landBasedLicenseNumber || null,
+  dealBreakers: Array.isArray(jobData.dealBreakers) ? jobData.dealBreakers : [],
       }
     });
 
@@ -209,6 +261,9 @@ export async function POST(request) {
         status: job.status,
         companyName: jobData.companyName,
         mode: jobData.mode,
+        premium: isPremium,
+        expiresAt: job.expiresAt,
+        applicationDeadline: job.applicationDeadline
       }
     });
 

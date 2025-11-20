@@ -1,472 +1,238 @@
 'use client';
 
+// TipTap-based rich text editor implementation replacing Quill.
+// Features: headings, bold, italic, underline, strike, lists, blockquote, code, link, image, undo/redo.
+// Exposes HTML content via onChange; accepts initial `content` HTML.
+
 import { useEditor, EditorContent } from '@tiptap/react';
-import { useEffect } from 'react';
 import StarterKit from '@tiptap/starter-kit';
-import BulletList from '@tiptap/extension-bullet-list';
-import OrderedList from '@tiptap/extension-ordered-list';
-import ListItem from '@tiptap/extension-list-item';
-import TextAlign from '@tiptap/extension-text-align';
-import { TextStyle } from '@tiptap/extension-text-style';
-import { Color } from '@tiptap/extension-color';
+import Underline from '@tiptap/extension-underline';
 import Link from '@tiptap/extension-link';
 import Image from '@tiptap/extension-image';
-import { 
-  Bold, 
-  Italic, 
-  List, 
-  ListOrdered, 
-  Link as LinkIcon, 
-  Image as ImageIcon,
-  Undo,
-  Redo,
-  Type,
-  Heading1,
-  Heading2,
-  Heading3,
-  AlignLeft,
-  AlignCenter,
-  AlignRight,
-  Indent,
-  Outdent,
-  Palette
-} from 'lucide-react';
+import TextAlign from '@tiptap/extension-text-align';
+import Placeholder from '@tiptap/extension-placeholder';
+import CharacterCount from '@tiptap/extension-character-count';
+import CodeBlockLowlight from '@tiptap/extension-code-block-lowlight';
+import { Table } from '@tiptap/extension-table';
+import { TableRow } from '@tiptap/extension-table-row';
+import { TableCell } from '@tiptap/extension-table-cell';
+import { TableHeader } from '@tiptap/extension-table-header';
+import { Markdown } from 'tiptap-markdown';
+import { lowlight } from 'lowlight';
+import js from 'highlight.js/lib/languages/javascript';
+import ts from 'highlight.js/lib/languages/typescript';
+import cssLang from 'highlight.js/lib/languages/css';
+import { useEffect, useState } from 'react';
+import { Bold, Italic, Underline as UnderlineIcon, Strikethrough, List, ListOrdered, Heading1, Heading2, Heading3, Quote, Code, AlignLeft, AlignCenter, AlignRight, Undo, Redo, Link as LinkIcon, Image as ImageIcon, Eye, EyeOff, Table2, Rows, Columns } from 'lucide-react';
+lowlight.registerLanguage('javascript', js);
+lowlight.registerLanguage('typescript', ts);
+lowlight.registerLanguage('css', cssLang);
 
-const RichTextEditor = ({ content, onChange, placeholder = "Start typing...", showMediaButtons = true }) => {
+/*
+  Props:
+  - content: initial HTML
+  - onChange: callback(html)
+  - placeholder: placeholder text
+  - showMediaButtons: toggle link/image controls
+*/
+const RichTextEditor = ({ content = '', onChange, placeholder = 'Start typing...', showMediaButtons = true, maxChars = 5000 }) => {
+  const [mounted, setMounted] = useState(false);
+  useEffect(() => { setMounted(true); }, []);
+  const [markdownMode, setMarkdownMode] = useState(false);
+  const [preview, setPreview] = useState(false); // moved above early return to keep hook order stable
+
   const editor = useEditor({
     extensions: [
-      StarterKit,
-      BulletList,
-      OrderedList,
-      ListItem,
-      TextStyle,
-      Color,
-      TextAlign.configure({
-        types: ['heading', 'paragraph'],
+      StarterKit.configure({
+        heading: { levels: [1, 2, 3] },
       }),
+      Underline,
       Link.configure({
-        openOnClick: false,
-        HTMLAttributes: {
-          class: 'text-blue-400 hover:text-blue-300 underline',
-        },
+        openOnClick: true,
+        autolink: true,
       }),
-      Image.configure({
-        HTMLAttributes: {
-          class: 'max-w-full h-auto rounded-lg',
-        },
+      Image.configure({ inline: false }),
+      TextAlign.configure({ types: ['heading', 'paragraph'] }),
+      Placeholder.configure({
+        placeholder,
+        emptyEditorClass: 'is-editor-empty'
       }),
+      CharacterCount.configure({ limit: maxChars }),
+      CodeBlockLowlight.configure({ lowlight, defaultLanguage: 'plaintext', enableTabIndentation: true }),
+      Table.configure({ resizable: false }),
+      TableRow,
+      TableHeader,
+      TableCell,
+      Markdown.configure({
+        tightLists: true,
+        bulletListMarker: '-',
+        linkify: false
+      })
     ],
-    content: content,
-    immediatelyRender: false,
+    content: content || '',
     onUpdate: ({ editor }) => {
-      if (typeof onChange === 'function') {
-        try {
-          onChange(editor.getHTML());
-        } catch (err) {
-          console.debug('RichTextEditor onUpdate onChange handler threw:', err);
-        }
-      }
+      const html = editor.getHTML();
+      if (typeof onChange === 'function') onChange(html);
     },
     editorProps: {
       attributes: {
-        class: 'prose prose-invert max-w-none focus:outline-none p-4 min-h-[200px] bg-gray-800 text-white placeholder-gray-400',
-        'data-placeholder': placeholder,
-      },
-    },
-  });
-  // If the parent updates the `content` prop (e.g., loaded from API), make sure
-  // the editor reflects that content (preserve lists, headings, etc.). Use a
-  // React effect to avoid mutating editor during render.
-  useEffect(() => {
-    if (!editor) return;
-    if (content === undefined || content === null) return;
-
-    const current = editor.getHTML();
-    if (content !== current) {
-      try {
-        // setContent may reset selection; only call when content changed
-        editor.commands.setContent(content);
-      } catch (err) {
-        console.debug('Failed to set editor content directly:', err);
+        class: 'tiptap-editor focus:outline-none min-h-[220px]'
       }
+    },
+    immediatelyRender: false // prevents SSR hydration mismatch warning
+  });
+
+  // Sync external content changes (e.g. editing existing job)
+  useEffect(() => {
+    if (editor && typeof content === 'string' && content !== editor.getHTML()) {
+      editor.commands.setContent(content, false);
     }
-  }, [editor, content]);
+  }, [content, editor]);
 
-  if (!editor) {
-    return (
-      <div className="w-full">
-        <div className="flex flex-wrap gap-2 p-3 bg-gray-900 border border-gray-700 rounded-t-lg border-b-0">
-          <div className="text-gray-400 text-sm">Loading editor...</div>
-        </div>
-        <div className="p-4 bg-gray-800 rounded-b-lg border border-gray-700 border-t-0 min-h-[200px] flex items-center justify-center">
-          <div className="text-gray-400">Rich text editor loading...</div>
-        </div>
-      </div>
-    );
-  }
+  if (!mounted || !editor) return <div className="text-sm text-gray-400">Loading editor...</div>;
 
-  const addLink = () => {
-    const previousUrl = editor.getAttributes('link').href;
-    const url = window.prompt('URL', previousUrl);
+  const buttonCls = (active) => `px-2 h-8 flex items-center gap-1 rounded text-xs font-medium transition-colors ${active ? 'bg-blue-600 text-white' : 'bg-gray-700 text-gray-300 hover:bg-gray-600'}`;
 
-    // cancelled
-    if (url === null) {
-      return;
-    }
-
-    // empty
-    if (url === '') {
-      editor.chain().focus().extendMarkRange('link').unsetLink().run();
-      return;
-    }
-
-    // update link
-    editor.chain().focus().extendMarkRange('link').setLink({ href: url }).run();
-  };
-
-  const insertImage = () => {
+  const addImage = () => {
     const url = window.prompt('Image URL');
-    if (url) {
-      editor.chain().focus().setImage({ src: url }).run();
-    }
+    if (url) editor.chain().focus().setImage({ src: url }).run();
   };
 
-  const setTextColor = (color) => {
-    editor.chain().focus().setColor(color).run();
+  const setLink = () => {
+    const previous = editor.getAttributes('link').href;
+    const url = window.prompt('Link URL', previous || 'https://');
+    if (url === null) return; // cancelled
+    if (url === '') {
+      editor.chain().focus().unsetLink().run();
+      return;
+    }
+    editor.chain().focus().setLink({ href: url }).run();
   };
 
-  const setTextAlignment = (alignment) => {
-    if (alignment === 'left') {
-      editor.chain().focus().setTextAlign('left').run();
-    } else if (alignment === 'center') {
-      editor.chain().focus().setTextAlign('center').run();
-    } else if (alignment === 'right') {
-      editor.chain().focus().setTextAlign('right').run();
+  const toggleMarkdown = () => {
+    if (!editor) return;
+    if (markdownMode) {
+      const mdVal = document.getElementById('markdown-editor')?.value || '';
+      editor.commands.setContent(mdVal); // treat content as markdown via Markdown extension
+      setMarkdownMode(false);
+    } else {
+      setMarkdownMode(true);
     }
   };
+  const getMarkdown = () => {
+    try { return editor.storage.markdown.getMarkdown(); } catch { return ''; }
+  };
+  // Table helpers
+  const addTable = () => editor.chain().focus().insertTable({ rows: 3, cols: 3, withHeaderRow: true }).run();
+  const addRow = () => editor.chain().focus().addRowAfter().run();
+  const addCol = () => editor.chain().focus().addColumnAfter().run();
+  const delRow = () => editor.chain().focus().deleteRow().run();
+  const delCol = () => editor.chain().focus().deleteColumn().run();
+  const toggleHeaderRow = () => editor.chain().focus().toggleHeaderRow().run();
+  const setCodeLang = (lang) => editor.chain().focus().updateAttributes('codeBlock', { language: lang }).run();
 
   return (
-    <div className="w-full">
-      {/* Toolbar */}
-      <div className="flex flex-wrap gap-1 p-3 bg-gray-900 border border-gray-700 rounded-t-lg border-b-0">
-        {/* Text Formatting */}
+    <div className="tiptap-wrapper border border-gray-700 rounded-lg bg-gray-800">
+      <div className="flex flex-wrap items-center gap-2 p-2 border-b border-gray-700 bg-gray-900">
         <div className="flex gap-1">
-          <button
-            type="button"
-            onClick={() => editor.chain().focus().toggleBold().run()}
-            className={`p-2 rounded hover:bg-gray-700 transition-colors ${
-              editor.isActive('bold') ? 'bg-blue-600 text-white' : 'text-gray-300'
-            }`}
-            title="Bold (Ctrl+B)"
-          >
-            <Bold size={16} />
-          </button>
-          
-          <button
-            type="button"
-            onClick={() => editor.chain().focus().toggleItalic().run()}
-            className={`p-2 rounded hover:bg-gray-700 transition-colors ${
-              editor.isActive('italic') ? 'bg-blue-600 text-white' : 'text-gray-300'
-            }`}
-            title="Italic (Ctrl+I)"
-          >
-            <Italic size={16} />
-          </button>
+          {[1,2,3].map(lvl => (
+            <button key={lvl} type="button" onClick={() => editor.chain().focus().toggleHeading({ level: lvl }).run()} className={buttonCls(editor.isActive('heading',{ level: lvl }))} aria-label={`Heading ${lvl}`}>
+              {lvl === 1 && <Heading1 size={16} />}
+              {lvl === 2 && <Heading2 size={16} />}
+              {lvl === 3 && <Heading3 size={16} />}
+            </button>
+          ))}
         </div>
-
-        <div className="w-px h-8 bg-gray-600 mx-1" />
-
-        {/* Headings */}
+        <span className="h-6 w-px bg-gray-700" />
         <div className="flex gap-1">
-          <button
-            type="button"
-            onClick={() => setHeading(0)}
-            className={`p-2 rounded hover:bg-gray-700 transition-colors ${
-              editor.isActive('paragraph') ? 'bg-blue-600 text-white' : 'text-gray-300'
-            }`}
-            title="Paragraph"
-          >
-            <Type size={16} />
-          </button>
-          
-          <button
-            type="button"
-            onClick={() => setHeading(1)}
-            className={`p-2 rounded hover:bg-gray-700 transition-colors ${
-              editor.isActive('heading', { level: 1 }) ? 'bg-blue-600 text-white' : 'text-gray-300'
-            }`}
-            title="Heading 1"
-          >
-            <Heading1 size={16} />
-          </button>
-
-          <button
-            type="button"
-            onClick={() => setHeading(2)}
-            className={`p-2 rounded hover:bg-gray-700 transition-colors ${
-              editor.isActive('heading', { level: 2 }) ? 'bg-blue-600 text-white' : 'text-gray-300'
-            }`}
-            title="Heading 2"
-          >
-            <Heading2 size={16} />
-          </button>
-
-          <button
-            type="button"
-            onClick={() => setHeading(3)}
-            className={`p-2 rounded hover:bg-gray-700 transition-colors ${
-              editor.isActive('heading', { level: 3 }) ? 'bg-blue-600 text-white' : 'text-gray-300'
-            }`}
-            title="Heading 3"
-          >
-            <Heading3 size={16} />
-          </button>
+          <button onClick={() => editor.chain().focus().toggleBold().run()} className={buttonCls(editor.isActive('bold'))}><Bold size={16} /></button>
+          <button onClick={() => editor.chain().focus().toggleItalic().run()} className={buttonCls(editor.isActive('italic'))}><Italic size={16} /></button>
+          <button onClick={() => editor.chain().focus().toggleUnderline().run()} className={buttonCls(editor.isActive('underline'))}><UnderlineIcon size={16} /></button>
+          <button onClick={() => editor.chain().focus().toggleStrike().run()} className={buttonCls(editor.isActive('strike'))}><Strikethrough size={16} /></button>
         </div>
-
-        <div className="w-px h-8 bg-gray-600 mx-1" />
-
-        {/* Text Color */}
+        <span className="h-6 w-px bg-gray-700" />
         <div className="flex gap-1">
-          <button
-            type="button"
-            onClick={() => setTextColor('#000000')}
-            className="w-6 h-6 rounded border border-gray-600 bg-black hover:bg-gray-800"
-            title="Black Text"
-          />
-          <button
-            type="button"
-            onClick={() => setTextColor('#374151')}
-            className="w-6 h-6 rounded border border-gray-600 bg-gray-700 hover:bg-gray-600"
-            title="Gray Text"
-          />
-          <button
-            type="button"
-            onClick={() => setTextColor('#60a5fa')}
-            className="w-6 h-6 rounded border border-gray-600 bg-blue-500 hover:bg-blue-400"
-            title="Blue Text"
-          />
-          <button
-            type="button"
-            onClick={() => setTextColor('#10b981')}
-            className="w-6 h-6 rounded border border-gray-600 bg-green-500 hover:bg-green-400"
-            title="Green Text"
-          />
+          <button onClick={() => editor.chain().focus().toggleBulletList().run()} className={buttonCls(editor.isActive('bulletList'))}><List size={16} /></button>
+          <button onClick={() => editor.chain().focus().toggleOrderedList().run()} className={buttonCls(editor.isActive('orderedList'))}><ListOrdered size={16} /></button>
+          <button onClick={() => editor.chain().focus().toggleBlockquote().run()} className={buttonCls(editor.isActive('blockquote'))}><Quote size={16} /></button>
+          <button onClick={() => editor.chain().focus().toggleCodeBlock().run()} className={buttonCls(editor.isActive('codeBlock'))}><Code size={16} /></button>
+          {editor.isActive('codeBlock') && (
+            <select onChange={(e) => setCodeLang(e.target.value)} defaultValue={editor.getAttributes('codeBlock').language || 'plaintext'} className="bg-gray-700 text-gray-200 text-xs px-1 py-1 rounded">
+              <option value="plaintext">plain</option>
+              <option value="javascript">js</option>
+              <option value="typescript">ts</option>
+              <option value="css">css</option>
+            </select>
+          )}
         </div>
-
-        <div className="w-px h-8 bg-gray-600 mx-1" />
-
-        {/* Text Alignment */}
+        <span className="h-6 w-px bg-gray-700" />
         <div className="flex gap-1">
-          <button
-            type="button"
-            onClick={() => setTextAlignment('left')}
-            className={`p-2 rounded hover:bg-gray-700 transition-colors ${
-              editor.isActive({ textAlign: 'left' }) ? 'bg-blue-600 text-white' : 'text-gray-300'
-            }`}
-            title="Align Left"
-          >
-            <AlignLeft size={16} />
-          </button>
-          <button
-            type="button"
-            onClick={() => setTextAlignment('center')}
-            className={`p-2 rounded hover:bg-gray-700 transition-colors ${
-              editor.isActive({ textAlign: 'center' }) ? 'bg-blue-600 text-white' : 'text-gray-300'
-            }`}
-            title="Align Center"
-          >
-            <AlignCenter size={16} />
-          </button>
-          <button
-            type="button"
-            onClick={() => setTextAlignment('right')}
-            className={`p-2 rounded hover:bg-gray-700 transition-colors ${
-              editor.isActive({ textAlign: 'right' }) ? 'bg-blue-600 text-white' : 'text-gray-300'
-            }`}
-            title="Align Right"
-          >
-            <AlignRight size={16} />
-          </button>
+          <button onClick={() => editor.chain().focus().setTextAlign('left').run()} className={buttonCls(editor.isActive({ textAlign:'left'}))}><AlignLeft size={16} /></button>
+          <button onClick={() => editor.chain().focus().setTextAlign('center').run()} className={buttonCls(editor.isActive({ textAlign:'center'}))}><AlignCenter size={16} /></button>
+          <button onClick={() => editor.chain().focus().setTextAlign('right').run()} className={buttonCls(editor.isActive({ textAlign:'right'}))}><AlignRight size={16} /></button>
         </div>
-
-        <div className="w-px h-8 bg-gray-600 mx-1" />
-
-        {/* Media (link/image) - can be hidden by passing showMediaButtons=false */}
+        <span className="h-6 w-px bg-gray-700" />
+        <div className="flex gap-1">
+          <button onClick={addTable} className={buttonCls(editor.isActive('table'))}><Table2 size={16} /></button>
+          {editor.isActive('table') && (
+            <>
+              <button onClick={addRow} className={buttonCls(false)} title="Add Row"><Rows size={16} /></button>
+              <button onClick={addCol} className={buttonCls(false)} title="Add Column"><Columns size={16} /></button>
+              <button onClick={delRow} className={buttonCls(false)} title="Delete Row">R-</button>
+              <button onClick={delCol} className={buttonCls(false)} title="Delete Column">C-</button>
+              <button onClick={toggleHeaderRow} className={buttonCls(false)} title="Toggle Header">H</button>
+            </>
+          )}
+        </div>
         {showMediaButtons && (
-          <div className="flex gap-1">
-            <button
-              type="button"
-              onClick={addLink}
-              className={`p-2 rounded hover:bg-gray-700 transition-colors ${
-                editor.isActive('link') ? 'bg-blue-600 text-white' : 'text-gray-300'
-              }`}
-              title="Add/Edit Link"
-            >
-              <LinkIcon size={16} />
-            </button>
-
-            <button
-              type="button"
-              onClick={insertImage}
-              className="p-2 rounded hover:bg-gray-700 transition-colors text-gray-300"
-              title="Insert Image"
-            >
-              <ImageIcon size={16} />
-            </button>
-          </div>
+          <>
+            <span className="h-6 w-px bg-gray-700" />
+            <div className="flex gap-1">
+              <button onClick={setLink} className={buttonCls(editor.isActive('link'))}><LinkIcon size={16} /></button>
+              <button onClick={addImage} className={buttonCls(false)}><ImageIcon size={16} /></button>
+            </div>
+          </>
         )}
-
-        <div className="w-px h-8 bg-gray-600 mx-1" />
-
-        {/* Undo/Redo */}
+        <span className="h-6 w-px bg-gray-700" />
         <div className="flex gap-1">
-          <button
-            type="button"
-            onClick={() => editor.chain().focus().undo().run()}
-            disabled={!editor.can().undo()}
-            className={`p-2 rounded hover:bg-gray-700 transition-colors ${
-              !editor.can().undo() ? 'text-gray-500 cursor-not-allowed' : 'text-gray-300'
-            }`}
-            title="Undo (Ctrl+Z)"
-          >
-            <Undo size={16} />
-          </button>
-
-          <button
-            type="button"
-            onClick={() => editor.chain().focus().redo().run()}
-            disabled={!editor.can().redo()}
-            className={`p-2 rounded hover:bg-gray-700 transition-colors ${
-              !editor.can().redo() ? 'text-gray-500 cursor-not-allowed' : 'text-gray-300'
-            }`}
-            title="Redo (Ctrl+Y)"
-          >
-            <Redo size={16} />
-          </button>
+          <button onClick={() => editor.chain().focus().undo().run()} className={buttonCls(false)}><Undo size={16} /></button>
+          <button onClick={() => editor.chain().focus().redo().run()} className={buttonCls(false)}><Redo size={16} /></button>
+        </div>
+        <span className="h-6 w-px bg-gray-700" />
+        <button onClick={() => setPreview(p => !p)} className={buttonCls(preview)} aria-label="Toggle Preview">{preview ? <EyeOff size={16} /> : <Eye size={16} />}</button>
+        <button onClick={toggleMarkdown} className={buttonCls(markdownMode)} aria-label="Toggle Markdown">MD</button>
+      </div>
+      <div className="px-3 py-2">
+        {markdownMode ? (
+          <textarea id="markdown-editor" defaultValue={getMarkdown()} className="w-full h-52 bg-gray-900 text-gray-200 text-sm p-2 rounded border border-gray-700 font-mono" />
+        ) : preview ? (
+          <div className="prose prose-invert max-w-none">
+            <div dangerouslySetInnerHTML={{ __html: editor.getHTML() }} />
+          </div>
+        ) : (
+          <EditorContent editor={editor} />
+        )}
+        {/* Placeholder styling via CSS pseudo */}
+        <style jsx global>{`
+          .tiptap-editor { min-height:220px; }
+          .tiptap-editor:focus { outline: none; }
+          .tiptap-editor p { margin: 0 0 0.75rem; }
+          .tiptap-editor ul { list-style: disc; padding-left:1.25rem; margin:0 0 0.75rem; }
+          .tiptap-editor ol { list-style: decimal; padding-left:1.25rem; margin:0 0 0.75rem; }
+          .tiptap-editor li { margin: 0.25rem 0; }
+          .tiptap-wrapper .tiptap-editor a { color:#60a5fa; text-decoration:underline; }
+          .tiptap-wrapper .tiptap-editor a:hover { color:#93c5fd; }
+          .tiptap-wrapper .tiptap-editor blockquote { border-left:4px solid #374151; padding-left:0.75rem; color:#9ca3af; margin:0.75rem 0; }
+          .tiptap-wrapper .tiptap-editor pre { background:#111827; padding:0.75rem; border-radius:0.375rem; font-size:0.85rem; }
+          .tiptap-wrapper .tiptap-editor h1, .tiptap-wrapper .tiptap-editor h2, .tiptap-wrapper .tiptap-editor h3 { font-weight:600; line-height:1.25; margin-top:1rem; margin-bottom:0.5rem; }
+          .tiptap-wrapper .tiptap-editor.is-editor-empty:first-child::before { color:#6b7280; content: attr(data-placeholder); float:left; height:0; pointer-events:none; }
+          .tiptap-wrapper .prose h1, .tiptap-wrapper .prose h2, .tiptap-wrapper .prose h3 { color:#fff; }
+        `}</style>
+        <div className="mt-2 flex justify-between text-xs text-gray-400">
+          <span>{editor.storage.characterCount.words()} words</span>
+          <span>{editor.storage.characterCount.characters()}/{maxChars} chars</span>
         </div>
       </div>
-
-      {/* Editor Content */}
-      <div className="bg-gray-800 border border-gray-700 border-t-0 rounded-b-lg relative">
-        <EditorContent 
-          editor={editor} 
-          className="rich-text-editor"
-        />
-        
-        {/* Placeholder when empty (call isEmpty as a function) */}
-        {typeof editor.isEmpty === 'function' ? editor.isEmpty() && (
-          <div className="absolute top-4 left-4 text-gray-500 pointer-events-none">
-            {placeholder}
-          </div>
-        ) : ( // fallback if API differs
-          !editor.getText().trim() && (
-            <div className="absolute top-4 left-4 text-gray-500 pointer-events-none">
-              {placeholder}
-            </div>
-          )
-        )}
-      </div>
-
-      {/* Custom Styles for the Editor */}
-      <style jsx global>{`
-        .rich-text-editor .ProseMirror {
-          outline: none;
-          padding: 1rem;
-          min-height: 200px;
-          color: white;
-        }
-        
-        .rich-text-editor .ProseMirror h1 {
-          font-size: 2rem;
-          font-weight: bold;
-          margin: 1rem 0 0.5rem 0;
-          color: white;
-        }
-        
-        .rich-text-editor .ProseMirror h2 {
-          font-size: 1.5rem;
-          font-weight: bold;
-          margin: 1rem 0 0.5rem 0;
-          color: white;
-        }
-        
-        .rich-text-editor .ProseMirror h3 {
-          font-size: 1.25rem;
-          font-weight: bold;
-          margin: 1rem 0 0.5rem 0;
-          color: white;
-        }
-        
-        .rich-text-editor .ProseMirror p {
-          margin: 0.5rem 0;
-          color: #e5e7eb;
-        }
-        
-        .rich-text-editor .ProseMirror ul, 
-        .rich-text-editor .ProseMirror ol {
-          padding-left: 1.5rem;
-          margin: 0.5rem 0;
-        }
-        
-        .rich-text-editor .ProseMirror li {
-          margin: 0.25rem 0;
-          color: #e5e7eb;
-        }
-        
-        .rich-text-editor .ProseMirror a {
-          color: #60a5fa;
-          text-decoration: underline;
-        }
-        
-        .rich-text-editor .ProseMirror a:hover {
-          color: #93c5fd;
-        }
-        
-        .rich-text-editor .ProseMirror img {
-          max-width: 100%;
-          height: auto;
-          border-radius: 0.5rem;
-          margin: 1rem 0;
-        }
-        
-        .rich-text-editor .ProseMirror strong {
-          font-weight: bold;
-          color: white;
-        }
-        
-        .rich-text-editor .ProseMirror em {
-          font-style: italic;
-        }
-        
-        .rich-text-editor .ProseMirror blockquote {
-          border-left: 3px solid #374151;
-          padding-left: 1rem;
-          margin: 1rem 0;
-          font-style: italic;
-          color: #9ca3af;
-        }
-        
-        .rich-text-editor .ProseMirror code {
-          background-color: #374151;
-          padding: 0.25rem 0.5rem;
-          border-radius: 0.25rem;
-          font-family: monospace;
-          color: #e5e7eb;
-        }
-        
-        .rich-text-editor .ProseMirror pre {
-          background-color: #1f2937;
-          padding: 1rem;
-          border-radius: 0.5rem;
-          overflow-x: auto;
-          margin: 1rem 0;
-        }
-        
-        .rich-text-editor .ProseMirror pre code {
-          background: none;
-          padding: 0;
-        }
-      `}</style>
     </div>
   );
 };

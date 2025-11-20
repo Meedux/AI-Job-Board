@@ -25,6 +25,9 @@ export default function JobManagement() {
   const [filterStatus, setFilterStatus] = useState('all');
   const [showApplicationFormEditor, setShowApplicationFormEditor] = useState(false);
   const [editingApplicationForm, setEditingApplicationForm] = useState(null);
+  // Missing state causing runtime errors
+  const [showJobForm, setShowJobForm] = useState(false);
+  const [editingJob, setEditingJob] = useState(null);
 
   useEffect(() => {
     fetchJobs();
@@ -129,6 +132,12 @@ export default function JobManagement() {
     } finally {
       setLoading(false);
     }
+  };
+
+  // Open edit/create overlay
+  const handleEditJob = (job) => {
+    setEditingJob(job);
+    setShowJobForm(true);
   };
 
   const handleDeleteJob = async (jobId) => {

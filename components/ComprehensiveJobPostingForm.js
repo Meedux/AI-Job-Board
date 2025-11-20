@@ -141,6 +141,16 @@ const ComprehensiveJobPostingForm = ({
     mandatoryStatement: false,
     principalEmployer: '',
     validPassport: false,
+    // DMW / Overseas extended compliance fields
+    isSeaBased: false,
+    vesselName: '',
+    vesselType: '',
+    vesselFlag: '',
+    landBasedCountry: '',
+    landBasedLicenseNumber: '',
+    dmwMandatoryStatement: '',
+    placementFeeCurrency: 'PHP',
+    placementFeeNotes: '',
     
     // Application Settings
     applicationDeadline: '',
@@ -214,6 +224,33 @@ const ComprehensiveJobPostingForm = ({
   const isAgency = companyType === 'agency' || companyType === 'manpower' || companyType === 'sub_agency';
   const canSetPlacementFee = isDMWAgency && isVerified;
   const companyNameReadOnly = !!user?.companyName;
+  // Dynamic principal label (agencies vs direct employers)
+  const principalLabel = isAgency ? 'Principal Employer' : 'Department';
+
+  // Auto currency mapping based on country selection
+  const COUNTRY_CURRENCY_MAP = {
+    'Philippines': 'PHP',
+    'Singapore': 'SGD',
+    'Japan': 'JPY',
+    'Dubai': 'AED',
+    'United Arab Emirates': 'AED',
+    'Saudi Arabia': 'SAR',
+    'United States': 'USD',
+    'USA': 'USD',
+    'United Kingdom': 'GBP',
+    'Canada': 'CAD',
+    'Australia': 'AUD'
+  };
+  const [currencyAuto, setCurrencyAuto] = useState(true);
+
+  useEffect(() => {
+    if (currencyAuto) {
+      const mapped = COUNTRY_CURRENCY_MAP[formData.country];
+      if (mapped && mapped !== formData.currency) {
+        setFormData(prev => ({ ...prev, currency: mapped }));
+      }
+    }
+  }, [formData.country, currencyAuto, formData.currency]);
 
   // When user context loads, pre-fill some form values and enforce defaults
   useEffect(() => {
@@ -299,6 +336,7 @@ const ComprehensiveJobPostingForm = ({
         postedById: user?.id,
         status: 'draft'
       };
+      // Dynamic principal label (front-end only) retained via principalEmployer; no transformation required.
       
       // If onSubmit returns a promise/result, await it so we can surface server messages here.
       let result;
@@ -327,6 +365,10 @@ const ComprehensiveJobPostingForm = ({
 
   // Handle form changes
   const handleInputChange = (field, value) => {
+    if (field === 'currency') {
+      // User manually adjusted currency; stop auto updates
+      setCurrencyAuto(false);
+    }
     setFormData(prev => ({
       ...prev,
       [field]: value
@@ -1034,6 +1076,33 @@ const ComprehensiveJobPostingForm = ({
               <p className="text-xs text-gray-400">
                 Check this box if your agency charges a placement fee for this position. Only verified DMW agencies can indicate placement fees.
               </p>
+
+              {formData.hasPlacementFee && (
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  <div>
+                    <label className="text-sm font-medium text-gray-300 mb-2 block">Placement Fee Currency</label>
+                    <select
+                      value={formData.placementFeeCurrency}
+                      onChange={(e) => handleInputChange('placementFeeCurrency', e.target.value)}
+                      className="w-full px-3 py-2 bg-gray-800 border border-gray-700 rounded-lg text-white focus:outline-none focus:ring-2 focus:ring-blue-500"
+                    >
+                      {CURRENCIES.map(c => (
+                        <option key={c.value} value={c.value}>{c.label}</option>
+                      ))}
+                    </select>
+                  </div>
+                  <div>
+                    <label className="text-sm font-medium text-gray-300 mb-2 block">Placement Fee Notes</label>
+                    <textarea
+                      rows={3}
+                      value={formData.placementFeeNotes}
+                      onChange={(e) => handleInputChange('placementFeeNotes', e.target.value)}
+                      className="w-full px-3 py-2 bg-gray-800 border border-gray-700 rounded-lg text-white placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-blue-500"
+                      placeholder="Explain computation, inclusions, or regulatory compliance..."
+                    />
+                  </div>
+                </div>
+              )}
             </div>
           </div>
         )}
@@ -1224,6 +1293,97 @@ const ComprehensiveJobPostingForm = ({
           placeholder="Describe the benefits, perks, and company culture..."
         />
       </div>
+
+      {/* Sea vs Land Based (Overseas / Agency specific) */}
+      {isOverseasEmployer && isAgency && (
+        <div className="mt-4 border border-gray-700 rounded-lg p-4 bg-gray-900/40 space-y-4">
+          <div className="flex items-center justify-between">
+            <label className="flex items-center gap-2 text-sm font-medium text-gray-300">
+              <input
+                type="checkbox"
+                checked={!!formData.isSeaBased}
+                onChange={(e) => handleInputChange('isSeaBased', e.target.checked)}
+                className="w-4 h-4 text-blue-600 bg-gray-700 border-gray-600 rounded focus:ring-blue-500"
+              />
+              Sea-based Position
+            </label>
+            {formData.isSeaBased && (
+              <span className="text-xs text-blue-400">Provide vessel details</span>
+            )}
+          </div>
+
+          {formData.isSeaBased ? (
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+              <div>
+                <label className="text-sm font-medium text-gray-300 mb-2 block">Vessel Name</label>
+                <input
+                  type="text"
+                  value={formData.vesselName}
+                  onChange={(e) => handleInputChange('vesselName', e.target.value)}
+                  className="w-full px-3 py-2 bg-gray-800 border border-gray-700 rounded-lg text-white placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-blue-500"
+                  placeholder="e.g., MV Ocean Star"
+                />
+              </div>
+              <div>
+                <label className="text-sm font-medium text-gray-300 mb-2 block">Vessel Type</label>
+                <input
+                  type="text"
+                  value={formData.vesselType}
+                  onChange={(e) => handleInputChange('vesselType', e.target.value)}
+                  className="w-full px-3 py-2 bg-gray-800 border border-gray-700 rounded-lg text-white placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-blue-500"
+                  placeholder="e.g., Cargo, Passenger"
+                />
+              </div>
+              <div>
+                <label className="text-sm font-medium text-gray-300 mb-2 block">Vessel Flag</label>
+                <input
+                  type="text"
+                  value={formData.vesselFlag}
+                  onChange={(e) => handleInputChange('vesselFlag', e.target.value)}
+                  className="w-full px-3 py-2 bg-gray-800 border border-gray-700 rounded-lg text-white placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-blue-500"
+                  placeholder="Country flag"
+                />
+              </div>
+            </div>
+          ) : (
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              <div>
+                <label className="text-sm font-medium text-gray-300 mb-2 block">Country of Deployment</label>
+                <input
+                  type="text"
+                  value={formData.landBasedCountry}
+                  onChange={(e) => handleInputChange('landBasedCountry', e.target.value)}
+                  className="w-full px-3 py-2 bg-gray-800 border border-gray-700 rounded-lg text-white placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-blue-500"
+                  placeholder="e.g., Saudi Arabia"
+                />
+              </div>
+              <div>
+                <label className="text-sm font-medium text-gray-300 mb-2 block">Land-based License Number</label>
+                <input
+                  type="text"
+                  value={formData.landBasedLicenseNumber}
+                  onChange={(e) => handleInputChange('landBasedLicenseNumber', e.target.value)}
+                  className="w-full px-3 py-2 bg-gray-800 border border-gray-700 rounded-lg text-white placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-blue-500"
+                  placeholder="Optional - deployment license"
+                />
+              </div>
+            </div>
+          )}
+
+          {isDMWAgency && (
+            <div>
+              <label className="text-sm font-medium text-gray-300 mb-2 block">DMW Mandatory Statement</label>
+              <textarea
+                rows={3}
+                value={formData.dmwMandatoryStatement}
+                onChange={(e) => handleInputChange('dmwMandatoryStatement', e.target.value)}
+                className="w-full px-3 py-2 bg-gray-800 border border-gray-700 rounded-lg text-white placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-blue-500"
+                placeholder="Provide any required DMW compliance statement here..."
+              />
+            </div>
+          )}
+        </div>
+      )}
 
       {/* Overseas statements and employer-type specific choices removed */}
     </div>
@@ -1528,7 +1688,7 @@ const ComprehensiveJobPostingForm = ({
 
           <div className="mt-4">
             <label className="flex items-center justify-between gap-2 text-sm font-medium text-gray-300 mb-2">
-              <span>Principal/Employer</span>
+              <span>{principalLabel}</span>
               <a href="/profile/employer/manage-company" className="text-xs text-blue-400 hover:underline">Add</a>
             </label>
             <input
@@ -1536,7 +1696,7 @@ const ComprehensiveJobPostingForm = ({
               value={formData.principalEmployer}
               onChange={(e) => handleInputChange('principalEmployer', e.target.value)}
               className="w-full px-3 py-2 bg-gray-800 border border-gray-700 rounded-lg text-white placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-blue-500"
-              placeholder="Name of the principal employer or company"
+              placeholder={principalLabel === 'Department' ? 'e.g., Engineering Department' : 'Name of the principal employer or company'}
             />
           </div>
 

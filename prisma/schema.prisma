@@ -131,6 +131,16 @@ model Job {
   mandatoryStatement      Boolean   @default(false) @map("mandatory_statement")
   principalEmployer       String?   @map("principal_employer")
   validPassport           Boolean   @default(false) @map("valid_passport")
+  // Overseas & compliance extensions
+  isSeaBased              Boolean   @default(false) @map("is_sea_based")
+  vesselName              String?   @map("vessel_name")
+  vesselType              String?   @map("vessel_type")
+  vesselFlag              String?   @map("vessel_flag")
+  landBasedCountry        String?   @map("land_based_country")
+  landBasedLicenseNumber  String?   @map("land_based_license_number")
+  dmwMandatoryStatement   String?   @map("dmw_mandatory_statement")
+  placementFeeCurrency    String?   @map("placement_fee_currency")
+  placementFeeNotes       String?   @map("placement_fee_notes")
   
   // Mode and employer type tracking
   mode                    String?   @map("mode") // "manual", "ai"
@@ -352,11 +362,32 @@ model EmployerType {
   // Relations
   jobs        Job[]    @relation("JobEmployerType")
   users       User[]   @relation("UserEmployerType")
+  requirements EmployerTypeRequirement[]
 
   createdAt   DateTime @default(now())
   updatedAt   DateTime @updatedAt
 
   @@map("employer_types")
+}
+
+// Requirements that define which compliance documents are needed per employer type
+model EmployerTypeRequirement {
+  id               String   @id @default(cuid())
+  employerTypeId   String   @map("employer_type_id")
+  provider         String   // "TIN", "BIR", "DOLE", "DMW", "BUSINESS_PERMIT", "OTHERS"
+  code             String   // e.g., TIN, BIR-2303, DOLE-PEA, DMW-LICENSE
+  label            String   // Human readable label
+  required         Boolean  @default(true)
+  schema           Json?    // JSON schema-like validation metadata
+  notes            String?
+  createdAt        DateTime @default(now()) @map("created_at")
+  updatedAt        DateTime @updatedAt @map("updated_at")
+
+  // Relations
+  employerType EmployerType @relation(fields: [employerTypeId], references: [id], onDelete: Cascade)
+
+  @@unique([employerTypeId, code])
+  @@map("employer_type_requirements")
 }
 
 // Authorized representative for a company/user

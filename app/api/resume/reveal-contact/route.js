@@ -133,11 +133,22 @@ export async function POST(request) {
 
     // If not already revealed, attempt to consume a credit (subscription allowance first, then purchased credits)
     if (!existingReveal) {
-      // Enforce verification restrictions: unverified employers cannot reveal resumes from the public/database
+      // Enforce verification restrictions for database reveals
       if (resumeId) {
         const revealActor = creditUser; // the account that will be charged/used
-        if (!canRevealResume({ user: revealActor })) {
-          return NextResponse.json({ error: 'Account not verified — verify company to reveal resumes from the database' }, { status: 403 });
+        // Allow 1 reveal per 30 days if not verified
+        const now = new Date();
+        const thirtyDaysAgo = new Date(now.getTime() - 30 * 24 * 60 * 60 * 1000);
+        const monthlyCount = await prisma.resumeContactReveal.count({
+          where: {
+            revealedBy: revealActor.id,
+            applicationId: null,
+            createdAt: { gte: thirtyDaysAgo }
+          }
+        });
+        const verifiedAllowed = canRevealResume({ user: revealActor });
+        if (!verifiedAllowed && monthlyCount >= 1) {
+          return NextResponse.json({ error: 'Unverified account limit reached — only 1 resume reveal per month allowed until verification' }, { status: 403 });
         }
       }
       try {

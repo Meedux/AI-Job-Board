@@ -118,9 +118,21 @@ const JobPreview = ({
           <button className="text-gray-400 hover:text-gray-600">
             <Share2 size={16} />
           </button>
-          <button className="px-4 py-2 bg-blue-600 text-white rounded hover:bg-blue-700 text-sm font-medium">
-            Apply
-          </button>
+          {job.applicationMethod === 'external' && job.externalApplicationUrl && (
+            <a href={job.externalApplicationUrl} target="_blank" rel="noopener noreferrer" className="px-4 py-2 bg-blue-600 text-white rounded hover:bg-blue-700 text-sm font-medium">
+              Apply Externally
+            </a>
+          )}
+          {job.applicationMethod === 'email' && job.applicationEmail && (
+            <a href={`mailto:${job.applicationEmail}?subject=Application: ${encodeURIComponent(job.jobTitle)}`} className="px-4 py-2 bg-blue-600 text-white rounded hover:bg-blue-700 text-sm font-medium">
+              Apply via Email
+            </a>
+          )}
+          {(!job.applicationMethod || job.applicationMethod === 'internal') && (
+            <button className="px-4 py-2 bg-blue-600 text-white rounded hover:bg-blue-700 text-sm font-medium" disabled={isPreview}>
+              {isPreview ? 'Internal Apply' : 'Apply'}
+            </button>
+          )}
         </div>
       </div>
     </div>
@@ -295,6 +307,18 @@ const JobPreview = ({
           ) : (
             <div className="bg-white rounded-lg">
               <JobOverview job={jobData} showApplicationForm={false} />
+              <div className="p-6 border-t border-gray-200">
+                <h3 className="text-lg font-semibold mb-2">How to Apply</h3>
+                {jobData.applicationMethod === 'external' && jobData.externalApplicationUrl && (
+                  <p className="text-sm text-gray-700">Apply through the external site: <a href={jobData.externalApplicationUrl} target="_blank" rel="noopener noreferrer" className="text-blue-600 underline">{jobData.externalApplicationUrl}</a></p>
+                )}
+                {jobData.applicationMethod === 'email' && jobData.applicationEmail && (
+                  <p className="text-sm text-gray-700">Send your application via email to <a href={`mailto:${jobData.applicationEmail}`} className="text-blue-600 underline">{jobData.applicationEmail}</a></p>
+                )}
+                {(!jobData.applicationMethod || jobData.applicationMethod === 'internal') && (
+                  <p className="text-sm text-gray-700">Apply directly on the platform. Applicants will complete the integrated application form and appear in your ATS.</p>
+                )}
+              </div>
             </div>
           )}
         </div>
