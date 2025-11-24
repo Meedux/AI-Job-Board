@@ -138,6 +138,9 @@ model Job {
   vesselFlag              String?   @map("vessel_flag")
   landBasedCountry        String?   @map("land_based_country")
   landBasedLicenseNumber  String?   @map("land_based_license_number")
+
+  // Imported jobs relation (candidates in the aggregator)
+  importedJobs ImportedJob[]
   dmwMandatoryStatement   String?   @map("dmw_mandatory_statement")
   placementFeeCurrency    String?   @map("placement_fee_currency")
   placementFeeNotes       String?   @map("placement_fee_notes")
@@ -167,6 +170,7 @@ model Job {
 
   categories   JobCategoryAssignment[]
   applications JobApplication[]
+  bookmarks JobBookmark[]
   applicationForm ApplicationForm?
   
   // Resume scanning relations
@@ -257,6 +261,9 @@ model User {
   parentUser   User?     @relation("UserHierarchy", fields: [parentUserId], references: [id])
   subUsers     User[]    @relation("UserHierarchy")
   companyId    String?   @map("company_id") // Reference to company for sub-users
+  // Imported jobs relations
+  createdImportedJobs  ImportedJob[] @relation("CreatedImportedJobs")
+  approvedImportedJobs ImportedJob[] @relation("ApprovedImportedJobs")
   
   // Access Control
   isActive     Boolean   @default(true) @map("is_active")
@@ -274,6 +281,14 @@ model User {
   profileVisibility String  @default("public") @map("profile_visibility") // "public", "private", "premium_only"
   hideProfile      Boolean  @default(false) @map("hide_profile")
   contentMasking   Boolean  @default(false) @map("content_masking") // Premium feature to mask sensitive info
+
+  // Jobseeker-specific fields (vCard / share / passport / deployment)
+  vcardUrl        String?   @map("vcard_url")
+  qrImagePath     String?   @map("qr_image_path")
+  shareableLink   String?   @unique @map("shareable_link")
+  exAbroad        Boolean   @default(false) @map("ex_abroad")
+  countryDeployed String?   @map("country_deployed")
+  passportExpiry  DateTime? @map("passport_expiry")
   
   // Notification Preferences
   emailNotifications    Boolean @default(true) @map("email_notifications")
@@ -305,6 +320,7 @@ model User {
 
   // Relations
   postedJobs   Job[]            @relation("PostedJobs")
+  bookmarks    JobBookmark[]
   applications JobApplication[]
   subscriptions UserSubscription[]
   credits      UserCredit[]
@@ -388,6 +404,22 @@ model EmployerTypeRequirement {
 
   @@unique([employerTypeId, code])
   @@map("employer_type_requirements")
+}
+
+// Job bookmarks / saved jobs mapping table (existing DB table)
+model JobBookmark {
+  // Use String IDs (cuid/text) to match existing `jobs.id` and `users.id` fields
+  id        String   @id @default(cuid())
+  jobId     String   @map("job_id")
+  userId    String   @map("user_id")
+  createdAt DateTime @default(now()) @map("created_at")
+
+  // Relations
+  job Job @relation(fields: [jobId], references: [id], onDelete: Cascade)
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([jobId, userId], name: "bookmarks_job_user_unique")
+  @@map("job_bookmarks")
 }
 
 // Authorized representative for a company/user
@@ -483,6 +515,38 @@ model ATSInterview {
   interviewer User          @relation("InterviewerRelation", fields: [interviewerId], references: [id])
 
   @@map("ats_interviews")
+}
+
+// Imported jobs collected by the aggregator for review / publishing
+model ImportedJob {
+  id              String   @id @default(cuid())
+  title           String
+  companyName     String?
+  location        String?
+  salaryFrom      Int?     @map("salary_from")
+  salaryTo        Int?     @map("salary_to")
+  salaryCurrency  String?  @map("salary_currency")
+  salaryRaw       String?  @map("salary_raw")
+  description     String?
+  sourceUrl       String?  @map("source_url")
+  sourceHost      String?  @map("source_host")
+  normalized      Json?    // original scraped payload
+  signature       String?  @map("signature")
+  status          String   @default("pending") // pending, approved, rejected
+  createdAt       DateTime @default(now()) @map("created_at")
+  updatedAt       DateTime @updatedAt @map("updated_at")
+
+  approvedAt      DateTime? @map("approved_at")
+  approvedById    String?   @map("approved_by_id")
+  approvedBy      User?     @relation("ApprovedImportedJobs", fields: [approvedById], references: [id])
+
+  publishedJobId  String?   @map("published_job_id")
+  publishedJob    Job?      @relation(fields: [publishedJobId], references: [id])
+
+  createdById     String?   @map("created_by_id")
+  createdBy       User?     @relation("CreatedImportedJobs", fields: [createdById], references: [id])
+
+  @@map("imported_jobs")
 }
 
 // Subscription Models - Freemium Job Posting Site

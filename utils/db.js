@@ -99,6 +99,9 @@ export const db = {
               }
             }
           },
+          employerType: {
+            include: { requirements: true }
+          },
           categories: {
             include: {
               category: true
@@ -111,7 +114,7 @@ export const db = {
               email: true,
               verificationDocuments: {
                 where: { status: 'verified' },
-                select: { id: true }
+                select: { id: true, category: true, fileType: true }
               }
             }
           },
@@ -132,11 +135,14 @@ export const db = {
 
       // Map results to include company_verified boolean derived from postedBy.verificationDocuments
       const mapped = results.map(job => {
-        const verifiedCount = job.postedBy?.verificationDocuments?.length || 0;
+        const verifiedDocs = job.postedBy?.verificationDocuments || [];
+        const verifiedCount = verifiedDocs.length;
         const company_verified = verifiedCount > 0;
-        // Remove the internal verificationDocuments array so callers don't need to handle it
+        // Expose summarized categories to make it easy for UIs to check which verified documents exist
+        const employerVerifiedCategories = Array.from(new Set(verifiedDocs.map(d => d.category).filter(Boolean)));
+        // Remove the raw verificationDocuments to avoid leaking file metadata
         if (job.postedBy && job.postedBy.verificationDocuments) delete job.postedBy.verificationDocuments;
-        return { ...job, company_verified };
+        return { ...job, company_verified, employerVerifiedCategories };
       });
 
       return mapped;
@@ -197,6 +203,7 @@ export const db = {
         where: { slug },
         include: {
           company: true,
+          employerType: { include: { requirements: true } },
           categories: {
             include: {
               category: true
@@ -239,10 +246,12 @@ export const db = {
       });
 
       if (!job) return null;
-      const verifiedCount = job.postedBy?.verificationDocuments?.length || 0;
+      const verifiedDocs = job.postedBy?.verificationDocuments || [];
+      const verifiedCount = verifiedDocs.length || 0;
       const company_verified = verifiedCount > 0;
+      const employerVerifiedCategories = Array.from(new Set(verifiedDocs.map(d => d.category).filter(Boolean)));
       if (job.postedBy && job.postedBy.verificationDocuments) delete job.postedBy.verificationDocuments;
-      return { ...job, company_verified };
+      return { ...job, company_verified, employerVerifiedCategories };
     },
 
     // Create new job

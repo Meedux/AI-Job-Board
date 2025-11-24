@@ -2,7 +2,8 @@
 
 import { useState, useEffect } from 'react';
 import { useAuth } from '@/contexts/AuthContext';
-import { Eye, EyeOff, Shield, Trash2, Download, Settings, User, Bell, Lock, AlertTriangle } from 'lucide-react';
+import { Eye, EyeOff, Shield, Trash2, Download, Settings, User, Bell, Lock, AlertTriangle, Bookmark } from 'lucide-react';
+import JobCard from './JobCard';
 
 export default function JobSeekerDashboard() {
   const { user } = useAuth();
@@ -28,10 +29,19 @@ export default function JobSeekerDashboard() {
   const [deleteReasonDetails, setDeleteReasonDetails] = useState('');
   const [isUpdating, setIsUpdating] = useState(false);
   const [activeTab, setActiveTab] = useState('privacy');
+  const [bookmarks, setBookmarks] = useState([]);
+  const [bookmarksLoading, setBookmarksLoading] = useState(false);
 
   useEffect(() => {
     fetchPrivacySettings();
   }, []);
+
+  useEffect(() => {
+    // load bookmarks when user navigates to bookmarks tab
+    if (activeTab === 'bookmarks') {
+      loadBookmarks();
+    }
+  }, [activeTab]);
 
   const fetchPrivacySettings = async () => {
     try {
@@ -168,6 +178,22 @@ export default function JobSeekerDashboard() {
     updatePrivacySetting('profileVisibility', value);
   };
 
+  const loadBookmarks = async () => {
+    if (!user) return;
+    setBookmarksLoading(true);
+    try {
+      const res = await fetch('/api/profile/job-seeker/bookmarks');
+      if (res.ok) {
+        const json = await res.json();
+        setBookmarks(json.bookmarks || []);
+      }
+    } catch (err) {
+      console.error('Failed to load bookmarks', err);
+    } finally {
+      setBookmarksLoading(false);
+    }
+  };
+
   if (isLoading) {
     return (
       <div className="flex justify-center items-center min-h-screen">
@@ -242,6 +268,17 @@ export default function JobSeekerDashboard() {
             >
               <User className="inline w-4 h-4 mr-2" />
               Account Management
+            </button>
+            <button
+              onClick={() => setActiveTab('bookmarks')}
+              className={`py-4 px-2 border-b-2 font-medium text-sm ${
+                activeTab === 'bookmarks'
+                  ? 'border-blue-500 text-blue-600'
+                  : 'border-transparent text-gray-500 hover:text-gray-700'
+              }`}
+            >
+              <svg className="inline w-4 h-4 mr-2" viewBox="0 0 24 24" fill="none" stroke="currentColor"><path d="M19 21l-7-5-7 5V5a2 2 0 012-2h10a2 2 0 012 2z" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"/></svg>
+              Bookmarked Jobs
             </button>
           </div>
         </div>
@@ -547,6 +584,47 @@ export default function JobSeekerDashboard() {
                   <p className="text-sm text-red-700">
                     Permanently delete your account and all associated data. This action cannot be undone.
                   </p>
+                </div>
+              </div>
+            </div>
+          )}
+
+          {activeTab === 'bookmarks' && (
+            <div className="p-6">
+              <div className="space-y-6">
+                        <div className="bg-white border border-gray-200 rounded-lg overflow-hidden">
+                          <div className="flex items-center gap-3 p-4 border-b border-gray-100 bg-gradient-to-r from-blue-50 via-transparent to-transparent">
+                            <div className="flex items-center justify-center w-10 h-10 rounded-lg bg-gradient-to-r from-blue-600 to-cyan-500 text-white">
+                              <Bookmark className="w-4 h-4" />
+                            </div>
+                            <div>
+                              <h3 className="text-lg font-semibold mb-0">Saved / Bookmarked Jobs</h3>
+                              <p className="text-sm text-gray-500 mt-1">Jobs you've saved — click the bookmark icon to remove them.</p>
+                            </div>
+                          </div>
+                  {bookmarksLoading ? (
+                    <div className="flex items-center justify-center py-10">
+                      <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600" />
+                    </div>
+                  ) : (
+                    <div>
+                      {(!bookmarks || bookmarks.length === 0) ? (
+                        <div className="text-center py-8 text-gray-500">You haven't saved any jobs yet — click the bookmark icon on a job to save it for later.</div>
+                      ) : (
+                        <div className="space-y-3">
+                          {bookmarks.map((b) => (
+                            <div key={b.id} className="bg-white border border-gray-100 rounded-lg shadow-sm hover:shadow-md transition p-3">
+                              {/* use JobCard to render the job — JobCard expects a job prop */}
+                              <JobCard job={b.job} onBookmarkChange={(jobId, bookmarked) => {
+                                // if user un-bookmarked while viewing bookmarks, reload the list so it's up-to-date
+                                if (!bookmarked) loadBookmarks();
+                              }} />
+                            </div>
+                          ))}
+                        </div>
+                      )}
+                    </div>
+                  )}
                 </div>
               </div>
             </div>

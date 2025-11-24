@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { createPortal } from 'react-dom';
 import { useAuth } from '@/contexts/AuthContext';
 import { useRouter } from 'next/navigation';
@@ -16,9 +16,12 @@ const JobDetailModal = ({ job, isOpen, onClose }) => {
   const [mounted, setMounted] = useState(false);
   const [showReviewModal, setShowReviewModal] = useState(false);
   const [showApplicationForm, setShowApplicationForm] = useState(false);
+  const [requiredApplicantFields, setRequiredApplicantFields] = useState([]);
   const [customForm, setCustomForm] = useState(null);
   const [isLoadingForm, setIsLoadingForm] = useState(false);
   const [companyRating, setCompanyRating] = useState(null);
+  const [compactFooter, setCompactFooter] = useState(false);
+  const contentRef = useRef(null);
 
   useEffect(() => {
     setMounted(true);
@@ -147,6 +150,19 @@ const JobDetailModal = ({ job, isOpen, onClose }) => {
       setIsLoadingForm(false);
     }
 
+    // Compute any applicant-side required fields based on job/employer type
+    const req = [];
+    try {
+      if (job?.validPassport) {
+        req.push({ id: 'passport_number', label: 'Passport Number', type: 'text', placeholder: 'Enter passport number', required: true });
+        req.push({ id: 'passport_expiry', label: 'Passport Expiry', type: 'date', required: true });
+      }
+      // Add other applicant requirements here if needed in the future
+    } catch (e) {
+      console.error('Error computing applicant required fields:', e);
+    }
+    setRequiredApplicantFields(req);
+
     setShowApplicationForm(true);
   };
 
@@ -223,6 +239,21 @@ const JobDetailModal = ({ job, isOpen, onClose }) => {
       document.body.style.overflow = 'unset';
     };
   }, [isOpen]);
+
+  // Watch inner modal scroll to compact footer on mobile when user scrolls down
+  useEffect(() => {
+    const el = contentRef.current;
+    if (!el) return;
+    let lastY = 0;
+    const onScroll = () => {
+      const y = el.scrollTop;
+      if (y - lastY > 20) setCompactFooter(true);
+      else if (lastY - y > 20) setCompactFooter(false);
+      lastY = y;
+    };
+    el.addEventListener('scroll', onScroll, { passive: true });
+    return () => el.removeEventListener('scroll', onScroll);
+  }, [isOpen, contentRef.current]);
 
   // Handle escape key
   useEffect(() => {
@@ -542,6 +573,18 @@ const JobDetailModal = ({ job, isOpen, onClose }) => {
           "bg-gray-900 border border-gray-700",
           "animate-in zoom-in-95 duration-300 ease-out"
         )}>
+          {/* Floating compliance badge so compliance info is always visible in the modal */}
+          {(job.licenseNumber || job.employerType) && (
+            <div className="absolute top-6 right-6 z-30">
+              <div className="flex items-center gap-3 px-3 py-2 rounded-full bg-gradient-to-r from-blue-600 to-cyan-500 text-white shadow-lg">
+                <Shield size={16} />
+                <div className="text-xs leading-tight">
+                  <div className="font-semibold">Compliance</div>
+                  <div className="text-[11px] opacity-90">{job.licenseNumber ? 'License on file' : job.employerType?.label || 'Employer type info'}</div>
+                </div>
+              </div>
+            </div>
+          )}
           {/* Header - Fixed height */}
           <div className={combineClasses(
             "flex items-center justify-between p-6 border-b border-gray-700",
@@ -591,7 +634,7 @@ const JobDetailModal = ({ job, isOpen, onClose }) => {
           </div>
 
           {/* Content - Scrollable area */}
-          <div className="flex-1 overflow-y-auto min-h-0">
+          <div ref={contentRef} className="flex-1 overflow-y-auto min-h-0">
             {/* Quick Info */}
             <div className="p-6 border-b border-gray-700 bg-gray-800/30">
               <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
@@ -680,11 +723,11 @@ const JobDetailModal = ({ job, isOpen, onClose }) => {
           </div>
 
           {/* Footer Actions - Fixed at bottom */}
-          <div className="p-6 border-t border-gray-700 bg-gray-800/50 backdrop-blur-sm flex-shrink-0">
-            <div className="flex flex-col sm:flex-row gap-3">
+          <div className={`p-6 border-t border-gray-700 bg-gray-800/50 backdrop-blur-sm ${compactFooter ? 'py-3' : ''} flex-shrink-0`}>
+            <div className={`flex flex-col sm:flex-row gap-3 items-center ${compactFooter ? 'space-y-0' : ''}`}>
               <button
                 onClick={handleApplyClick}
-                className="flex-1 text-center px-6 py-3 bg-green-600 hover:bg-green-700 text-white font-medium rounded-lg transition-colors duration-200 relative"
+                className={`flex-1 text-center px-6 ${compactFooter ? 'py-2 text-sm' : 'py-3'} bg-green-600 hover:bg-green-700 text-white font-medium rounded-lg transition-colors duration-200 relative`}
               >
                 Apply Now
                 {(job?.customForm || customForm) && (
@@ -702,7 +745,7 @@ const JobDetailModal = ({ job, isOpen, onClose }) => {
                   console.log('Company ID:', job?.companyId || job?.company?.id);
                   setShowReviewModal(true);
                 }}
-                className="text-center px-6 py-3 bg-purple-600 hover:bg-purple-700 text-white font-medium rounded-lg transition-colors duration-200 flex items-center gap-2 justify-center"
+                className={`text-center px-6 ${compactFooter ? 'py-2 text-sm' : 'py-3'} bg-purple-600 hover:bg-purple-700 text-white font-medium rounded-lg transition-colors duration-200 flex items-center gap-2 justify-center`}
               >
                 <svg className="w-4 h-4" fill="currentColor" viewBox="0 0 24 24">
                   <path d="M12 2l3.09 6.26L22 9.27l-5 4.87 1.18 6.88L12 17.77l-6.18 3.25L7 14.14 2 9.27l6.91-1.01L12 2z" />
@@ -715,7 +758,7 @@ const JobDetailModal = ({ job, isOpen, onClose }) => {
                   href={job.company?.website || job.company_website}
                   target="_blank"
                   rel="noopener noreferrer"
-                  className="text-center px-6 py-3 bg-blue-600 hover:bg-blue-700 text-white font-medium rounded-lg transition-colors duration-200"
+                  className={`text-center px-6 ${compactFooter ? 'py-2 text-sm' : 'py-3'} bg-blue-600 hover:bg-blue-700 text-white font-medium rounded-lg transition-colors duration-200`}
                 >
                   Company Website
                 </a>
@@ -723,9 +766,27 @@ const JobDetailModal = ({ job, isOpen, onClose }) => {
               
               <button
                 onClick={onClose}
-                className="px-6 py-3 bg-gray-700 hover:bg-gray-600 text-gray-300 hover:text-white font-medium rounded-lg transition-colors duration-200"
+                className={`px-6 ${compactFooter ? 'py-2 text-sm' : 'py-3'} bg-gray-700 hover:bg-gray-600 text-gray-300 hover:text-white font-medium rounded-lg transition-colors duration-200`}
               >
                 Close
+              </button>
+              {/* Report job quick action */}
+              <button
+                onClick={async () => {
+                  if (!confirm('Report this job as inappropriate?')) return;
+                  try {
+                    const r = await fetch(`/api/jobs/${job.id}/report`, { method: 'POST' });
+                    const j = await r.json();
+                    if (r.ok && j.success) alert('Reported — thanks. Our team will review.');
+                    else alert(j.error || 'Failed to report');
+                  } catch (e) {
+                    console.error(e);
+                    alert('Failed to report — try again later.');
+                  }
+                }}
+                className="px-4 py-3 bg-red-600 hover:bg-red-700 text-white font-medium rounded-lg transition-colors duration-200"
+              >
+                Report
               </button>
             </div>
           </div>
@@ -766,6 +827,7 @@ const JobDetailModal = ({ job, isOpen, onClose }) => {
                       key={`${job?.id || 'job'}-${customForm?.id || 'default'}`}
                       job={job}
                       customForm={customForm}
+                      employerRequiredApplicantFields={requiredApplicantFields}
                       onSubmit={handleApplicationSubmit}
                       onCancel={() => setShowApplicationForm(false)}
                     />

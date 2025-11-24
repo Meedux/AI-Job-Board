@@ -245,10 +245,86 @@ export async function PUT(request) {
       }
     }
 
+    // === Auto-verify placeholder logic ===
+    // If the employer selected an employerType and uploaded the required documents / filled required fields,
+    // mark the user as verified automatically as a placeholder for manual approvals.
+    try {
+      // Determine employerType id used for this user (either provided in profileData or existing)
+      const employerTypeId = userUpdateData.employerTypeId || profileData.employerTypeId || null;
+
+      if (employerTypeId) {
+        const requirements = await prisma.employerTypeRequirement.findMany({ where: { employerTypeId } });
+
+        // Pull user's verification documents and minimal profile/company fields
+        const userDocs = await prisma.verificationDocument.findMany({ where: { userId: user.id } });
+        const docCategories = userDocs.map(d => (d.category || '').toLowerCase());
+
+        // Simple helper to check a requirement
+        const isRequirementSatisfied = (req) => {
+          const provider = (req.provider || '').toLowerCase();
+          const code = (req.code || '').toLowerCase();
+
+          // TIN requirement -> check taxId or company.tin
+          if (provider === 'tin' || code.includes('tin')) {
+            const hasTax = Boolean(userUpdateData.taxId || profileData.taxId || (company && (company.tin || company.taxId)));
+            return hasTax;
+          }
+
+          // BIR -> check for any uploaded doc with category 'bir' or filename hint
+          if (provider === 'bir' || code.includes('bir')) {
+            return docCategories.includes('bir');
+          }
+
+          // DOLE -> look for license-type docs
+          if (provider === 'dole') {
+            return docCategories.includes('license') || docCategories.includes('dole');
+          }
+
+          // DMW / POEA -> license for overseas
+          if (provider === 'dmw' || code.includes('dmw') || code.includes('poea')) {
+            return docCategories.includes('license') || docCategories.includes('dmw');
+          }
+
+          // BUSINESS_PERMIT -> business_permit category
+          if (provider === 'business_permit' || code === 'bp' || code.includes('permit')) {
+            return docCategories.includes('business_permit') || docCategories.includes('permit');
+          }
+
+          // Fallback: if any document was uploaded, consider it satisfied for generic providers
+          return userDocs.length > 0;
+        };
+
+        const requiredList = requirements.filter(r => r.required === true);
+        let allSatisfied = requiredList.length === 0; // if none required, consider satisfied
+
+        if (requiredList.length > 0) {
+          allSatisfied = requiredList.every(r => isRequirementSatisfied(r));
+        }
+
+        // Also require authorized rep email to be present (already required client-side earlier)
+        if (allSatisfied && (profileData.authorizedRepEmail || userUpdateData.authorizedRepEmail)) {
+          // Mark user verified and mark verification documents as approved automatically (placeholder)
+          await prisma.user.update({ where: { id: user.id }, data: { isVerified: true, verificationStatus: 'verified' } });
+          // Approve any uploaded verification documents
+          if (userDocs.length > 0) {
+            await prisma.verificationDocument.updateMany({ where: { userId: user.id }, data: { status: 'approved', reviewedAt: new Date(), reviewedBy: user.id } });
+          }
+        }
+      }
+    } catch (err) {
+      console.warn('Auto-verify check failed:', err);
+      // Non-fatal — continue; verification can still be completed manually later.
+    }
+
+    // Return the latest verification status alongside response so UI can react immediately
+    const updatedUser = await prisma.user.findUnique({ where: { id: user.id }, select: { isVerified: true, verificationStatus: true } });
+
     return NextResponse.json({ 
       success: true, 
       message: 'Profile updated successfully',
-      companyId: company.id 
+      companyId: company.id,
+      isVerified: updatedUser?.isVerified || false,
+      verificationStatus: updatedUser?.verificationStatus || 'unverified'
     });
 
   } catch (error) {

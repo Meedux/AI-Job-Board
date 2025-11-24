@@ -25,7 +25,7 @@ export async function PUT(request) {
     const updateData = await request.json();
 
     // Validate the update data
-    const allowedFields = ['fullName', 'nickname', 'dateOfBirth', 'fullAddress'];
+    const allowedFields = ['fullName', 'nickname', 'dateOfBirth', 'fullAddress', 'vcardUrl', 'qrImagePath', 'shareableLink', 'exAbroad', 'countryDeployed', 'passportExpiry'];
     const filteredData = {};
 
     for (const field of allowedFields) {
@@ -34,6 +34,35 @@ export async function PUT(request) {
         switch (field) {
           case 'dateOfBirth':
             filteredData.dateOfBirth = updateData[field] ? new Date(updateData[field]) : null;
+            if (updateData[field]) {
+              // compute age from dateOfBirth and write to age as well
+              const dob = new Date(updateData[field]);
+              const today = new Date();
+              let age = today.getFullYear() - dob.getFullYear();
+              const m = today.getMonth() - dob.getMonth();
+              if (m < 0 || (m === 0 && today.getDate() < dob.getDate())) age--;
+              filteredData.age = age;
+            } else {
+              filteredData.age = null;
+            }
+            break;
+          case 'vcardUrl':
+            filteredData.vcardUrl = updateData[field] || null;
+            break;
+          case 'qrImagePath':
+            filteredData.qrImagePath = updateData[field] || null;
+            break;
+          case 'shareableLink':
+            filteredData.shareableLink = updateData[field] || null;
+            break;
+          case 'exAbroad':
+            filteredData.exAbroad = !!updateData[field];
+            break;
+          case 'countryDeployed':
+            filteredData.countryDeployed = updateData[field] || null;
+            break;
+          case 'passportExpiry':
+            filteredData.passportExpiry = updateData[field] ? new Date(updateData[field]) : null;
             break;
           default:
             filteredData[field] = updateData[field];
@@ -54,6 +83,13 @@ export async function PUT(request) {
         fullName: true,
         nickname: true,
         dateOfBirth: true,
+        age: true,
+        vcardUrl: true,
+        qrImagePath: true,
+        shareableLink: true,
+        exAbroad: true,
+        countryDeployed: true,
+        passportExpiry: true,
         fullAddress: true,
         role: true,
         isActive: true,
@@ -69,6 +105,13 @@ export async function PUT(request) {
       fullName: updatedUser.fullName,
       nickname: updatedUser.nickname,
       dateOfBirth: updatedUser.dateOfBirth,
+      age: updatedUser.age,
+      vcardUrl: updatedUser.vcardUrl,
+      qrImagePath: updatedUser.qrImagePath,
+      shareableLink: updatedUser.shareableLink,
+      exAbroad: updatedUser.exAbroad,
+      countryDeployed: updatedUser.countryDeployed,
+      passportExpiry: updatedUser.passportExpiry,
       fullAddress: updatedUser.fullAddress,
       role: updatedUser.role,
       isActive: updatedUser.isActive,

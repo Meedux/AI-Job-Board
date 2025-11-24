@@ -45,6 +45,13 @@ export async function GET(request) {
         lastName: true,
         age: true,
         dateOfBirth: true,
+        age: true,
+        vcardUrl: true,
+        qrImagePath: true,
+        shareableLink: true,
+        exAbroad: true,
+        countryDeployed: true,
+        passportExpiry: true,
         fullAddress: true,
         location: true,
         phone: true,
@@ -280,6 +287,25 @@ export async function PUT(request) {
       updatedAt: new Date()
     };
 
+    // If user-level profile fields were passed (vcard/qr/share/exAbroad/passport), update the user table
+    const userUpdates = {};
+    if (data.vcardUrl !== undefined) userUpdates.vcardUrl = data.vcardUrl || null;
+    if (data.qrImagePath !== undefined) userUpdates.qrImagePath = data.qrImagePath || null;
+    if (data.shareableLink !== undefined) userUpdates.shareableLink = data.shareableLink || null;
+    if (data.exAbroad !== undefined) userUpdates.exAbroad = !!data.exAbroad;
+    if (data.countryDeployed !== undefined) userUpdates.countryDeployed = data.countryDeployed || null;
+    if (data.passportExpiry !== undefined) userUpdates.passportExpiry = data.passportExpiry ? new Date(data.passportExpiry) : null;
+
+    // If dateOfBirth set, compute and set age on user as well
+    if (data.dateOfBirth) {
+      const dob = new Date(data.dateOfBirth);
+      const today = new Date();
+      let age = today.getFullYear() - dob.getFullYear();
+      const m = today.getMonth() - dob.getMonth();
+      if (m < 0 || (m === 0 && today.getDate() < dob.getDate())) age--;
+      userUpdates.age = age;
+    }
+
     // Upsert job seeker profile
     const jobSeekerProfile = await prisma.jobSeeker.upsert({
       where: { userId: user.id },
@@ -289,6 +315,10 @@ export async function PUT(request) {
         ...jobSeekerData
       }
     });
+
+    if (Object.keys(userUpdates).length > 0) {
+      await prisma.user.update({ where: { id: user.id }, data: userUpdates });
+    }
 
     return Response.json({
       success: true,

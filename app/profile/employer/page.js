@@ -161,8 +161,13 @@ export default function EmployerProfile() {
       });
 
       if (response.ok) {
+        const result = await response.json();
         setEditing(false);
         showToast('Profile updated successfully!', 'success');
+        // If server auto-verified the employer, show a success note
+        if (result && result.verificationStatus === 'verified') {
+          showToast('Profile automatically verified — you now have full employer access.', 'success');
+        }
         // Refresh profile data
         fetchProfile();
       } else {

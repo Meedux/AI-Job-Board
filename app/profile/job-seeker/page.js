@@ -141,6 +141,14 @@ export default function JobSeekerProfile() {
     lastActiveAt: new Date(),
     responseRate: 85,
     profileStrength: 'Good'
+    ,
+    // New jobseeker profile fields
+    vcardUrl: '',
+    qrImagePath: '',
+    shareableLink: '',
+    exAbroad: false,
+    countryDeployed: '',
+    passportExpiry: ''
   });
 
   useEffect(() => {
@@ -174,6 +182,20 @@ export default function JobSeekerProfile() {
   useEffect(() => {
     calculateProfileCompleteness();
   }, [profile]);
+
+  const computeAgeFromDOB = (dob) => {
+    if (!dob) return null;
+    try {
+      const birth = new Date(dob);
+      const now = new Date();
+      let age = now.getFullYear() - birth.getFullYear();
+      const m = now.getMonth() - birth.getMonth();
+      if (m < 0 || (m === 0 && now.getDate() < birth.getDate())) age--;
+      return age;
+    } catch (e) {
+      return null;
+    }
+  };
 
   const calculateProfileCompleteness = () => {
     const fields = [
@@ -425,6 +447,83 @@ export default function JobSeekerProfile() {
       setUploadingAvatar(false);
       // Reset file input
       event.target.value = '';
+    }
+  };
+
+  // --- Jobseeker profile helpers (vCard, QR, share link) ---
+  const handleCreateShareLink = async () => {
+    try {
+      const res = await fetch('/api/profile/job-seeker/share', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${user.token}`
+        },
+        body: JSON.stringify({ userId: user.id })
+      });
+
+      if (res.ok) {
+        const data = await res.json();
+        setProfile(prev => ({ ...prev, shareableLink: data.shareUrl }));
+        alert('Share link created and saved to your profile (copied to clipboard)');
+        try { navigator.clipboard.writeText(data.shareUrl); } catch (e) { /* ignore */ }
+      } else {
+        const err = await res.json();
+        alert(`Failed to create share link: ${err.error || 'unknown'}`);
+      }
+    } catch (e) {
+      console.error('Create share link failed:', e);
+      alert('Failed to create share link');
+    }
+  };
+
+  const handleGenerateQR = async () => {
+    try {
+      const res = await fetch('/api/profile/job-seeker/qr', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${user.token}`
+        },
+        body: JSON.stringify({ userId: user.id })
+      });
+
+      if (res.ok) {
+        const data = await res.json();
+        setProfile(prev => ({ ...prev, qrImagePath: data.qrPath }));
+        alert('QR code generated for your profile');
+      } else {
+        const err = await res.json();
+        alert(`Failed to generate QR: ${err.error || 'unknown'}`);
+      }
+    } catch (e) {
+      console.error('Generate QR error:', e);
+      alert('Failed to generate QR');
+    }
+  };
+
+  const handleGenerateVCard = async () => {
+    try {
+      const res = await fetch('/api/profile/job-seeker/vcard', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${user.token}`
+        },
+        body: JSON.stringify({ userId: user.id })
+      });
+
+      if (res.ok) {
+        const data = await res.json();
+        setProfile(prev => ({ ...prev, vcardUrl: data.vcard }));
+        alert('vCard generated and attached to your profile');
+      } else {
+        const err = await res.json();
+        alert(`Failed to generate vCard: ${err.error || 'unknown'}`);
+      }
+    } catch (e) {
+      console.error('Generate vCard error:', e);
+      alert('Failed to generate vCard');
     }
   };
 
@@ -820,6 +919,97 @@ export default function JobSeekerProfile() {
                             {profile.bio || 'No bio provided'}
                           </p>
                         )}
+                      </div>
+
+                      {/* Jobseeker-specific profile utilities */}
+                      <div className="md:col-span-2">
+                        <h3 className="text-lg text-white font-semibold mb-3">Profile Tools & Travel</h3>
+
+                        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                          <div className="space-y-2 bg-slate-700/30 p-4 rounded-xl">
+                            <div className="flex items-center justify-between">
+                              <div className="text-sm text-slate-300">Computed Age</div>
+                              <div className="text-sm text-white font-medium">{computeAgeFromDOB(profile.dateOfBirth) ?? 'N/A'}</div>
+                            </div>
+
+                            <div className="flex items-center justify-between gap-3">
+                              <div className="flex-1">
+                                <div className="text-sm text-slate-300">Shareable Profile</div>
+                                <input readOnly value={profile.shareableLink || ''} placeholder="No share link" className="mt-1 w-full px-3 py-2 bg-slate-800 border border-slate-600 rounded-lg text-slate-200 text-sm" />
+                              </div>
+                              <div className="flex flex-col items-end gap-2 ml-3">
+                                <button onClick={handleCreateShareLink} className="px-3 py-2 bg-indigo-600 rounded-lg text-white text-sm hover:bg-indigo-700">Create / Refresh</button>
+                                {profile.shareableLink && (
+                                  <button onClick={() => { try { navigator.clipboard.writeText(profile.shareableLink); alert('Copied!'); } catch(e){ }}} className="px-3 py-2 bg-slate-600 rounded-lg text-white text-sm hover:bg-slate-500">Copy</button>
+                                )}
+                              </div>
+                            </div>
+
+                            <div className="mt-3 flex items-center gap-3">
+                              <div className="flex-1">
+                                <div className="text-sm text-slate-300">vCard</div>
+                                <div className="text-xs text-slate-400 mt-1">Downloadable contact card for recruiters</div>
+                              </div>
+                              <div className="flex gap-2">
+                                {profile.vcardUrl && (
+                                  <a href={profile.vcardUrl} download className="px-3 py-2 bg-slate-700 rounded-lg text-white text-sm hover:bg-slate-600">Download</a>
+                                )}
+                                <button onClick={handleGenerateVCard} className="px-3 py-2 bg-green-600 rounded-lg text-white text-sm hover:bg-green-700">Generate</button>
+                              </div>
+                            </div>
+
+                            <div className="mt-3 flex items-center gap-3">
+                              <div className="flex-1">
+                                <div className="text-sm text-slate-300">Profile QR</div>
+                                <div className="text-xs text-slate-400 mt-1">QR for quick sharing (links to your public profile)</div>
+                              </div>
+                              <div className="flex gap-2 items-center">
+                                {profile.qrImagePath && (
+                                  <img src={profile.qrImagePath} alt="QR" className="w-12 h-12 rounded-md border border-slate-600 object-cover" />
+                                )}
+                                <button onClick={handleGenerateQR} className="px-3 py-2 bg-yellow-600 rounded-lg text-white text-sm hover:bg-yellow-700">Generate</button>
+                              </div>
+                            </div>
+                          </div>
+
+                          <div className="space-y-3 bg-slate-700/30 p-4 rounded-xl">
+                            <div className="flex items-center justify-between">
+                              <div>
+                                <div className="text-sm text-slate-300">Ex Abroad / Deployed</div>
+                                <div className="text-xs text-slate-400">Indicate if you're currently abroad or deployed</div>
+                              </div>
+                              <div className="flex items-center gap-3">
+                                {editing ? (
+                                  <label className="flex items-center gap-2 text-sm">
+                                    <input type="checkbox" checked={profile.exAbroad} onChange={(e) => handleInputChange('exAbroad', e.target.checked)} className="w-4 h-4" />
+                                    <span className="text-slate-200">I am / was abroad</span>
+                                  </label>
+                                ) : (
+                                  <div className={`text-sm ${profile.exAbroad ? 'text-green-300' : 'text-slate-400'}`}>{profile.exAbroad ? 'Yes' : 'No'}</div>
+                                )}
+                              </div>
+                            </div>
+
+                            <div>
+                              <label className="block text-sm text-slate-300">Country Deployed</label>
+                              {editing ? (
+                                <input type="text" value={profile.countryDeployed || ''} onChange={(e) => handleInputChange('countryDeployed', e.target.value)} className="mt-1 w-full px-3 py-2 bg-slate-800 border border-slate-600 rounded-lg text-slate-200" placeholder="e.g. Singapore" />
+                              ) : (
+                                <p className="mt-1 text-slate-300 text-sm">{profile.countryDeployed || 'Not specified'}</p>
+                              )}
+                            </div>
+
+                            <div>
+                              <label className="block text-sm text-slate-300">Passport Expiry</label>
+                              {editing ? (
+                                <input type="date" value={profile.passportExpiry ? new Date(profile.passportExpiry).toISOString().slice(0,10) : ''} onChange={(e) => handleInputChange('passportExpiry', e.target.value)} className="mt-1 w-full px-3 py-2 bg-slate-800 border border-slate-600 rounded-lg text-slate-200" />
+                              ) : (
+                                <p className="mt-1 text-slate-300 text-sm">{profile.passportExpiry ? new Date(profile.passportExpiry).toLocaleDateString() : 'Not specified'}</p>
+                              )}
+                            </div>
+                          </div>
+                        </div>
+
                       </div>
                     </div>
                   </div>

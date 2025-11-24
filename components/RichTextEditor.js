@@ -22,7 +22,7 @@ import { lowlight } from 'lowlight';
 import js from 'highlight.js/lib/languages/javascript';
 import ts from 'highlight.js/lib/languages/typescript';
 import cssLang from 'highlight.js/lib/languages/css';
-import { useEffect, useState } from 'react';
+import { useEffect, useState, useRef } from 'react';
 import { Bold, Italic, Underline as UnderlineIcon, Strikethrough, List, ListOrdered, Heading1, Heading2, Heading3, Quote, Code, AlignLeft, AlignCenter, AlignRight, Undo, Redo, Link as LinkIcon, Image as ImageIcon, Eye, EyeOff, Table2, Rows, Columns } from 'lucide-react';
 lowlight.registerLanguage('javascript', js);
 lowlight.registerLanguage('typescript', ts);
@@ -40,6 +40,11 @@ const RichTextEditor = ({ content = '', onChange, placeholder = 'Start typing...
   useEffect(() => { setMounted(true); }, []);
   const [markdownMode, setMarkdownMode] = useState(false);
   const [preview, setPreview] = useState(false); // moved above early return to keep hook order stable
+
+  // Formatting controls + state used for auto-spacing and toolbar
+  const [lineHeight, setLineHeight] = useState(1.5);
+  const [paragraphSpacing, setParagraphSpacing] = useState('0.75rem');
+  const lastNormalizedRef = useRef('');
 
   const editor = useEditor({
     extensions: [
@@ -131,6 +136,134 @@ const RichTextEditor = ({ content = '', onChange, placeholder = 'Start typing...
   const toggleHeaderRow = () => editor.chain().focus().toggleHeaderRow().run();
   const setCodeLang = (lang) => editor.chain().focus().updateAttributes('codeBlock', { language: lang }).run();
 
+  // helper: normalize HTML spacing, remove extra blank paragraphs and collapse extra <br> tags
+  const normalizeHtmlSpacing = (html, lh = lineHeight, spacing = paragraphSpacing) => {
+    try {
+      const parser = new DOMParser();
+      const doc = parser.parseFromString(html, 'text/html');
+
+      // Remove empty paragraphs that have no meaningful children
+      Array.from(doc.querySelectorAll('p')).forEach(p => {
+        const text = (p.textContent || '').replace(/\u00A0/g, '').trim();
+        const hasMeaningful = p.querySelector('img, a, code, table, ul, ol');
+        if (!text && !hasMeaningful) p.remove();
+      });
+
+      // Collapse multiple sequential <br> into a single <br>
+      Array.from(doc.querySelectorAll('*')).forEach(node => {
+        if (!node.childNodes || node.childNodes.length < 2) return;
+        let changed = false;
+        const children = Array.from(node.childNodes);
+        for (let i = children.length - 1; i > 0; i--) {
+          if (children[i].nodeName === 'BR' && children[i-1].nodeName === 'BR') {
+            children[i].remove();
+            changed = true;
+          }
+        }
+        if (changed) {
+          // no-op
+        }
+      });
+
+      // Apply line-height and paragraph spacing to paragraphs and list items
+      const applyStyle = (el) => {
+        if (!el) return;
+        const s = el.getAttribute('style') || '';
+        const styleMap = new Map();
+        s.split(';').map(x => x.trim()).filter(Boolean).forEach(pair => {
+          const [k, v] = pair.split(':'); if (k && v) styleMap.set(k.trim(), v.trim());
+        });
+        styleMap.set('line-height', String(lh));
+        styleMap.set('margin-bottom', spacing);
+        const newStyle = Array.from(styleMap.entries()).map(([k,v]) => `${k}:${v}`).join('; ');
+        el.setAttribute('style', newStyle);
+      };
+
+      Array.from(doc.querySelectorAll('p, li')).forEach(applyStyle);
+
+      return doc.body.innerHTML;
+    } catch (e) {
+      // fallback
+      let s = String(html);
+      s = s.replace(/(<br\s*\/?>(\s*))+/gi, '<br/>');
+      s = s.replace(/<p>(\s|&nbsp;)*<\/p>/gi, '');
+      return s;
+    }
+  };
+
+  // Apply the selected line-height and paragraph spacing globally to the editor wrapper
+  const applyLineAndSpacing = (lh, spacing) => {
+    const root = document.querySelector('.tiptap-editor');
+    if (root) {
+      root.style.setProperty('--tiptap-line-height', String(lh));
+      root.style.setProperty('--tiptap-paragraph-spacing', spacing);
+    }
+  };
+
+  // Normalize current editor content and update editor if changed. `force` bypasses identical-check.
+  const normalizeAndApply = (force = false) => {
+    if (!editor) return;
+    const html = editor.getHTML();
+    const normalized = normalizeHtmlSpacing(html, lineHeight, paragraphSpacing);
+    if (!force && lastNormalizedRef.current && lastNormalizedRef.current === normalized) return;
+    if (normalized !== html) {
+      try {
+        editor.chain().focus().setContent(normalized).run();
+        lastNormalizedRef.current = normalized;
+      } catch (e) {
+        // fall back
+        editor.commands.setContent(normalized, false);
+        lastNormalizedRef.current = normalized;
+      }
+    }
+  };
+
+  // Make sure selected line/spacing applied to CSS immediately
+  useEffect(() => { applyLineAndSpacing(lineHeight, paragraphSpacing); }, [lineHeight, paragraphSpacing]);
+
+  // Auto-normalize pasted content before it is inserted into the editor
+  useEffect(() => {
+    if (!editor || typeof window === 'undefined') return;
+
+    const dom = editor.view.dom;
+    const handler = (e) => {
+      try {
+        const clipboard = e.clipboardData || window.clipboardData;
+        if (!clipboard) return;
+
+        const html = clipboard.getData && clipboard.getData('text/html');
+        const plain = clipboard.getData && clipboard.getData('text/plain');
+
+        // Prefer HTML if present so we keep structure (images, formatting)
+        if (html) {
+          e.preventDefault();
+          const normalized = normalizeHtmlSpacing(html, lineHeight, paragraphSpacing);
+          // Insert normalized HTML
+          editor.chain().focus().insertContent(normalized).run();
+          lastNormalizedRef.current = normalized;
+        } else if (plain) {
+          // Convert plain text into paragraphs safely and normalize
+          e.preventDefault();
+          // Convert double newlines into paragraphs, single newlines to <br/>
+          const htmlFromText = plain
+            .split(/\r?\n\r?\n/) // paragraphs
+            .map(p => `<p>${p.replace(/\r?\n/g, '<br/>')}</p>`)
+            .join('');
+
+          const normalized = normalizeHtmlSpacing(htmlFromText, lineHeight, paragraphSpacing);
+          editor.chain().focus().insertContent(normalized).run();
+          lastNormalizedRef.current = normalized;
+        }
+      } catch (err) {
+        // don't block the paste if something goes wrong — let default behaviour happen
+        console.warn('paste normalization failed', err);
+      }
+    };
+
+    dom.addEventListener('paste', handler);
+    return () => dom.removeEventListener('paste', handler);
+  }, [editor, lineHeight, paragraphSpacing]);
+
   return (
     <div className="tiptap-wrapper border border-gray-700 rounded-lg bg-gray-800">
       <div className="flex flex-wrap items-center gap-2 p-2 border-b border-gray-700 bg-gray-900">
@@ -210,13 +343,40 @@ const RichTextEditor = ({ content = '', onChange, placeholder = 'Start typing...
             <div dangerouslySetInnerHTML={{ __html: editor.getHTML() }} />
           </div>
         ) : (
-          <EditorContent editor={editor} />
+          <div>
+            <div className="mb-2 flex items-center gap-2 text-xs text-gray-300">
+              <label className="text-xs text-gray-400">Line height</label>
+              <select value={lineHeight} onChange={(e) => { const v = parseFloat(e.target.value); setLineHeight(v); applyLineAndSpacing(v, paragraphSpacing); }} className="bg-gray-800 text-gray-200 rounded px-2 py-1 text-xs">
+                <option value={1}>1</option>
+                <option value={1.15}>1.15</option>
+                <option value={1.25}>1.25</option>
+                <option value={1.5}>1.5</option>
+                <option value={1.75}>1.75</option>
+                <option value={2}>2</option>
+              </select>
+
+              <label className="text-xs text-gray-400">Paragraph spacing</label>
+              <select value={paragraphSpacing} onChange={(e) => { const v = e.target.value; setParagraphSpacing(v); applyLineAndSpacing(lineHeight, v); }} className="bg-gray-800 text-gray-200 rounded px-2 py-1 text-xs">
+                <option value="0.25rem">small</option>
+                <option value="0.5rem">tight</option>
+                <option value="0.75rem">normal</option>
+                <option value="1rem">large</option>
+                <option value="1.5rem">x-large</option>
+              </select>
+
+              <button onClick={() => normalizeAndApply(true)} className="px-2 py-1 text-xs border rounded bg-gray-700 text-gray-200">Clean spacing</button>
+              <div className="ml-auto text-xs text-gray-400">Auto-clean on blur is enabled</div>
+            </div>
+
+            <EditorContent editor={editor} onBlur={() => normalizeAndApply(false)} />
+          </div>
         )}
         {/* Placeholder styling via CSS pseudo */}
         <style jsx global>{`
           .tiptap-editor { min-height:220px; }
           .tiptap-editor:focus { outline: none; }
-          .tiptap-editor p { margin: 0 0 0.75rem; }
+          .tiptap-editor { --tiptap-line-height: 1.5; --tiptap-paragraph-spacing: 0.75rem; }
+          .tiptap-editor p { margin: 0 0 var(--tiptap-paragraph-spacing); line-height: var(--tiptap-line-height); }
           .tiptap-editor ul { list-style: disc; padding-left:1.25rem; margin:0 0 0.75rem; }
           .tiptap-editor ol { list-style: decimal; padding-left:1.25rem; margin:0 0 0.75rem; }
           .tiptap-editor li { margin: 0.25rem 0; }

@@ -12,7 +12,7 @@ import {
   combineClasses,
 } from "../utils/designSystem";
 
-const JobCard = ({ job }) => {
+const JobCard = ({ job, onBookmarkChange }) => {
   const { user } = useAuth();
   const { subscription } = useSubscription();
   const [isModalOpen, setIsModalOpen] = useState(false);
@@ -24,6 +24,19 @@ const JobCard = ({ job }) => {
     if (job?.companyId) {
       fetchCompanyRating();
     }
+    // check if current user has bookmarked this job
+    (async () => {
+      if (!user || !job?.id) return;
+      try {
+        const r = await fetch(`/api/jobs/${job.id}/bookmark`);
+        if (r.ok) {
+          const json = await r.json();
+          if (json && typeof json.bookmarked === 'boolean') setIsBookmarked(json.bookmarked);
+        }
+      } catch (e) {
+        // ignore
+      }
+    })();
   }, [job?.companyId]);
 
   const fetchCompanyRating = async () => {
@@ -120,8 +133,37 @@ const JobCard = ({ job }) => {
   // Handle bookmark
   const handleBookmark = (e) => {
     e.stopPropagation();
-    setIsBookmarked(!isBookmarked);
-    // TODO: Add bookmark API call
+    // Toggle local state immediately for instant feedback
+    const next = !isBookmarked;
+    setIsBookmarked(next);
+
+    // Sync with server
+    (async () => {
+      try {
+        if (next) {
+          // add
+          const res = await fetch(`/api/jobs/${job.id}/bookmark`, { method: 'POST' });
+          if (!res.ok) {
+            setIsBookmarked(!next); // revert on failure
+          } else {
+            // notify parent if provided
+            onBookmarkChange?.(job.id, true);
+          }
+        } else {
+          // remove
+          const res = await fetch(`/api/jobs/${job.id}/bookmark`, { method: 'DELETE' });
+          if (!res.ok) {
+            setIsBookmarked(!next);
+          } else {
+            // notify parent if provided
+            onBookmarkChange?.(job.id, false);
+          }
+        }
+      } catch (err) {
+        console.error('Bookmark update failed', err);
+        setIsBookmarked(!next);
+      }
+    })();
   };
 
   // Handle share

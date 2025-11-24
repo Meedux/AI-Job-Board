@@ -20,7 +20,7 @@ const FIELD_TYPES = {
   FILE: 'file'
 };
 
-const JobApplicationForm = ({ job, customForm = null, onSubmit, onCancel }) => {
+const JobApplicationForm = ({ job, customForm = null, onSubmit, onCancel, employerRequiredApplicantFields = [] }) => {
   const { user } = useAuth();
   const [loading, setLoading] = useState(false);
   const [uploadedFiles, setUploadedFiles] = useState({});
@@ -40,7 +40,11 @@ const JobApplicationForm = ({ job, customForm = null, onSubmit, onCancel }) => {
           fieldSchema = yup.string().matches(/^[\+]?[1-9][\d]{0,15}$/, 'Invalid phone number');
           break;
         case FIELD_TYPES.DATE:
-          fieldSchema = yup.date();
+            fieldSchema = yup.date();
+            // special case validations
+            if (field.id === 'passport_expiry') {
+              fieldSchema = fieldSchema.min(new Date(), 'Passport expiry must be in the future');
+            }
           break;
         case FIELD_TYPES.FILE:
           fieldSchema = yup.mixed();
@@ -156,7 +160,36 @@ const JobApplicationForm = ({ job, customForm = null, onSubmit, onCancel }) => {
     ];
   };
 
-  const formFields = getFormFields();
+  // Merge employer-required applicant fields into the final form fields list.
+  // employerRequiredApplicantFields should be an array of objects: { id, label, type, required }
+  const mergedFormFields = (() => {
+    const base = getFormFields();
+    // clone to avoid mutation
+    const fields = base.slice();
+
+    employerRequiredApplicantFields.forEach(req => {
+      const exists = fields.find(f => f.id === req.id);
+      if (exists) {
+        // ensure it's required
+        exists.required = true;
+        // if a type is provided, respect or override
+        if (req.type) exists.type = req.type;
+      } else {
+        // Inject a new field for the applicant
+        fields.push({
+          id: req.id,
+          type: req.type || FIELD_TYPES.TEXT,
+          label: req.label || req.id.replace(/_/g, ' ').replace(/\b\w/g, l => l.toUpperCase()),
+          required: true,
+          placeholder: req.placeholder || ''
+        });
+      }
+    });
+
+    return fields;
+  })();
+
+  const formFields = mergedFormFields;
   const validationSchema = createValidationSchema(formFields);
 
   const {
@@ -194,7 +227,7 @@ const JobApplicationForm = ({ job, customForm = null, onSubmit, onCancel }) => {
     if (_initializedCustomForm.current) return;
 
     try {
-      const fields = getFormFields();
+      const fields = mergedFormFields;
       const defaults = {
         full_name: user?.fullName || '',
         email: user?.email || ''
