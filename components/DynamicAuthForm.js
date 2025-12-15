@@ -1,168 +1,46 @@
-'use client';
+"use client";
 
-import { useState, useEffect } from 'react';
+import { useEffect, useState } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
 import { useAuth } from '@/contexts/AuthContext';
 import { USER_ROLES } from '@/utils/roleSystem';
+
+const initialForm = {
+  fullName: '',
+  companyName: '',
+  email: '',
+  password: '',
+  agreeToTerms: false
+};
 
 export default function DynamicAuthForm() {
   const router = useRouter();
   const searchParams = useSearchParams();
   const { login } = useAuth();
-  
-  // Form state
+
   const [isLogin, setIsLogin] = useState(true);
-  const [userType, setUserType] = useState('jobseeker'); // jobseeker or hirer
+  const [userType, setUserType] = useState('jobseeker');
+  const [formData, setFormData] = useState(initialForm);
   const [showPassword, setShowPassword] = useState(false);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
   const [success, setSuccess] = useState('');
-  const [captchaToken, setCaptchaToken] = useState('');
-  
-  // Form data
-  const [formData, setFormData] = useState({
-    email: '',
-    password: '',
-    name: '', // For jobseekers
-    companyName: '', // For hirers
-    employerTypeId: '', // Reference to EmployerType model
-    taxId: '',
-    authorizedRepresentatives: [],
-    agreeToTerms: false
-  });
-
-  // Document upload state
-  const [uploadedDocuments, setUploadedDocuments] = useState({
-    birForm: null,
-    doleLicense: null,
-    dmwLicense: null,
-    businessPermit: null,
-    companyId: null
-  });
-  const [uploadingDocuments, setUploadingDocuments] = useState({});
-
-  // Employer types state
-  const [employerTypes, setEmployerTypes] = useState([]);
-  const [loadingEmployerTypes, setLoadingEmployerTypes] = useState(false);
-
-  // Check if user came from job posting
-  const redirectToJobPost = searchParams.get('redirect') === 'post-job';
+  const [captchaToken] = useState('');
 
   useEffect(() => {
-    // If redirect from job posting, default to hirer
-    if (redirectToJobPost) {
+    if (searchParams.get('redirect') === 'post-job') {
       setUserType('hirer');
-      setIsLogin(false); // Show registration form
+      setIsLogin(false);
     }
-
-    // Load employer types for hirer registration
-    if (!isLogin && userType === 'hirer') {
-      loadEmployerTypes();
-    }
-  }, [redirectToJobPost, userType, isLogin]);
-
-  const loadEmployerTypes = async () => {
-    setLoadingEmployerTypes(true);
-    try {
-      const response = await fetch('/api/employer-types');
-      if (response.ok) {
-        const data = await response.json();
-        setEmployerTypes(data.employerTypes || []);
-      }
-    } catch (error) {
-      console.error('Error loading employer types:', error);
-    } finally {
-      setLoadingEmployerTypes(false);
-    }
-  };
+  }, [searchParams]);
 
   const handleInputChange = (e) => {
     const { name, value, type, checked } = e.target;
-    setFormData(prev => ({
+    setFormData((prev) => ({
       ...prev,
       [name]: type === 'checkbox' ? checked : value
     }));
-    setError(''); // Clear error when user types
-  };
-
-  const handleDocumentUpload = async (documentType, file) => {
-    if (!file) return;
-
-    // Validate file type and size
-    const allowedTypes = ['application/pdf', 'image/jpeg', 'image/png', 'image/jpg'];
-    const maxSize = 10 * 1024 * 1024; // 10MB
-
-    if (!allowedTypes.includes(file.type)) {
-      setError('Please upload PDF, JPEG, or PNG files only');
-      return;
-    }
-
-    if (file.size > maxSize) {
-      setError('File size must be less than 10MB');
-      return;
-    }
-
-    setUploadingDocuments(prev => ({ ...prev, [documentType]: true }));
-
-    try {
-      // Prepare upload
-      const prepareResponse = await fetch('/api/verification/upload/prepare', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'Authorization': `Bearer ${localStorage.getItem('token') || ''}`
-        },
-        body: JSON.stringify({
-          filename: file.name,
-          fileType: file.type,
-          size: file.size,
-          category: documentType
-        })
-      });
-
-      if (!prepareResponse.ok) {
-        throw new Error('Failed to prepare upload');
-      }
-
-      const prepareData = await prepareResponse.json();
-      const { uploadUrl, documentId } = prepareData;
-
-      // Upload file to blob storage
-      const uploadResponse = await fetch(uploadUrl, {
-        method: 'PUT',
-        body: file,
-        headers: {
-          'Content-Type': file.type
-        }
-      });
-
-      if (!uploadResponse.ok) {
-        throw new Error('Failed to upload file');
-      }
-
-      // Update document state
-      setUploadedDocuments(prev => ({
-        ...prev,
-        [documentType]: {
-          id: documentId,
-          filename: file.name,
-          url: prepareData.blobUrl || uploadUrl.split('?')[0]
-        }
-      }));
-
-    } catch (error) {
-      console.error('Document upload error:', error);
-      setError('Failed to upload document. Please try again.');
-    } finally {
-      setUploadingDocuments(prev => ({ ...prev, [documentType]: false }));
-    }
-  };
-
-  const removeDocument = (documentType) => {
-    setUploadedDocuments(prev => ({
-      ...prev,
-      [documentType]: null
-    }));
+    setError('');
   };
 
   const validateForm = () => {
@@ -172,34 +50,9 @@ export default function DynamicAuthForm() {
     }
 
     if (!isLogin) {
-      if (userType === 'jobseeker' && !formData.name.trim()) {
-        setError('Name is required for job seekers');
+      if (!formData.fullName.trim()) {
+        setError('Full name is required');
         return false;
-      }
-      if (userType === 'hirer' && !formData.companyName.trim()) {
-        setError('Company name is required for hirers');
-        return false;
-      }
-      if (userType === 'hirer' && !formData.employerTypeId) {
-        setError('Employer type is required for hirers');
-        return false;
-      }
-      if (userType === 'hirer') {
-        // Check required documents for hirers
-        const requiredDocs = ['birForm', 'doleLicense', 'businessPermit', 'companyId'];
-        const missingDocs = requiredDocs.filter(doc => !uploadedDocuments[doc]);
-        if (missingDocs.length > 0) {
-          setError(`Please upload the following required documents: ${missingDocs.map(doc => {
-            const labels = {
-              birForm: 'BIR Form',
-              doleLicense: 'DOLE License',
-              businessPermit: 'Business Permit',
-              companyId: 'Company ID'
-            };
-            return labels[doc];
-          }).join(', ')}`);
-          return false;
-        }
       }
       if (!formData.agreeToTerms) {
         setError('You must agree to the Terms & Conditions');
@@ -207,14 +60,12 @@ export default function DynamicAuthForm() {
       }
     }
 
-    // Email validation
     const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
     if (!emailRegex.test(formData.email)) {
       setError('Please enter a valid email address');
       return false;
     }
 
-    // Password validation
     if (!isLogin && formData.password.length < 8) {
       setError('Password must be at least 8 characters long');
       return false;
@@ -225,20 +76,17 @@ export default function DynamicAuthForm() {
 
   const handleSubmit = async (e) => {
     e.preventDefault();
-    
     if (!validateForm()) return;
 
     setLoading(true);
     setError('');
+    setSuccess('');
 
     try {
       if (isLogin) {
-        // Login logic - use enhanced API
         const response = await fetch('/api/auth/login-enhanced', {
           method: 'POST',
-          headers: {
-            'Content-Type': 'application/json'
-          },
+          headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({
             email: formData.email,
             password: formData.password,
@@ -250,19 +98,20 @@ export default function DynamicAuthForm() {
 
         if (response.ok) {
           await login(data.user, data.token);
-          
-          // Redirect based on user role
-          if (data.user.role === USER_ROLES.SUPER_ADMIN || data.user.role === 'super_admin') {
+
+          const role = data.user?.role;
+          const isEmployer = role === USER_ROLES.EMPLOYER_ADMIN || role === 'employer_admin' || role === USER_ROLES.EMPLOYER_STAFF;
+
+          if (isEmployer) {
+            router.push('/onboarding/employer');
+          } else if (role === USER_ROLES.SUPER_ADMIN || role === 'super_admin') {
             router.push('/super-admin');
-          } else if (data.user.role === USER_ROLES.EMPLOYER_ADMIN || 
-              data.user.role === USER_ROLES.SUB_USER ||
-              data.user.role === 'employer_admin') { // Extra check for string value
+          } else if (role === USER_ROLES.SUB_USER || role === 'sub_user') {
             router.push('/admin');
           } else {
             router.push('/dashboard');
           }
         } else {
-          // Handle email verification required
           if (data.errorCode === 'EMAIL_VERIFICATION_REQUIRED') {
             router.push('/verify-email');
             return;
@@ -270,75 +119,36 @@ export default function DynamicAuthForm() {
           setError(data.error || 'Login failed');
         }
       } else {
-        // Registration logic
         const registrationData = {
           email: formData.email,
           password: formData.password,
+          fullName: formData.fullName,
+          companyName: formData.companyName || null,
           role: userType === 'hirer' ? USER_ROLES.EMPLOYER_ADMIN : USER_ROLES.JOB_SEEKER,
-          userType: userType,
+          userType,
           captchaToken
         };
 
-        if (userType === 'jobseeker') {
-          registrationData.fullName = formData.name;
-        } else {
-          registrationData.companyName = formData.companyName;
-          registrationData.fullName = formData.companyName; // Use company name as full name initially
-          registrationData.employerTypeId = formData.employerTypeId;
-          registrationData.taxId = formData.taxId;
-          registrationData.authorizedRepresentatives = formData.authorizedRepresentatives;
-          
-          // Add uploaded document IDs for verification
-          registrationData.verificationDocuments = Object.entries(uploadedDocuments)
-            .filter(([_, doc]) => doc !== null)
-            .map(([type, doc]) => ({
-              id: doc.id,
-              category: type
-            }));
-        }
-
         const response = await fetch('/api/auth/register-enhanced', {
           method: 'POST',
-          headers: {
-            'Content-Type': 'application/json'
-          },
+          headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify(registrationData)
         });
 
         const data = await response.json();
 
         if (response.ok) {
-          if (data.requiresVerification) {
-            // Redirect to verification page instead of auto-login
-            setSuccess('Registration successful! Please check your email to verify your account.');
-            setTimeout(() => {
-              router.push('/verify-email');
-            }, 2000);
-          } else {
-            // Auto-login for immediate verification (development mode)
-            setSuccess('Registration successful! Welcome to JobSite.');
-            
-            if (data.token) {
-              await login(data.user, data.token);
-              
-              // Redirect based on original intent or user type
-              if (redirectToJobPost && userType === 'hirer') {
-                router.push('/post-job');
-              } else if (data.user.role === USER_ROLES.SUPER_ADMIN || data.user.role === 'super_admin') {
-                router.push('/super-admin');
-              } else if (data.user.role === USER_ROLES.EMPLOYER_ADMIN || data.user.role === 'employer_admin') {
-                router.push('/admin');
-              } else {
-                router.push('/dashboard');
-              }
-            }
-          }
+          setSuccess('Registration successful! Please verify your email.');
+          const next = userType === 'hirer' ? '/onboarding/employer' : '/dashboard';
+          setTimeout(() => {
+            router.push(`/verify-email?next=${encodeURIComponent(next)}`);
+          }, 900);
         } else {
           setError(data.error || 'Registration failed');
         }
       }
-    } catch (error) {
-      console.error('Auth error:', error);
+    } catch (err) {
+      console.error('Auth error:', err);
       setError('An unexpected error occurred. Please try again.');
     } finally {
       setLoading(false);
@@ -352,22 +162,23 @@ export default function DynamicAuthForm() {
     }
 
     setLoading(true);
+    setError('');
+    setSuccess('');
+
     try {
       const response = await fetch('/api/auth/forgot-password', {
         method: 'POST',
-        headers: {
-          'Content-Type': 'application/json'
-        },
+        headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ email: formData.email })
       });
 
+      const data = await response.json();
       if (response.ok) {
-        setSuccess('Password reset email sent! Check your inbox.');
+        setSuccess('Password reset email sent!');
       } else {
-        const data = await response.json();
         setError(data.error || 'Failed to send reset email');
       }
-    } catch (error) {
+    } catch (err) {
       setError('Failed to send reset email');
     } finally {
       setLoading(false);
@@ -377,28 +188,20 @@ export default function DynamicAuthForm() {
   return (
     <div className="min-h-screen bg-gray-900 flex items-center justify-center py-12 px-4 sm:px-6 lg:px-8">
       <div className="max-w-md w-full space-y-8">
-        <div>
-          <h2 className="mt-6 text-center text-3xl font-extrabold text-white">
-            {isLogin ? 'Sign in to your account' : 'Create your account'}
-          </h2>
-          <p className="mt-2 text-center text-sm text-gray-400">
+        <div className="text-center">
+          <h2 className="text-3xl font-bold text-white">{isLogin ? 'Sign in' : 'Create your account'}</h2>
+          <p className="mt-2 text-sm text-gray-400">
             {isLogin ? (
               <>
                 Don't have an account?{' '}
-                <button
-                  onClick={() => setIsLogin(false)}
-                  className="font-medium text-indigo-400 hover:text-indigo-300"
-                >
+                <button onClick={() => setIsLogin(false)} className="font-medium text-indigo-400 hover:text-indigo-300">
                   Sign up
                 </button>
               </>
             ) : (
               <>
                 Already have an account?{' '}
-                <button
-                  onClick={() => setIsLogin(true)}
-                  className="font-medium text-indigo-400 hover:text-indigo-300"
-                >
+                <button onClick={() => setIsLogin(true)} className="font-medium text-indigo-400 hover:text-indigo-300">
                   Sign in
                 </button>
               </>
@@ -406,406 +209,142 @@ export default function DynamicAuthForm() {
           </p>
         </div>
 
-        <form className="mt-8 space-y-6" onSubmit={handleSubmit}>
-          {/* User Type Selection - Only for Registration */}
+        <form className="mt-4 space-y-6" onSubmit={handleSubmit}>
           {!isLogin && (
-            <div className="bg-gray-800 rounded-lg p-4 border border-gray-700">
-              <label className="block text-sm font-medium text-gray-300 mb-3">
-                I am a:
-              </label>
+            <div className="bg-gray-800 rounded-lg p-4 border border-gray-700 space-y-3">
+              <label className="block text-sm font-medium text-gray-300">I am a:</label>
               <div className="flex space-x-4">
-                <label className="flex items-center">
+                <label className="flex items-center text-sm text-gray-300">
                   <input
                     type="radio"
                     name="userType"
                     value="jobseeker"
                     checked={userType === 'jobseeker'}
-                    onChange={(e) => setUserType(e.target.value)}
-                    className="h-4 w-4 text-indigo-600 bg-gray-700 border-gray-600 focus:ring-indigo-500"
+                    onChange={() => setUserType('jobseeker')}
+                    className="h-4 w-4 text-indigo-600 focus:ring-indigo-500 border-gray-300"
                   />
-                  <span className="ml-2 text-sm text-gray-300">👤 Job Seeker</span>
+                  <span className="ml-2">Job Seeker</span>
                 </label>
-                <label className="flex items-center">
+                <label className="flex items-center text-sm text-gray-300">
                   <input
                     type="radio"
                     name="userType"
                     value="hirer"
                     checked={userType === 'hirer'}
-                    onChange={(e) => setUserType(e.target.value)}
-                    className="h-4 w-4 text-indigo-600 bg-gray-700 border-gray-600 focus:ring-indigo-500"
+                    onChange={() => setUserType('hirer')}
+                    className="h-4 w-4 text-indigo-600 focus:ring-indigo-500 border-gray-300"
                   />
-                  <span className="ml-2 text-sm text-gray-300">🏢 Hirer</span>
+                  <span className="ml-2">Employer / Hirer</span>
                 </label>
               </div>
             </div>
           )}
 
-          <div className="space-y-4">
-            {/* Dynamic Name/Company Field - Only for Registration */}
-            {!isLogin && (
+          {!isLogin && (
+            <div className="space-y-4">
               <div>
-                <label className="block text-sm font-medium text-gray-300 mb-1">
-                  {userType === 'jobseeker' ? 'Full Name' : 'Company Name'}
-                </label>
+                <label className="block text-sm font-medium text-gray-300">Full Name</label>
                 <input
                   type="text"
-                  name={userType === 'jobseeker' ? 'name' : 'companyName'}
-                  value={userType === 'jobseeker' ? formData.name : formData.companyName}
+                  name="fullName"
+                  value={formData.fullName}
                   onChange={handleInputChange}
-                  required={!isLogin}
-                  className="w-full px-3 py-2 bg-gray-700 border border-gray-600 rounded-md text-white placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-transparent"
-                  placeholder={userType === 'jobseeker' ? 'Enter your full name' : 'Enter your company name'}
+                  className="mt-1 w-full px-3 py-2 bg-gray-700 border border-gray-600 rounded-md text-white placeholder-gray-400 focus:outline-none focus:ring-indigo-500"
+                  placeholder="Your full name"
+                  required
                 />
-                {userType === 'hirer' && (
-                  <div className="mt-3 space-y-3">
-                    <div>
-                      <label className="block text-sm font-medium text-gray-300 mb-2">
-                        Employer Type *
-                      </label>
-                      {loadingEmployerTypes ? (
-                        <div className="flex items-center gap-2 text-gray-400">
-                          <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-indigo-500"></div>
-                          Loading employer types...
-                        </div>
-                      ) : (
-                        <select
-                          name="employerTypeId"
-                          value={formData.employerTypeId}
-                          onChange={handleInputChange}
-                          className="w-full px-3 py-2 bg-gray-700 border border-gray-600 rounded-md text-white focus:outline-none focus:ring-2 focus:ring-indigo-500"
-                          required={!isLogin && userType === 'hirer'}
-                        >
-                          <option value="">Select Employer Type</option>
-                          {employerTypes.map((type) => (
-                            <option key={type.id} value={type.id}>
-                              {type.label} ({type.category})
-                            </option>
-                          ))}
-                        </select>
-                      )}
-                      <p className="text-xs text-gray-400 mt-1">
-                        Choose the type of employer you represent
-                      </p>
-                    </div>
-                    <input type="text" name="taxId" value={formData.taxId} onChange={handleInputChange} placeholder="Tax Identification Number (TIN)" className="w-full px-3 py-2 bg-gray-700 border border-gray-600 rounded-md text-white" />
-                    <textarea name="authorizedReps" value={(formData.authorizedRepresentatives || []).map(a => `${a.name} <${a.email}>`).join('\n')} onChange={(e) => {
-                      const lines = e.target.value.split('\n').map(l => l.trim()).filter(Boolean);
-                      const ars = lines.map(line => {
-                        const m = line.match(/^(.*) <(.*)>$/);
-                        if (m) return { name: m[1].trim(), email: m[2].trim() };
-                        return { name: line, email: '' };
-                      });
-                      setFormData(prev => ({ ...prev, authorizedRepresentatives: ars }));
-                    }} placeholder="Authorized reps: One per line: Full Name <email@example.com>" className="w-full px-3 py-2 bg-gray-700 border border-gray-600 rounded-md text-white" rows={3} />
-                    
-                    {/* Document Upload Section */}
-                    <div className="mt-4">
-                      <label className="block text-sm font-medium text-gray-300 mb-3">
-                        Verification Documents (Required for Compliance)
-                      </label>
-                      <p className="text-xs text-gray-400 mb-4">
-                        Upload the following documents to verify your employer's legitimacy. All documents are required for account approval.
-                      </p>
-                      
-                      <div className="space-y-3">
-                        {/* BIR Form */}
-                        <div>
-                          <label className="block text-sm text-gray-300 mb-1">
-                            BIR Form 2303 or 1706 *
-                          </label>
-                          <div className="flex items-center gap-2">
-                            <input
-                              type="file"
-                              accept=".pdf,.jpg,.jpeg,.png"
-                              onChange={(e) => handleDocumentUpload('birForm', e.target.files[0])}
-                              className="hidden"
-                              id="birForm"
-                              disabled={uploadingDocuments.birForm}
-                            />
-                            <label
-                              htmlFor="birForm"
-                              className="flex-1 px-3 py-2 bg-gray-700 border border-gray-600 rounded-md text-gray-300 cursor-pointer hover:bg-gray-600 transition-colors flex items-center justify-between"
-                            >
-                              <span>
-                                {uploadedDocuments.birForm ? uploadedDocuments.birForm.filename : 'Choose BIR Form file...'}
-                              </span>
-                              {uploadingDocuments.birForm && (
-                                <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-indigo-500"></div>
-                              )}
-                            </label>
-                            {uploadedDocuments.birForm && (
-                              <button
-                                type="button"
-                                onClick={() => removeDocument('birForm')}
-                                className="px-2 py-1 text-red-400 hover:text-red-300 text-sm"
-                              >
-                                ✕
-                              </button>
-                            )}
-                          </div>
-                        </div>
-
-                        {/* DOLE License */}
-                        <div>
-                          <label className="block text-sm text-gray-300 mb-1">
-                            DOLE License *
-                          </label>
-                          <div className="flex items-center gap-2">
-                            <input
-                              type="file"
-                              accept=".pdf,.jpg,.jpeg,.png"
-                              onChange={(e) => handleDocumentUpload('doleLicense', e.target.files[0])}
-                              className="hidden"
-                              id="doleLicense"
-                              disabled={uploadingDocuments.doleLicense}
-                            />
-                            <label
-                              htmlFor="doleLicense"
-                              className="flex-1 px-3 py-2 bg-gray-700 border border-gray-600 rounded-md text-gray-300 cursor-pointer hover:bg-gray-600 transition-colors flex items-center justify-between"
-                            >
-                              <span>
-                                {uploadedDocuments.doleLicense ? uploadedDocuments.doleLicense.filename : 'Choose DOLE License file...'}
-                              </span>
-                              {uploadingDocuments.doleLicense && (
-                                <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-indigo-500"></div>
-                              )}
-                            </label>
-                            {uploadedDocuments.doleLicense && (
-                              <button
-                                type="button"
-                                onClick={() => removeDocument('doleLicense')}
-                                className="px-2 py-1 text-red-400 hover:text-red-300 text-sm"
-                              >
-                                ✕
-                              </button>
-                            )}
-                          </div>
-                        </div>
-
-                        {/* DMW License */}
-                        <div>
-                          <label className="block text-sm text-gray-300 mb-1">
-                            DMW License (if applicable)
-                          </label>
-                          <div className="flex items-center gap-2">
-                            <input
-                              type="file"
-                              accept=".pdf,.jpg,.jpeg,.png"
-                              onChange={(e) => handleDocumentUpload('dmwLicense', e.target.files[0])}
-                              className="hidden"
-                              id="dmwLicense"
-                              disabled={uploadingDocuments.dmwLicense}
-                            />
-                            <label
-                              htmlFor="dmwLicense"
-                              className="flex-1 px-3 py-2 bg-gray-700 border border-gray-600 rounded-md text-gray-300 cursor-pointer hover:bg-gray-600 transition-colors flex items-center justify-between"
-                            >
-                              <span>
-                                {uploadedDocuments.dmwLicense ? uploadedDocuments.dmwLicense.filename : 'Choose DMW License file...'}
-                              </span>
-                              {uploadingDocuments.dmwLicense && (
-                                <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-indigo-500"></div>
-                              )}
-                            </label>
-                            {uploadedDocuments.dmwLicense && (
-                              <button
-                                type="button"
-                                onClick={() => removeDocument('dmwLicense')}
-                                className="px-2 py-1 text-red-400 hover:text-red-300 text-sm"
-                              >
-                                ✕
-                              </button>
-                            )}
-                          </div>
-                        </div>
-
-                        {/* Business Permit */}
-                        <div>
-                          <label className="block text-sm text-gray-300 mb-1">
-                            Business Permit/Mayor's Permit *
-                          </label>
-                          <div className="flex items-center gap-2">
-                            <input
-                              type="file"
-                              accept=".pdf,.jpg,.jpeg,.png"
-                              onChange={(e) => handleDocumentUpload('businessPermit', e.target.files[0])}
-                              className="hidden"
-                              id="businessPermit"
-                              disabled={uploadingDocuments.businessPermit}
-                            />
-                            <label
-                              htmlFor="businessPermit"
-                              className="flex-1 px-3 py-2 bg-gray-700 border border-gray-600 rounded-md text-gray-300 cursor-pointer hover:bg-gray-600 transition-colors flex items-center justify-between"
-                            >
-                              <span>
-                                {uploadedDocuments.businessPermit ? uploadedDocuments.businessPermit.filename : 'Choose Business Permit file...'}
-                              </span>
-                              {uploadingDocuments.businessPermit && (
-                                <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-indigo-500"></div>
-                              )}
-                            </label>
-                            {uploadedDocuments.businessPermit && (
-                              <button
-                                type="button"
-                                onClick={() => removeDocument('businessPermit')}
-                                className="px-2 py-1 text-red-400 hover:text-red-300 text-sm"
-                              >
-                                ✕
-                              </button>
-                            )}
-                          </div>
-                        </div>
-
-                        {/* Company ID */}
-                        <div>
-                          <label className="block text-sm text-gray-300 mb-1">
-                            Company ID or SEC Certificate *
-                          </label>
-                          <div className="flex items-center gap-2">
-                            <input
-                              type="file"
-                              accept=".pdf,.jpg,.jpeg,.png"
-                              onChange={(e) => handleDocumentUpload('companyId', e.target.files[0])}
-                              className="hidden"
-                              id="companyId"
-                              disabled={uploadingDocuments.companyId}
-                            />
-                            <label
-                              htmlFor="companyId"
-                              className="flex-1 px-3 py-2 bg-gray-700 border border-gray-600 rounded-md text-gray-300 cursor-pointer hover:bg-gray-600 transition-colors flex items-center justify-between"
-                            >
-                              <span>
-                                {uploadedDocuments.companyId ? uploadedDocuments.companyId.filename : 'Choose Company ID file...'}
-                              </span>
-                              {uploadingDocuments.companyId && (
-                                <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-indigo-500"></div>
-                              )}
-                            </label>
-                            {uploadedDocuments.companyId && (
-                              <button
-                                type="button"
-                                onClick={() => removeDocument('companyId')}
-                                className="px-2 py-1 text-red-400 hover:text-red-300 text-sm"
-                              >
-                                ✕
-                              </button>
-                            )}
-                          </div>
-                        </div>
-                      </div>
-                      
-                      <p className="text-xs text-gray-400 mt-3">
-                        Supported formats: PDF, JPEG, PNG. Maximum file size: 10MB each.
-                        Your documents will be reviewed by our compliance team for verification.
-                      </p>
-                    </div>
-                  </div>
-                )}
               </div>
-            )}
 
-            {/* Email Field */}
+              {userType === 'hirer' && (
+                <div>
+                  <label className="block text-sm font-medium text-gray-300">Company Name (optional)</label>
+                  <input
+                    type="text"
+                    name="companyName"
+                    value={formData.companyName}
+                    onChange={handleInputChange}
+                    className="mt-1 w-full px-3 py-2 bg-gray-700 border border-gray-600 rounded-md text-white placeholder-gray-400 focus:outline-none focus:ring-indigo-500"
+                    placeholder="Your company"
+                  />
+                  <p className="text-xs text-gray-400 mt-1">Complete employer verification on the next page.</p>
+                </div>
+              )}
+            </div>
+          )}
+
+          <div className="space-y-4">
             <div>
-              <label className="block text-sm font-medium text-gray-300 mb-1">
-                Email Address
-              </label>
+              <label className="block text-sm font-medium text-gray-300">Email address</label>
               <input
                 type="email"
                 name="email"
                 value={formData.email}
                 onChange={handleInputChange}
+                className="mt-1 w-full px-3 py-2 bg-gray-700 border border-gray-600 rounded-md text-white placeholder-gray-400 focus:outline-none focus:ring-indigo-500"
+                placeholder="you@example.com"
                 required
-                className="w-full px-3 py-2 bg-gray-700 border border-gray-600 rounded-md text-white placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-transparent"
-                placeholder="Enter your email"
               />
             </div>
 
-            {/* Password Field */}
             <div>
-              <label className="block text-sm font-medium text-gray-300 mb-1">
-                Password
-              </label>
-              <div className="relative">
+              <label className="block text-sm font-medium text-gray-300">Password</label>
+              <div className="mt-1 relative">
                 <input
                   type={showPassword ? 'text' : 'password'}
                   name="password"
                   value={formData.password}
                   onChange={handleInputChange}
+                  className="w-full px-3 py-2 bg-gray-700 border border-gray-600 rounded-md text-white placeholder-gray-400 focus:outline-none focus:ring-indigo-500 pr-16"
+                  placeholder={isLogin ? 'Your password' : 'At least 8 characters'}
                   required
-                  className="w-full px-3 py-2 bg-gray-700 border border-gray-600 rounded-md text-white placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-transparent pr-10"
-                  placeholder={isLogin ? 'Enter your password' : 'Create a password (min 8 characters)'}
                 />
                 <button
                   type="button"
                   onClick={() => setShowPassword(!showPassword)}
-                  className="absolute inset-y-0 right-0 pr-3 flex items-center text-gray-400 hover:text-gray-300"
+                  className="absolute inset-y-0 right-0 pr-3 flex items-center text-sm text-gray-400 hover:text-gray-200"
                 >
-                  {showPassword ? '🙈' : '👁️'}
+                  {showPassword ? 'Hide' : 'Show'}
                 </button>
               </div>
             </div>
 
-            {/* Terms Agreement - Only for Registration */}
             {!isLogin && (
-              <div className="flex items-start">
+              <label className="flex items-start text-sm text-gray-300">
                 <input
                   type="checkbox"
                   name="agreeToTerms"
                   checked={formData.agreeToTerms}
                   onChange={handleInputChange}
-                  required
                   className="h-4 w-4 text-indigo-600 bg-gray-700 border-gray-600 rounded focus:ring-indigo-500 mt-1"
+                  required
                 />
-                <label className="ml-2 text-sm text-gray-300">
+                <span className="ml-2">
                   I agree to the{' '}
-                  <a href="/terms" className="text-indigo-400 hover:text-indigo-300">
-                    Terms & Conditions
-                  </a>
-                  ,{' '}
-                  <a href="/privacy" className="text-indigo-400 hover:text-indigo-300">
-                    Privacy Policy
-                  </a>
-                  , and{' '}
-                  <a href="/cookies" className="text-indigo-400 hover:text-indigo-300">
-                    Cookie Policy
-                  </a>
-                </label>
-              </div>
+                  <a href="/terms" className="text-indigo-400 hover:text-indigo-300">Terms</a> and{' '}
+                  <a href="/privacy" className="text-indigo-400 hover:text-indigo-300">Privacy Policy</a>.
+                </span>
+              </label>
             )}
           </div>
 
-          {/* Error/Success Messages */}
           {error && (
-            <div className="bg-red-900 border border-red-700 text-red-200 px-4 py-3 rounded">
-              {error}
-            </div>
+            <div className="bg-red-900/60 border border-red-700 text-red-100 px-4 py-3 rounded">{error}</div>
           )}
 
           {success && (
-            <div className="bg-green-900 border border-green-700 text-green-200 px-4 py-3 rounded">
-              {success}
-            </div>
+            <div className="bg-green-900/60 border border-green-700 text-green-100 px-4 py-3 rounded">{success}</div>
           )}
 
-          {/* Submit Button */}
           <div>
             <button
               type="submit"
               disabled={loading}
-              className="group relative w-full flex justify-center py-2 px-4 border border-transparent text-sm font-medium rounded-md text-white bg-indigo-600 hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500 disabled:opacity-50 disabled:cursor-not-allowed"
+              className="w-full flex justify-center py-2 px-4 border border-transparent text-sm font-medium rounded-md text-white bg-indigo-600 hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500 disabled:opacity-60"
             >
-              {loading ? (
-                <div className="flex items-center">
-                  <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white mr-2"></div>
-                  Processing...
-                </div>
-              ) : (
-                isLogin ? 'Sign In' : 'Create Account'
-              )}
+              {loading ? 'Please wait...' : isLogin ? 'Sign in' : 'Create account'}
             </button>
           </div>
 
-          {/* Forgot Password - Only for Login */}
           {isLogin && (
             <div className="text-center">
               <button
@@ -818,38 +357,9 @@ export default function DynamicAuthForm() {
             </div>
           )}
 
-          {/* LinkedIn Login Option */}
-          <div className="mt-6">
-            <div className="relative">
-              <div className="absolute inset-0 flex items-center">
-                <div className="w-full border-t border-gray-600" />
-              </div>
-              <div className="relative flex justify-center text-sm">
-                <span className="px-2 bg-gray-900 text-gray-400">Or continue with</span>
-              </div>
-            </div>
-
-            <div className="mt-6">
-              <button
-                type="button"
-                onClick={() => {
-                  // LinkedIn OAuth integration
-                  window.location.href = '/api/auth/linkedin';
-                }}
-                className="w-full inline-flex justify-center py-2 px-4 border border-gray-600 rounded-md shadow-sm bg-gray-800 text-sm font-medium text-gray-300 hover:bg-gray-700"
-              >
-                <svg className="w-5 h-5 mr-2" viewBox="0 0 24 24" fill="currentColor">
-                  <path d="M20.447 20.452h-3.554v-5.569c0-1.328-.027-3.037-1.852-3.037-1.853 0-2.136 1.445-2.136 2.939v5.667H9.351V9h3.414v1.561h.046c.477-.9 1.637-1.85 3.37-1.85 3.601 0 4.267 2.37 4.267 5.455v6.286zM5.337 7.433c-1.144 0-2.063-.926-2.063-2.065 0-1.138.92-2.063 2.063-2.063 1.14 0 2.064.925 2.064 2.063 0 1.139-.925 2.065-2.064 2.065zm1.782 13.019H3.555V9h3.564v11.452zM22.225 0H1.771C.792 0 0 .774 0 1.729v20.542C0 23.227.792 24 1.771 24h20.451C23.2 24 24 23.227 24 22.271V1.729C24 .774 23.2 0 22.222 0h.003z"/>
-                </svg>
-                Sign {isLogin ? 'in' : 'up'} with LinkedIn
-              </button>
-            </div>
-          </div>
-
-          {/* Special Message for Job Posting Redirect */}
-          {redirectToJobPost && !isLogin && (
-            <div className="bg-blue-900 border border-blue-700 text-blue-200 px-4 py-3 rounded">
-              🎯 Complete registration to post your job! You'll be redirected to the job posting form after account creation.
+          {searchParams.get('redirect') === 'post-job' && !isLogin && (
+            <div className="bg-blue-900/60 border border-blue-700 text-blue-100 px-4 py-3 rounded">
+              Complete registration to post your job. We will collect verification next.
             </div>
           )}
         </form>

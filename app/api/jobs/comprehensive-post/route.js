@@ -1,9 +1,7 @@
 import { NextResponse } from 'next/server';
 import { getUserFromRequest } from '@/utils/auth';
 import { canCreateJob } from '@/utils/policy';
-import { PrismaClient } from '@prisma/client';
-
-const prisma = new PrismaClient();
+import { prisma } from '@/utils/db';
 
 export async function POST(request) {
   try {
@@ -65,7 +63,8 @@ export async function POST(request) {
     // employerType related validations removed — employerType has been deprecated
 
     // Generate slug
-    const baseSlug = jobData.title
+    const safeTitle = title || jobData.jobTitle;
+    const baseSlug = safeTitle
       .toLowerCase()
       .replace(/[^a-z0-9]+/g, '-')
       .replace(/^-+|-+$/g, '');
@@ -121,8 +120,15 @@ export async function POST(request) {
     const isPremium = hasPremiumSub || !!verifiedDoc;
     const durationDays = isPremium ? 60 : 30;
     const now = new Date();
-    const computedExpiresAt = jobData.endPostingOn ? new Date(jobData.endPostingOn) : new Date(now.getTime() + durationDays * 24 * 60 * 60 * 1000);
-    const computedApplicationDeadline = jobData.applicationDeadline ? new Date(jobData.applicationDeadline) : computedExpiresAt;
+    const maxExpiry = new Date(now.getTime() + durationDays * 24 * 60 * 60 * 1000);
+
+    // Clamp endPostingOn to the allowed window (premium 60d, free 30d)
+    let computedExpiresAt = jobData.endPostingOn ? new Date(jobData.endPostingOn) : maxExpiry;
+    if (computedExpiresAt > maxExpiry) computedExpiresAt = maxExpiry;
+
+    // Application deadline cannot exceed end date
+    let computedApplicationDeadline = jobData.applicationDeadline ? new Date(jobData.applicationDeadline) : computedExpiresAt;
+    if (computedApplicationDeadline > computedExpiresAt) computedApplicationDeadline = computedExpiresAt;
 
     // DMW / overseas compliance checks
     const employerSubtype = userWithSubs?.employerTypeUser?.subtype || '';

@@ -1,12 +1,10 @@
 import { NextResponse } from 'next/server';
-import { PrismaClient } from '@prisma/client';
 import { getUserFromRequest } from '@/utils/auth';
-
-const prisma = new PrismaClient();
+import { prisma } from '@/utils/db';
 
 // POST /api/jobs/[id]/apply - internal application submission
 export async function POST(request, { params }) {
-  const user = getUserFromRequest(request);
+  const user = await getUserFromRequest(request);
   if (!user) {
     return NextResponse.json({ error: 'Authentication required' }, { status: 401 });
   }

@@ -13,7 +13,7 @@ function randomCode(len = 7) {
 
 export async function POST(request, { params }) {
   try {
-    const user = getUserFromRequest(request);
+    const user = await getUserFromRequest(request);
     if (!user) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     const jobId = params.id;
     const job = await prisma.job.findUnique({ where: { id: jobId }, include: { company: true } });

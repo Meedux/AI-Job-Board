@@ -211,7 +211,7 @@ export async function GET(request) {
 export async function POST(request) {
   try {
     // Verify authentication for posting jobs
-    const user = getUserFromRequest(request);
+    const user = await getUserFromRequest(request);
     if (!user) {
       return Response.json({ error: 'Authentication required' }, { status: 401 });
     }

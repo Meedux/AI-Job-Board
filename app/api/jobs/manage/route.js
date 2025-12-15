@@ -1,14 +1,12 @@
 import { NextResponse } from 'next/server';
-import { PrismaClient } from '@prisma/client';
 import { canCreateJob } from '@/utils/policy';
 import { getUserFromRequest } from '@/utils/auth';
-
-const prisma = new PrismaClient();
+import { prisma } from '@/utils/db';
 
 // GET - Fetch jobs for the current user
 export async function GET(request) {
   try {
-    const auth = getUserFromRequest(request);
+    const auth = await getUserFromRequest(request);
     if (!auth) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
@@ -115,7 +113,7 @@ export async function GET(request) {
 // POST - Create a new job (duplicate functionality)
 export async function POST(request) {
   try {
-    const auth = getUserFromRequest(request);
+    const auth = await getUserFromRequest(request);
     if (!auth) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
@@ -214,7 +212,5 @@ export async function POST(request) {
       { error: 'Failed to create job' },
       { status: 500 }
     );
-  } finally {
-    await prisma.$disconnect();
   }
 }

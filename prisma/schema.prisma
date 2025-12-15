@@ -172,11 +172,13 @@ model Job {
   applications JobApplication[]
   bookmarks JobBookmark[]
   applicationForm ApplicationForm?
+  prescreenInterviews PrescreenInterview[]
   
   // Resume scanning relations
   scanResults    ResumeScanResult[]
   jobMatches     ResumeJobMatch[]
   scanCriteria   JobScanCriteria?
+  aiRecommendations AiRecommendation[]
 
   @@map("jobs")
 }
@@ -343,6 +345,11 @@ model User {
   createdForms     ApplicationForm[] @relation("CreatedForms")
   conductedInterviews ATSInterview[] @relation("InterviewerRelation")
   createdCompanies Company[] @relation("CreatedCompanies")
+  prescreenInterviewsCreated PrescreenInterview[] @relation("PrescreenCreator")
+  prescreenInterviewsAsCandidate PrescreenInterview[] @relation("PrescreenCandidate")
+  prescreenAccessRequests PrescreenAccessRequest[]
+  ownedWorkspaces Workspace[] @relation("OwnedWorkspaces")
+  assignedWorkspaces Workspace[] @relation("AssignedWorkspaces")
   
   // Resume scanning relations
   parsedResumes    ParsedResume[]
@@ -360,6 +367,28 @@ model User {
   authorizedRepresentatives AuthorizedRepresentative[]
   verificationDocuments VerificationDocument[]
   reviewedDocuments VerificationDocument[] @relation("DocumentReviewer")
+
+  // Messaging and notifications
+  notifications Notification[] @relation("UserNotifications")
+  notificationDeliveries NotificationDelivery[] @relation("NotificationDeliveryRecipient")
+  conversationsCreated Conversation[] @relation("ConversationCreator")
+  conversationParticipants ConversationParticipant[]
+  messagesSent Message[] @relation("MessageSender")
+  messageDeliveries MessageDelivery[] @relation("MessageDeliveryRecipient")
+  deviceSyncSessions DeviceSyncSession[]
+  notificationsCreated Notification[] @relation("NotificationCreator")
+
+  // Compliance and audit
+  suspiciousActivities SuspiciousActivity[]
+  accountLocks AccountLock[]
+  auditEvents AuditEvent[]
+
+  // AI prep
+  aiResumeParsingJobs AiResumeParsingJob[]
+  aiChatSessions AiChatSession[]
+  aiChatMessages AiChatMessage[] @relation("AiChatAuthor")
+  aiRecommendations AiRecommendation[]
+  resumeBuilderDrafts ResumeBuilderDraft[]
 
   @@map("users")
 }
@@ -478,6 +507,7 @@ model JobApplication {
   applicant User             @relation(fields: [applicantId], references: [id], onDelete: Cascade)
   form      ApplicationForm? @relation(fields: [formId], references: [id])
   interviews ATSInterview[]
+  prescreenInterviews PrescreenInterview[]
   
   // Resume scanning relations
   parsedResumes ParsedResume[]
@@ -515,6 +545,85 @@ model ATSInterview {
   interviewer User          @relation("InterviewerRelation", fields: [interviewerId], references: [id])
 
   @@map("ats_interviews")
+}
+
+model Workspace {
+  id             String   @id @default(cuid())
+  name           String
+  slug           String   @unique
+  uniqueUrlToken String   @unique @map("unique_url_token")
+  ownerId        String   @map("owner_id")
+  assignedToId   String?  @map("assigned_to_id")
+  assignedRole   String?  @map("assigned_role") // owner, main_admin, staff, vendor, client
+  workspaceData  Json?    @map("workspace_data")
+  metadata       Json?
+  wipedAt        DateTime? @map("wiped_at")
+  createdAt      DateTime @default(now()) @map("created_at")
+  updatedAt      DateTime @updatedAt @map("updated_at")
+
+  owner       User   @relation("OwnedWorkspaces", fields: [ownerId], references: [id], onDelete: Cascade)
+  assignedTo  User?  @relation("AssignedWorkspaces", fields: [assignedToId], references: [id])
+  conversations Conversation[]
+  notifications Notification[]
+
+  @@map("workspaces")
+}
+
+enum PrescreenAccessMode {
+  view_only
+  downloadable
+}
+
+enum PrescreenStatus {
+  active
+  expired
+  revoked
+}
+
+enum AccessRequestStatus {
+  pending
+  approved
+  denied
+}
+
+model PrescreenInterview {
+  id             String               @id @default(cuid())
+  applicationId  String?              @map("application_id")
+  jobId          String?              @map("job_id")
+  candidateId    String?              @map("candidate_id")
+  createdById    String               @map("created_by_id")
+  blobPath       String               @map("blob_path")
+  blobUrl        String               @map("blob_url")
+  downloadUrl    String?              @map("download_url")
+  accessMode     PrescreenAccessMode  @default(view_only) @map("access_mode")
+  expiresAt      DateTime?            @map("expires_at")
+  schedulingLink String?              @map("scheduling_link")
+  status         PrescreenStatus      @default(active)
+  notes          String?
+  createdAt      DateTime             @default(now()) @map("created_at")
+  updatedAt      DateTime             @updatedAt @map("updated_at")
+
+  application    JobApplication?      @relation(fields: [applicationId], references: [id])
+  job            Job?                 @relation(fields: [jobId], references: [id])
+  candidate      User?                @relation("PrescreenCandidate", fields: [candidateId], references: [id])
+  createdBy      User                 @relation("PrescreenCreator", fields: [createdById], references: [id])
+  accessRequests PrescreenAccessRequest[]
+
+  @@map("prescreen_interviews")
+}
+
+model PrescreenAccessRequest {
+  id           String               @id @default(cuid())
+  interviewId  String               @map("interview_id")
+  requesterId  String               @map("requester_id")
+  message      String?
+  status       AccessRequestStatus  @default(pending)
+  createdAt    DateTime             @default(now()) @map("created_at")
+
+  interview    PrescreenInterview   @relation(fields: [interviewId], references: [id], onDelete: Cascade)
+  requester    User                 @relation(fields: [requesterId], references: [id], onDelete: Cascade)
+
+  @@map("prescreen_access_requests")
 }
 
 // Imported jobs collected by the aggregator for review / publishing
@@ -1338,4 +1447,265 @@ model VerificationDocument {
   reviewer    User?    @relation("DocumentReviewer", fields: [reviewedBy], references: [id])
 
   @@map("verification_documents")
+}
+
+// Real-time messaging and notifications
+model Conversation {
+  id           String   @id @default(cuid())
+  title        String?
+  type         String   @default("direct") // direct, workspace, support, ats
+  workspaceId  String?  @map("workspace_id")
+  createdById  String   @map("created_by_id")
+  createdAt    DateTime @default(now()) @map("created_at")
+  updatedAt    DateTime @updatedAt @map("updated_at")
+
+  createdBy User @relation("ConversationCreator", fields: [createdById], references: [id])
+  workspace Workspace? @relation(fields: [workspaceId], references: [id])
+  participants ConversationParticipant[]
+  messages Message[]
+
+  @@map("conversations")
+}
+
+model ConversationParticipant {
+  id             String   @id @default(cuid())
+  conversationId String   @map("conversation_id")
+  userId         String   @map("user_id")
+  role           String   @default("member") // owner, member, guest
+  canPost        Boolean  @default(true) @map("can_post")
+  lastReadAt     DateTime?
+  joinedAt       DateTime @default(now()) @map("joined_at")
+
+  conversation Conversation @relation(fields: [conversationId], references: [id], onDelete: Cascade)
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([conversationId, userId])
+  @@map("conversation_participants")
+}
+
+model Message {
+  id             String    @id @default(cuid())
+  conversationId String    @map("conversation_id")
+  senderId       String    @map("sender_id")
+  content        String
+  contentType    String    @default("text") @map("content_type") // text, file, system
+  attachments    Json?
+  status         String    @default("sent") // sent, delivered, read, failed
+  metadata       Json?
+  sentAt         DateTime  @default(now()) @map("sent_at")
+  deliveredAt    DateTime? @map("delivered_at")
+  readAt         DateTime? @map("read_at")
+
+  conversation Conversation @relation(fields: [conversationId], references: [id], onDelete: Cascade)
+  sender User @relation("MessageSender", fields: [senderId], references: [id])
+  deliveries MessageDelivery[]
+
+  @@map("messages")
+}
+
+model MessageDelivery {
+  id         String    @id @default(cuid())
+  messageId  String    @map("message_id")
+  userId     String    @map("user_id")
+  channel    String    @default("in_app")
+  status     String    @default("pending")
+  deliveredAt DateTime? @map("delivered_at")
+  readAt     DateTime? @map("read_at")
+  metadata   Json?
+  createdAt  DateTime  @default(now()) @map("created_at")
+
+  message Message @relation(fields: [messageId], references: [id], onDelete: Cascade)
+  recipient User @relation("MessageDeliveryRecipient", fields: [userId], references: [id])
+
+  @@unique([messageId, userId, channel])
+  @@map("message_deliveries")
+}
+
+model DeviceSyncSession {
+  id         String   @id @default(cuid())
+  userId     String   @map("user_id")
+  qrToken    String   @unique @map("qr_token")
+  deviceInfo Json?    @map("device_info")
+  simNumber  String?  @map("sim_number")
+  status     String   @default("pending") // pending, approved, rejected, expired
+  consentAt  DateTime? @map("consent_at")
+  approvedAt DateTime? @map("approved_at")
+  expiresAt  DateTime? @map("expires_at")
+  createdAt  DateTime @default(now()) @map("created_at")
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@map("device_sync_sessions")
+}
+
+model Notification {
+  id          String   @id @default(cuid())
+  type        String
+  title       String
+  body        String
+  category    String   @default("user")
+  priority    String   @default("medium")
+  status      String   @default("unread")
+  userId      String?  @map("user_id")
+  workspaceId String?  @map("workspace_id")
+  createdById String?  @map("created_by_id")
+  metadata    Json?
+  sentAt      DateTime? @map("sent_at")
+  readAt      DateTime? @map("read_at")
+  createdAt   DateTime  @default(now()) @map("created_at")
+
+  user User? @relation("UserNotifications", fields: [userId], references: [id])
+  workspace Workspace? @relation(fields: [workspaceId], references: [id])
+  creator User? @relation("NotificationCreator", fields: [createdById], references: [id])
+  deliveries NotificationDelivery[]
+
+  @@index([userId])
+  @@map("notifications")
+}
+
+model NotificationDelivery {
+  id             String   @id @default(cuid())
+  notificationId String   @map("notification_id")
+  userId         String   @map("user_id")
+  channel        String   @default("in_app")
+  status         String   @default("pending") // pending, sent, delivered, read, failed
+  sentAt         DateTime? @map("sent_at")
+  deliveredAt    DateTime? @map("delivered_at")
+  readAt         DateTime? @map("read_at")
+  metadata       Json?
+  createdAt      DateTime @default(now()) @map("created_at")
+
+  notification Notification @relation(fields: [notificationId], references: [id], onDelete: Cascade)
+  recipient User @relation("NotificationDeliveryRecipient", fields: [userId], references: [id])
+
+  @@unique([notificationId, userId, channel])
+  @@map("notification_deliveries")
+}
+
+// Compliance and abuse controls
+model SuspiciousActivity {
+  id          String   @id @default(cuid())
+  userId      String?  @map("user_id")
+  type        String
+  severity    String   @default("medium") // low, medium, high, critical
+  status      String   @default("open") // open, escalated, closed
+  description String
+  detectedBy  String   @default("system") @map("detected_by")
+  actionTaken String?  @map("action_taken")
+  metadata    Json?
+  createdAt   DateTime @default(now()) @map("created_at")
+
+  user User? @relation(fields: [userId], references: [id])
+
+  @@index([userId])
+  @@map("suspicious_activities")
+}
+
+model AccountLock {
+  id          String   @id @default(cuid())
+  userId      String   @unique @map("user_id")
+  reason      String
+  severity    String   @default("high")
+  lockedAt    DateTime @default(now()) @map("locked_at")
+  expiresAt   DateTime? @map("expires_at")
+  unlockedAt  DateTime? @map("unlocked_at")
+  triggeredBy String?  @map("triggered_by")
+  metadata    Json?
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@map("account_locks")
+}
+
+model AuditEvent {
+  id         String   @id @default(cuid())
+  userId     String?  @map("user_id")
+  action     String
+  targetType String?  @map("target_type")
+  targetId   String?  @map("target_id")
+  metadata   Json?
+  ipAddress  String?  @map("ip_address")
+  createdAt  DateTime @default(now()) @map("created_at")
+
+  user User? @relation(fields: [userId], references: [id])
+
+  @@index([userId])
+  @@map("audit_events")
+}
+
+// AI module prep
+model AiResumeParsingJob {
+  id          String   @id @default(cuid())
+  userId      String   @map("user_id")
+  resumeUrl   String   @map("resume_url")
+  status      String   @default("pending") // pending, processing, completed, failed
+  resultData  Json?    @map("result_data")
+  error       String?
+  createdAt   DateTime @default(now()) @map("created_at")
+  completedAt DateTime? @map("completed_at")
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@map("ai_resume_parsing_jobs")
+}
+
+model AiChatSession {
+  id         String   @id @default(cuid())
+  userId     String   @map("user_id")
+  sessionType String  @default("agent") @map("session_type") // agent, resume_helper, recommender
+  topic      String?
+  status     String   @default("active")
+  metadata   Json?
+  createdAt  DateTime @default(now()) @map("created_at")
+  updatedAt  DateTime @updatedAt @map("updated_at")
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+  messages AiChatMessage[]
+
+  @@map("ai_chat_sessions")
+}
+
+model AiChatMessage {
+  id         String   @id @default(cuid())
+  sessionId  String   @map("session_id")
+  role       String   @default("user") // user, assistant, system
+  content    String
+  metadata   Json?
+  metadataUserId String? @map("metadata_user_id")
+  createdAt  DateTime @default(now()) @map("created_at")
+
+  session AiChatSession @relation(fields: [sessionId], references: [id], onDelete: Cascade)
+  author User? @relation("AiChatAuthor", fields: [metadataUserId], references: [id])
+
+  @@map("ai_chat_messages")
+}
+
+model AiRecommendation {
+  id        String   @id @default(cuid())
+  userId    String   @map("user_id")
+  jobId     String?  @map("job_id")
+  score     Int      @default(0)
+  rationale String?
+  metadata  Json?
+  createdAt DateTime @default(now()) @map("created_at")
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+  job  Job? @relation(fields: [jobId], references: [id])
+
+  @@index([userId])
+  @@map("ai_recommendations")
+}
+
+model ResumeBuilderDraft {
+  id         String   @id @default(cuid())
+  userId     String   @map("user_id")
+  title      String
+  data       Json
+  status     String   @default("draft") // draft, published
+  lastSavedAt DateTime @default(now()) @map("last_saved_at")
+  createdAt  DateTime @default(now()) @map("created_at")
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@map("resume_builder_drafts")
 }

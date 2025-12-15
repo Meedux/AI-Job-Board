@@ -213,6 +213,30 @@ export const NotificationProvider = ({ children }) => {
     }
   }, [user, fetchAdminNotifications]);
 
+  // Real-time notification stream (SSE)
+  useEffect(() => {
+    if (!user) return;
+    const es = new EventSource('/api/notifications/stream');
+    const handleNotification = (event) => {
+      try {
+        const payload = JSON.parse(event.data || '{}');
+        const currentUserId = user.id || user.uid;
+        if (payload.userId && payload.userId !== currentUserId && !user.isAdmin) return;
+        if (payload.notification) {
+          addNotification(payload.notification);
+        }
+      } catch (err) {
+        console.error('Realtime notification error', err);
+      }
+    };
+
+    es.addEventListener('notification', handleNotification);
+    return () => {
+      es.removeEventListener('notification', handleNotification);
+      es.close();
+    };
+  }, [user]);
+
   // Save notifications to localStorage whenever they change (only for non-admin users)
   useEffect(() => {
     if (!user?.isAdmin) {

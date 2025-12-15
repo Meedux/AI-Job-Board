@@ -2,6 +2,7 @@
 import bcrypt from 'bcryptjs';
 import jwt from 'jsonwebtoken';
 import { v4 as uuidv4 } from 'uuid';
+import { prisma } from './db';
 
 const JWT_SECRET = process.env.JWT_SECRET || 'your-secret-key-change-in-production';
 
@@ -62,14 +63,49 @@ export const verifyToken = (token) => {
   }
 };
 
+// Check account lock status
+export const isAccountLocked = async (userId) => {
+  if (!userId) return false;
+  const lock = await prisma.accountLock.findUnique({ where: { userId } }).catch(() => null);
+  if (!lock) return false;
+  if (lock.unlockedAt) return false;
+  if (lock.expiresAt && new Date(lock.expiresAt) < new Date()) return false;
+  return true;
+};
+
 // Get user from request cookies (for session-based auth)
-export const getUserFromRequest = (request) => {
+export const getUserFromRequest = async (request) => {
   try {
     const token = request.cookies.get('auth-token')?.value;
     if (!token) {
       return null;
     }
-    return verifyToken(token);
+    const decoded = verifyToken(token);
+    if (!decoded) return null;
+
+    const locked = await isAccountLocked(decoded.id);
+    if (locked) return null;
+
+    // Ensure the user still exists in the database; if not, treat as unauthenticated
+    const dbUser = await prisma.user.findUnique({
+      where: { id: decoded.id },
+      select: {
+        id: true,
+        email: true,
+        fullName: true,
+        nickname: true,
+        role: true,
+        userType: true,
+        accountStatus: true,
+        isActive: true
+      }
+    });
+
+    if (!dbUser) {
+      return null;
+    }
+
+    return { ...decoded, ...dbUser };
   } catch (error) {
     return null;
   }

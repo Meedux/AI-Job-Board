@@ -3,7 +3,7 @@ import { getUserFromRequest } from '@/utils/auth';
 
 export async function POST(request, { params }) {
   const { id } = params;
-  const user = getUserFromRequest(request);
+  const user = await getUserFromRequest(request);
   const body = await request.json().catch(() => ({}));
   const reason = body.reason || 'No reason provided';
 

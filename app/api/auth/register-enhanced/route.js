@@ -1,12 +1,9 @@
 import { NextResponse } from 'next/server';
 import bcrypt from 'bcryptjs';
-import jwt from 'jsonwebtoken';
-import { PrismaClient } from '@prisma/client';
 import { USER_ROLES } from '@/utils/roleSystem';
 import emailItService from '@/utils/emailItService';
 import { logUserAction, logEmailNotification, logError, getRequestInfo } from '@/utils/dataLogger';
-
-const prisma = new PrismaClient();
+import { prisma } from '@/utils/db';
 
 // JWT Secret with fallback with the actual value since i have no clue how JWT works lmao
 const JWT_SECRET = process.env.JWT_SECRET || 'dd9e380d50f8d5365a41e90e664b0237';
@@ -28,7 +25,6 @@ export async function POST(request) {
       taxId,
       authorizedRepresentatives,
       employerTypeId,
-      verificationDocuments,
       enableTwoFactor,
       captchaToken 
     } = await request.json();
@@ -60,12 +56,7 @@ export async function POST(request) {
       );
     }
 
-    if (userType === 'hirer' && !companyName?.trim()) {
-      return NextResponse.json(
-        { error: 'Company name is required for hirers' },
-        { status: 400 }
-      );
-    }
+    // Hirers can now sign up with minimal info; company fields are optional and can be completed later
 
     // Validate email format
     const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
@@ -119,12 +110,10 @@ export async function POST(request) {
     // Hash password
     const hashedPassword = await bcrypt.hash(password, 12);
 
-    // Generate email verification token
-    const verificationToken = jwt.sign(
-      { email, timestamp: Date.now() },
-      JWT_SECRET,
-      { expiresIn: '24h' }
-    );
+    // Generate 6-digit verification code with 15-minute expiry (stored as code:timestamp)
+    const verificationCode = Math.floor(100000 + Math.random() * 900000).toString();
+    const verificationExpires = Date.now() + 15 * 60 * 1000;
+    const verificationToken = `${verificationCode}:${verificationExpires}`;
 
     // Determine user role and type
     const userRole = role || (userType === 'hirer' ? USER_ROLES.EMPLOYER_ADMIN : USER_ROLES.JOB_SEEKER);
@@ -133,7 +122,7 @@ export async function POST(request) {
     const userData = {
       email,
       password: hashedPassword,
-      fullName: fullName || companyName,
+      fullName: fullName || companyName || 'New Hirer',
       role: userRole,
       isActive: false, // User must verify email first
       accountStatus: 'pending_verification', // Require email verification
@@ -151,7 +140,7 @@ export async function POST(request) {
 
     // Add hirer-specific fields
     if (userType === 'hirer') {
-      userData.companyName = companyName;
+      userData.companyName = companyName || null;
       userData.companyType = companyType || null;
       userData.employerCategory = employerCategory || null;
       userData.taxId = taxId || null;
@@ -202,19 +191,6 @@ export async function POST(request) {
         });
       }
     }
-
-    // If verification documents were uploaded, link them to the user
-    if (userType === 'hirer' && Array.isArray(verificationDocuments) && verificationDocuments.length > 0) {
-      for (const doc of verificationDocuments) {
-        await prisma.verificationDocument.update({
-          where: { id: doc.id },
-          data: {
-            userId: newUser.id,
-            category: doc.category
-          }
-        });
-      }
-    }
     console.log('✅ User created successfully:', newUser.id);
 
     // Log successful registration
@@ -230,7 +206,7 @@ export async function POST(request) {
 
     // Send verification email using external service
     try {
-      const emailResult = await emailItService.sendVerificationEmail(email, verificationToken, fullName || companyName, request);
+      const emailResult = await emailItService.sendVerificationCodeEmail(email, verificationCode, fullName || companyName);
       
       if (emailResult.success) {
         console.log('📧 Verification email sent via external service:', emailResult.messageId);

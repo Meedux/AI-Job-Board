@@ -1,27 +1,40 @@
 'use client';
 
-import { useState } from 'react';
+import { useMemo, useState } from 'react';
 import { Draggable } from '@hello-pangea/dnd';
 import { motion } from 'framer-motion';
 import { 
   Star, MapPin, Clock, Calendar, Mail, Phone, Award, 
   Briefcase, FileText, Eye, MessageCircle, CheckCircle,
-  AlertCircle, User, Globe, Heart, Flag, Tag, Sparkles
+  AlertCircle, User, Globe, Heart, Flag, Tag, Sparkles,
+  Share2, MoveRight, NotebookPen, MoreHorizontal
 } from 'lucide-react';
 
-// Status Tags from client requirements
-const STATUS_TAGS = [
-  'Backout', 'Cultural Fit', 'Declined Offer', 'Dropped',
-  'Fit to work but with medical condition', 'For Requirement Completion',
-  'Gaps in Experience', 'Highly Skilled', 'Immediate Joiner',
-  'Offer Extended', 'On Hold', 'Remote Only', 'Salary Decline',
-  'Strong Fit', 'Transferable Skills', 'Undecided', 'Under Medical',
-  'Under Process', 'Unfit', 'Unresponsive'
-];
-
-export default function ATSKanbanCard({ candidate, index }) {
+export default function ATSKanbanCard({
+  candidate,
+  index,
+  isSelected = false,
+  onToggleSelect,
+  onAction,
+  onRevealContact,
+  onCompare
+}) {
   const [isExpanded, setIsExpanded] = useState(false);
   const [isNewApplication, setIsNewApplication] = useState(candidate.status === 'new' && !candidate.viewed);
+
+  const contactUnlocked = useMemo(() => {
+    if (candidate.contactVisible === false) {
+      return Boolean(candidate.contactRevealed);
+    }
+    return true;
+  }, [candidate.contactVisible, candidate.contactRevealed]);
+
+  const matchScore = useMemo(() => {
+    if (typeof candidate.jobMatchScore === 'number') {
+      return Math.max(0, Math.min(candidate.jobMatchScore, 100));
+    }
+    return 0;
+  }, [candidate.jobMatchScore]);
 
   const getStageColor = (stage) => {
     const colors = {
@@ -51,17 +64,19 @@ export default function ATSKanbanCard({ candidate, index }) {
     ));
   };
 
-  const getJobMatchScore = () => {
-    // Calculate match score based on job posting criteria
-    return candidate.jobMatchScore || Math.floor(Math.random() * 40) + 60; // 60-100
-  };
-
   const handleCardClick = () => {
     if (isNewApplication) {
       setIsNewApplication(false);
       // Mark as viewed in backend
     }
     setIsExpanded(!isExpanded);
+  };
+
+  const handleAction = (event, action) => {
+    event.stopPropagation();
+    if (onAction) {
+      onAction(action, candidate);
+    }
   };
 
   return (
@@ -76,13 +91,45 @@ export default function ATSKanbanCard({ candidate, index }) {
           whileHover={{ scale: 1.02 }}
           whileTap={{ scale: 0.98 }}
           className={`
-            bg-gray-800 border border-gray-700 rounded-lg p-4 mb-3 shadow-lg
+            group relative bg-gray-800 border border-gray-700 rounded-lg p-4 mb-3 shadow-lg
             hover:shadow-xl transition-all duration-200 cursor-pointer
             ${snapshot.isDragging ? 'rotate-2 shadow-2xl ring-2 ring-blue-500' : ''}
             ${isNewApplication ? 'ring-2 ring-blue-400 bg-blue-900/20' : ''}
+            ${isSelected ? 'ring-2 ring-purple-500' : ''}
           `}
           onClick={handleCardClick}
         >
+          <div className="absolute top-3 right-3 hidden gap-2 group-hover:flex">
+            <button
+              className="bg-gray-900/80 border border-gray-700 text-gray-200 hover:text-white hover:border-blue-500 rounded-md p-1"
+              title="Move To"
+              onClick={(e) => handleAction(e, 'move')}
+            >
+              <MoveRight className="w-4 h-4" />
+            </button>
+            <button
+              className="bg-gray-900/80 border border-gray-700 text-gray-200 hover:text-white hover:border-purple-500 rounded-md p-1"
+              title="Make Note"
+              onClick={(e) => handleAction(e, 'note')}
+            >
+              <NotebookPen className="w-4 h-4" />
+            </button>
+            <button
+              className="bg-gray-900/80 border border-gray-700 text-gray-200 hover:text-white hover:border-emerald-500 rounded-md p-1"
+              title="Share"
+              onClick={(e) => handleAction(e, 'share')}
+            >
+              <Share2 className="w-4 h-4" />
+            </button>
+            <button
+              className="bg-gray-900/80 border border-gray-700 text-gray-200 hover:text-white hover:border-gray-500 rounded-md p-1"
+              title="More Actions"
+              onClick={(e) => handleAction(e, 'more')}
+            >
+              <MoreHorizontal className="w-4 h-4" />
+            </button>
+          </div>
+
           {/* Header with Checkbox and Status Indicator */}
           <div className="flex items-start justify-between mb-3">
             <div className="flex items-start gap-3 flex-1">
@@ -90,19 +137,24 @@ export default function ATSKanbanCard({ candidate, index }) {
               <input
                 type="checkbox"
                 className="mt-1 w-4 h-4 text-blue-600 bg-gray-700 border-gray-600 rounded focus:ring-blue-500"
+                checked={isSelected}
+                onChange={(e) => {
+                  e.stopPropagation();
+                  onToggleSelect?.(candidate, e.target.checked);
+                }}
                 onClick={(e) => e.stopPropagation()}
               />
               
               {/* Candidate Photo/Avatar */}
               <div className="relative">
-                {candidate.applicant?.photo ? (
+                {candidate.applicant?.profilePicture ? (
                   <img 
-                    src={candidate.applicant.photo} 
+                    src={candidate.applicant.profilePicture} 
                     alt={candidate.applicant?.fullName}
                     className="w-12 h-12 rounded-full object-cover border-2 border-gray-600"
                   />
                 ) : (
-                  <div className="w-12 h-12 bg-gradient-to-br from-blue-500 to-purple-600 rounded-full flex items-center justify-center text-white font-bold text-lg border-2 border-gray-600">
+                  <div className="w-12 h-12 bg-linear-to-br from-blue-500 to-purple-600 rounded-full flex items-center justify-center text-white font-bold text-lg border-2 border-gray-600">
                     {candidate.applicant?.firstName?.[0]}{candidate.applicant?.lastName?.[0]}
                   </div>
                 )}
@@ -157,13 +209,15 @@ export default function ATSKanbanCard({ candidate, index }) {
             {candidate.applicant?.email && (
               <div className="flex items-center gap-2 text-gray-300 text-xs">
                 <Mail className="w-3 h-3 text-gray-400" />
-                <span className="truncate">{candidate.applicant.email}</span>
+                <span className="truncate">
+                  {contactUnlocked ? candidate.applicant.email : '••••••@••••.com'}
+                </span>
               </div>
             )}
             {candidate.applicant?.phone && (
               <div className="flex items-center gap-2 text-gray-300 text-xs">
                 <Phone className="w-3 h-3 text-gray-400" />
-                <span>{candidate.applicant.phone}</span>
+                <span>{contactUnlocked ? candidate.applicant.phone : '+•••• ••• ••••'}</span>
               </div>
             )}
             {candidate.applicant?.location && (
@@ -171,6 +225,18 @@ export default function ATSKanbanCard({ candidate, index }) {
                 <MapPin className="w-3 h-3 text-gray-400" />
                 <span className="truncate">{candidate.applicant.location}</span>
               </div>
+            )}
+            {!contactUnlocked && onRevealContact && (
+              <button
+                className="mt-2 inline-flex items-center gap-2 text-xs text-blue-300 hover:text-blue-200"
+                onClick={(e) => {
+                  e.stopPropagation();
+                  onRevealContact?.(candidate);
+                }}
+              >
+                <Eye className="w-3 h-3" />
+                Unhide contact (credit required)
+              </button>
             )}
           </div>
 
@@ -205,21 +271,21 @@ export default function ATSKanbanCard({ candidate, index }) {
             <div className="flex items-center justify-between mb-1">
               <span className="text-gray-400 text-xs">Job Match</span>
               <span className={`text-xs font-semibold ${
-                getJobMatchScore() >= 85 ? 'text-green-400' :
-                getJobMatchScore() >= 70 ? 'text-yellow-400' :
+                matchScore >= 85 ? 'text-green-400' :
+                matchScore >= 70 ? 'text-yellow-400' :
                 'text-red-400'
               }`}>
-                {getJobMatchScore()}%
+                {matchScore}%
               </span>
             </div>
             <div className="w-full bg-gray-700 rounded-full h-1.5">
               <div 
                 className={`h-1.5 rounded-full transition-all duration-500 ${
-                  getJobMatchScore() >= 85 ? 'bg-green-500' :
-                  getJobMatchScore() >= 70 ? 'bg-yellow-500' :
+                  matchScore >= 85 ? 'bg-green-500' :
+                  matchScore >= 70 ? 'bg-yellow-500' :
                   'bg-red-500'
                 }`}
-                style={{ width: `${getJobMatchScore()}%` }}
+                style={{ width: `${matchScore}%` }}
               />
             </div>
           </div>
@@ -341,7 +407,7 @@ export default function ATSKanbanCard({ candidate, index }) {
                     <ul className="text-gray-400 text-xs space-y-1">
                       {candidate.applicant.achievements.slice(0, 2).map((achievement, index) => (
                         <li key={index} className="flex items-start gap-1">
-                          <CheckCircle className="w-3 h-3 text-green-400 mt-0.5 flex-shrink-0" />
+                          <CheckCircle className="w-3 h-3 text-green-400 mt-0.5 shrink-0" />
                           {achievement}
                         </li>
                       ))}
@@ -382,6 +448,18 @@ export default function ATSKanbanCard({ candidate, index }) {
                     <MessageCircle className="w-3 h-3" />
                     Message
                   </button>
+                  {onCompare && (
+                    <button
+                      className="flex-1 bg-indigo-600/20 hover:bg-indigo-600/30 text-indigo-300 py-2 px-3 rounded text-xs transition-colors flex items-center justify-center gap-1"
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        onCompare(candidate);
+                      }}
+                    >
+                      <Sparkles className="w-3 h-3" />
+                      Compare
+                    </button>
+                  )}
                 </div>
               </div>
             )}

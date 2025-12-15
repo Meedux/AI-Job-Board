@@ -1,14 +1,12 @@
 import { NextResponse } from 'next/server';
-import { PrismaClient } from '@prisma/client';
 import { getUserFromRequest } from '@/utils/auth';
-
-const prisma = new PrismaClient();
+import { prisma } from '@/utils/db';
 
 // GET /api/super-admin/employer-types - Get all employer types
 export async function GET(request) {
   try {
     // Verify super admin access
-    const user = getUserFromRequest(request);
+    const user = await getUserFromRequest(request);
 
     if (!user || user.role !== 'super_admin') {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
@@ -40,7 +38,7 @@ export async function GET(request) {
 export async function POST(request) {
   try {
     // Verify super admin access
-    const user = getUserFromRequest(request);
+    const user = await getUserFromRequest(request);
 
     if (!user || user.role !== 'super_admin') {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });

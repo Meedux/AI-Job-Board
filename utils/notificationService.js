@@ -1,6 +1,8 @@
 // Centralized Notification Service with Data Logging
 import { logSystemEvent, logUserAction, logError } from './dataLogger';
 import emailItService from './emailItService';
+import { prisma } from './db';
+import { emitRealtimeEvent, EVENTS } from './realtime';
 
 // Notification types
 export const NOTIFICATION_TYPES = {
@@ -219,6 +221,39 @@ export const createNotification = async (config) => {
     // Store notification in memory
     notifications.unshift(notification);
 
+    // Persist notification and deliveries
+    try {
+      const persisted = await prisma.notification.create({
+        data: {
+          type,
+          title,
+          body: message,
+          category,
+          priority,
+          status: 'unread',
+          userId,
+          workspaceId: metadata.workspaceId || null,
+          createdById: metadata.createdById || userId || null,
+          metadata
+        }
+      });
+
+      notification.id = persisted.id;
+
+      if (userId) {
+        await prisma.notificationDelivery.create({
+          data: {
+            notificationId: persisted.id,
+            userId,
+            channel: routing.emailToAdmins ? 'email' : 'in_app',
+            status: 'sent'
+          }
+        });
+      }
+    } catch (dbError) {
+      console.error('Notification persistence failed:', dbError.message);
+    }
+
     // Log to appropriate data logger
     if (routing.logAsSystemEvent) {
       await logSystemEvent(
@@ -323,6 +358,7 @@ export const createNotification = async (config) => {
     }
 
     console.log(`📢 Notification created: ${title} (${type})`);
+    emitRealtimeEvent(EVENTS.NOTIFICATION, { userId, notification });
     return notification;
 
   } catch (error) {
@@ -405,6 +441,28 @@ export const notifyAdminLogin = async (adminEmail, ipAddress) => {
     userEmail: adminEmail,
     metadata: { loginType: 'admin' },
     ipAddress
+  });
+};
+
+// Generic status change email + notification helper
+export const notifyStatusChange = async ({
+  userId,
+  userEmail,
+  entity,
+  status,
+  title = 'Status updated',
+  message,
+  metadata = {}
+}) => {
+  return createNotification({
+    type: `${entity}_status_changed`,
+    title,
+    message: message || `${entity} moved to ${status}`,
+    category: CATEGORIES.SYSTEM,
+    priority: PRIORITY.MEDIUM,
+    userId,
+    userEmail,
+    metadata: { ...metadata, status, entity }
   });
 };
 

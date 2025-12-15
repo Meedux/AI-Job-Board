@@ -5,7 +5,7 @@ import { getUserFromRequest } from '@/utils/auth';
 // GET: returns required documents for the current user's employer type
 export async function GET(request) {
   try {
-    const user = getUserFromRequest(request);
+    const user = await getUserFromRequest(request);
     if (!user) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
 
     const dbUser = await prisma.user.findUnique({ where: { id: user.id }, include: { employerTypeUser: true } });

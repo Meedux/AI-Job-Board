@@ -8,7 +8,12 @@ export const USER_ROLES = {
   SUPER_ADMIN: 'super_admin',
   EMPLOYER_ADMIN: 'employer_admin',
   SUB_USER: 'sub_user',
-  JOB_SEEKER: 'job_seeker'
+  JOB_SEEKER: 'job_seeker',
+  OWNER: 'owner',
+  MAIN_ADMIN: 'main_admin',
+  STAFF: 'staff',
+  VENDOR: 'vendor',
+  CLIENT: 'client'
 };
 
 // Sub-user Types
@@ -53,6 +58,22 @@ export const ACCOUNT_STATUS = {
 
 // Permission Categories
 export const PERMISSIONS = {
+  WORKSPACE: {
+    CREATE: 'workspace_create',
+    DELETE: 'workspace_delete',
+    RENAME: 'workspace_rename',
+    ASSIGN: 'workspace_assign',
+    VIEW_ALL: 'workspace_view_all',
+    VIEW_ASSIGNED: 'workspace_view_assigned',
+    WIPE: 'workspace_wipe'
+  },
+
+  USER_ADMIN: {
+    INVITE_STAFF: 'user_invite_staff',
+    INVITE_VENDOR: 'user_invite_vendor',
+    INVITE_CLIENT: 'user_invite_client'
+  },
+
   // Super Admin Permissions
   SUPER_ADMIN: {
     USER_MANAGEMENT: 'user_management',
@@ -88,6 +109,45 @@ export const PERMISSIONS = {
   }
 };
 
+export const ROLE_PERMISSION_MATRIX = {
+  [USER_ROLES.OWNER]: [
+    ...Object.values(PERMISSIONS.WORKSPACE),
+    ...Object.values(PERMISSIONS.USER_ADMIN),
+    ...Object.values(PERMISSIONS.SUPER_ADMIN)
+  ],
+  [USER_ROLES.MAIN_ADMIN]: [
+    PERMISSIONS.WORKSPACE.CREATE,
+    PERMISSIONS.WORKSPACE.RENAME,
+    PERMISSIONS.WORKSPACE.ASSIGN,
+    PERMISSIONS.WORKSPACE.VIEW_ALL,
+    PERMISSIONS.WORKSPACE.WIPE,
+    PERMISSIONS.USER_ADMIN.INVITE_STAFF,
+    PERMISSIONS.USER_ADMIN.INVITE_VENDOR,
+    PERMISSIONS.USER_ADMIN.INVITE_CLIENT,
+    PERMISSIONS.EMPLOYER_ADMIN.SUB_USER_MANAGEMENT,
+    PERMISSIONS.EMPLOYER_ADMIN.JOB_POSTING,
+    PERMISSIONS.EMPLOYER_ADMIN.CANDIDATE_MANAGEMENT,
+    PERMISSIONS.EMPLOYER_ADMIN.ATS_ACCESS
+  ],
+  [USER_ROLES.STAFF]: [
+    PERMISSIONS.WORKSPACE.VIEW_ASSIGNED,
+    PERMISSIONS.SUB_USER.ATS_VIEW,
+    PERMISSIONS.SUB_USER.ATS_EDIT,
+    PERMISSIONS.SUB_USER.RESUME_VIEW,
+    PERMISSIONS.SUB_USER.JOB_EDIT
+  ],
+  [USER_ROLES.VENDOR]: [
+    PERMISSIONS.WORKSPACE.VIEW_ASSIGNED,
+    PERMISSIONS.SUB_USER.RESUME_VIEW,
+    PERMISSIONS.SUB_USER.CANDIDATE_CONTACT
+  ],
+  [USER_ROLES.CLIENT]: [
+    PERMISSIONS.WORKSPACE.VIEW_ASSIGNED,
+    PERMISSIONS.SUB_USER.RESUME_VIEW,
+    PERMISSIONS.SUB_USER.NOTATION_ONLY
+  ]
+};
+
 // Employer Type Labels
 export const EMPLOYER_TYPE_LABELS = {
   [EMPLOYER_TYPES.LOCAL_DIRECT]: 'Direct Employer',
@@ -105,7 +165,12 @@ export const ROLE_LABELS = {
   [USER_ROLES.SUPER_ADMIN]: 'Super Administrator',
   [USER_ROLES.EMPLOYER_ADMIN]: 'Employer Admin',
   [USER_ROLES.SUB_USER]: 'Sub-user',
-  [USER_ROLES.JOB_SEEKER]: 'Job Seeker'
+  [USER_ROLES.JOB_SEEKER]: 'Job Seeker',
+  [USER_ROLES.OWNER]: 'Owner',
+  [USER_ROLES.MAIN_ADMIN]: 'Main Admin',
+  [USER_ROLES.STAFF]: 'Staff',
+  [USER_ROLES.VENDOR]: 'Vendor',
+  [USER_ROLES.CLIENT]: 'Client'
 };
 
 /**
@@ -123,6 +188,11 @@ export function hasPermission(user, permission) {
   // Check user permissions object
   if (user.permissions && typeof user.permissions === 'object') {
     return user.permissions[permission] === true;
+  }
+
+   // Fallback to role matrix defaults when permissions object is absent
+  if (ROLE_PERMISSION_MATRIX[user.role]) {
+    return ROLE_PERMISSION_MATRIX[user.role].includes(permission);
   }
   
   return false;
@@ -159,6 +229,18 @@ export function getDefaultPermissions(role, userType = null) {
   const permissions = {};
   
   switch (role) {
+    case USER_ROLES.OWNER:
+    case USER_ROLES.MAIN_ADMIN:
+    case USER_ROLES.STAFF:
+    case USER_ROLES.VENDOR:
+    case USER_ROLES.CLIENT: {
+      const matrixPerms = ROLE_PERMISSION_MATRIX[role] || [];
+      matrixPerms.forEach((perm) => {
+        permissions[perm] = true;
+      });
+      break;
+    }
+
     case USER_ROLES.SUPER_ADMIN:
       Object.values(PERMISSIONS.SUPER_ADMIN).forEach(perm => {
         permissions[perm] = true;

@@ -267,3 +267,85 @@ export async function GET(request) {
     });
   }
 }
+
+// New: verify via 6-digit code (POST)
+export async function POST(request) {
+  const { userAgent, ipAddress } = getRequestInfo(request);
+
+  try {
+    const { email, code } = await request.json();
+
+    if (!email || !code) {
+      return NextResponse.json({ error: 'Email and code are required' }, { status: 400 });
+    }
+
+    const user = await prisma.user.findUnique({
+      where: { email },
+      select: {
+        id: true,
+        email: true,
+        role: true,
+        userType: true,
+        accountStatus: true,
+        emailVerificationToken: true
+      }
+    });
+
+    if (!user) {
+      return NextResponse.json({ error: 'User not found' }, { status: 404 });
+    }
+
+    if (!user.emailVerificationToken) {
+      return NextResponse.json({ error: 'No verification code found for this account' }, { status: 400 });
+    }
+
+    const [storedCode, expiresAtRaw] = user.emailVerificationToken.split(':');
+    const expiresAt = parseInt(expiresAtRaw || '0', 10);
+
+    if (expiresAt && Date.now() > expiresAt) {
+      return NextResponse.json({ error: 'Verification code has expired' }, { status: 400 });
+    }
+
+    if (storedCode !== code) {
+      return NextResponse.json({ error: 'Invalid verification code' }, { status: 400 });
+    }
+
+    await prisma.user.update({
+      where: { id: user.id },
+      data: {
+        isActive: true,
+        accountStatus: 'active',
+        emailVerificationToken: null,
+        emailVerifiedAt: new Date(),
+        updatedAt: new Date()
+      }
+    });
+
+    await logUserAction(
+      user.id,
+      user.email,
+      'EMAIL_VERIFICATION_SUCCESS',
+      'Email verified via 6-digit code',
+      ipAddress,
+      userAgent,
+      'success'
+    );
+
+    const isEmployer = user.role === 'employer_admin' || user.role === 'employer_staff';
+    const next = isEmployer ? '/onboarding/employer?next=/' : '/';
+
+    return NextResponse.json({ success: true, next, role: user.role, userType: user.userType });
+  } catch (error) {
+    console.error('Email verification (code) error:', error);
+    await logUserAction(
+      null,
+      'unknown',
+      'EMAIL_VERIFICATION_ERROR',
+      error.message,
+      ipAddress,
+      userAgent,
+      'error'
+    );
+    return NextResponse.json({ error: 'Internal server error' }, { status: 500 });
+  }
+}

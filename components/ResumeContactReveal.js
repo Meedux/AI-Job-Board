@@ -13,6 +13,8 @@ export default function ResumeContactReveal({
   const [isRevealed, setIsRevealed] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
   const [isHidden, setIsHidden] = useState(false);
+  const [error, setError] = useState('');
+  const [revealedData, setRevealedData] = useState(null);
 
   const handleRevealContact = async () => {
     if (isLoading || isRevealed) return;
@@ -27,9 +29,8 @@ export default function ResumeContactReveal({
           'Content-Type': 'application/json',
         },
         body: JSON.stringify({
-          targetUserId: targetUser.id,
           applicationId,
-          revealType: 'contact'
+          resumeId: applicationId ? null : targetUser.id
         }),
       });
 
@@ -90,7 +91,7 @@ export default function ResumeContactReveal({
         <ContactField
           icon={Mail}
           label="Email Address"
-          value={revealedData?.email || targetUser.email}
+          value={revealedData?.email || targetUser.email || 'Not provided'}
           isRevealed={isRevealed && !isHidden}
         />
         <ContactField
@@ -110,7 +111,7 @@ export default function ResumeContactReveal({
       {!isRevealed && (
         <div className="bg-blue-50 border border-blue-200 rounded-lg p-4 mb-4">
           <div className="flex items-start gap-3">
-            <div className="flex-shrink-0">
+            <div className="shrink-0">
               <div className="w-8 h-8 bg-blue-100 rounded-full flex items-center justify-center">
                 <Eye className="w-4 h-4 text-blue-600" />
               </div>

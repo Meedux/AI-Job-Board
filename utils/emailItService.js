@@ -163,7 +163,7 @@ class EmailItService {
       .trim();
   }
 
-  // Send verification email
+  // Send verification email (link-based; legacy)
   async sendVerificationEmail(email, token, name, request = null) {
     console.log(`📧 Attempting to send verification email to: ${email}`);
     
@@ -172,7 +172,6 @@ class EmailItService {
       return { success: false, error: 'Service disabled' };
     }
 
-    // Use dynamic URL generation instead of hardcoded localhost
     const verificationUrl = getVerificationUrl(token, request);
     console.log(`🔗 Generated verification URL: ${verificationUrl}`);
     
@@ -180,6 +179,39 @@ class EmailItService {
     const html = this.getVerificationEmailTemplate(name, verificationUrl);
 
     return await this.sendEmail(email, subject, html, 'email_verification');
+  }
+
+  // Send 6-digit verification code email (OTP-based)
+  async sendVerificationCodeEmail(email, code, name = '') {
+    console.log(`📧 Sending verification code to: ${email}`);
+
+    if (!this.enabled) {
+      console.log('EmailIt service disabled, skipping verification code email');
+      return { success: false, error: 'Service disabled' };
+    }
+
+    const subject = 'Your verification code';
+    const html = this.getVerificationCodeTemplate(code, name);
+    return await this.sendEmail(email, subject, html, 'email_verification_code');
+  }
+
+  getVerificationCodeTemplate(code, name = '') {
+    const safeName = name || 'there';
+    return `
+      <div style="font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; background:#0b1220; color:#f9fafb; padding:24px;">
+        <div style="max-width:520px; margin:0 auto; background:#111827; border:1px solid #1f2937; border-radius:12px; padding:28px;">
+          <p style="margin:0 0 12px 0; color:#9ca3af; font-size:14px;">Hi ${safeName},</p>
+          <h1 style="margin:0 0 16px 0; color:#fff; font-size:22px;">Verify your email</h1>
+          <p style="margin:0 0 16px 0; color:#d1d5db; line-height:1.6;">
+            Use the 6-digit code below to verify your email address. The code expires in 15 minutes.
+          </p>
+          <div style="margin:20px 0; padding:16px; background:#0b1530; border:1px solid #1f2a44; border-radius:10px; text-align:center; font-size:32px; letter-spacing:6px; font-weight:700; color:#60a5fa;">
+            ${code}
+          </div>
+          <p style="margin:0; color:#9ca3af; font-size:13px;">If you didn’t request this, you can ignore this email.</p>
+        </div>
+      </div>
+    `;
   }
 
   // Send password reset email

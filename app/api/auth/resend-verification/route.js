@@ -3,9 +3,6 @@ import { db } from '../../../../utils/db';
 import emailItService from '../../../../utils/emailItService';
 import { logUserAction, logAPIRequest, logEmailNotification, logError, getRequestInfo } from '../../../../utils/dataLogger';
 import { isValidEmail } from '../../../../utils/auth';
-import jwt from 'jsonwebtoken';
-
-const JWT_SECRET = process.env.JWT_SECRET || 'your-secret-key';
 
 export async function POST(request) {
   console.log('📧 Resend verification API called');
@@ -91,13 +88,10 @@ export async function POST(request) {
       );
     }
 
-    console.log('🎫 Generating new verification token...');
-    // Generate new email verification token
-    const verificationToken = jwt.sign(
-      { email, timestamp: Date.now() },
-      JWT_SECRET,
-      { expiresIn: '24h' }
-    );
+    console.log('🎫 Generating new verification code...');
+    // Generate new 6-digit code with 15-minute expiry
+    const verificationCode = Math.floor(100000 + Math.random() * 900000).toString();
+    const verificationToken = `${verificationCode}:${Date.now() + 15 * 60 * 1000}`;
 
     console.log('💾 Updating user with new verification token...');
     // Update user with new verification token
@@ -107,9 +101,9 @@ export async function POST(request) {
     });
 
     console.log('📧 Sending new verification email...');
-    // Send verification email using external service
+    // Send verification email using external service (code-based)
     try {
-      const emailResult = await emailItService.sendVerificationEmail(user.email, verificationToken, user.fullName);
+      const emailResult = await emailItService.sendVerificationCodeEmail(user.email, verificationCode, user.fullName);
       
       if (emailResult.success) {
         console.log('✅ Verification email sent successfully via external service:', emailResult.messageId);
